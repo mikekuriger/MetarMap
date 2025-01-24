@@ -1,0 +1,91 @@
+import java.io.File
+import java.io.FileNotFoundException
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+}
+
+val localProperties = File(rootProject.rootDir, "local.properties")
+val apiKey: String = if (localProperties.exists()) {
+    val properties = Properties()
+    properties.load(localProperties.inputStream())
+    properties.getProperty("aviationstack_api_key")
+        ?: throw IllegalArgumentException("API key 'aviationstack_api_key' not found in local.properties")
+} else {
+    throw FileNotFoundException("local.properties file not found.")
+}
+
+//val apiKey: String = project.properties["aviationstack_api_key"] as String? ?: throw GradleException("aviationstack_api_key is missing")
+
+android {
+    buildFeatures {
+        buildConfig = true
+    }
+    namespace = "com.airportweather.map"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.airportweather.map"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            buildConfigField("String", "AVIATIONSTACK_API_KEY", "\"$apiKey\"")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    buildFeatures {
+        compose = true
+    }
+}
+
+dependencies {
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.play.services.location)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(libs.play.services.maps.v1900)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.gms.play.services.maps)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation("com.opencsv:opencsv:5.7.1")
+    implementation ("com.google.maps.android:android-maps-utils:2.2.5")
+
+
+}
