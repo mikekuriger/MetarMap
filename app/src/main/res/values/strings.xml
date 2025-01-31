@@ -1,3 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="toggle_airspace">Airspace</string>
+    <string name="toggle_tfr">TFR</string>
+    <string name="toggle_wind">Wind</string>
+    <string name="app_name">Metar Map Plus</string>
 </resources>
