@@ -8,6 +8,403 @@
         "coordinates": [
           [
             [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Thursday, February 06, 2025 Local",
+        "notam": "5/9136",
+        "date_effective": "2025-02-06T15:30:00",
+        "date_expire": "2025-02-06T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9136 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502061530 UTC (0930 LOCAL 02/06/25) UNTIL 2502062330 UTC (1730 LOCAL 02/06/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502061530-2502062330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Friday, February 07, 2025 Local",
+        "notam": "5/9137",
+        "date_effective": "2025-02-07T15:30:00",
+        "date_expire": "2025-02-07T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9137 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502071530 UTC (0930 LOCAL 02/07/25) UNTIL 2502072330 UTC (1730 LOCAL 02/07/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502071530-2502072330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Tuesday, February 04, 2025 Local",
+        "notam": "5/9138",
+        "date_effective": "2025-02-04T15:30:00",
+        "date_expire": "2025-02-04T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9138 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502041530 UTC (0930 LOCAL 02/04/25) UNTIL 2502042330 UTC (1730 LOCAL 02/04/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502041530-2502042330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Wednesday, February 05, 2025 Local",
+        "notam": "5/9135",
+        "date_effective": "2025-02-05T15:30:00",
+        "date_expire": "2025-02-05T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9135 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502051530 UTC (0930 LOCAL 02/05/25) UNTIL 2502052330 UTC (1730 LOCAL 02/05/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502051530-2502052330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -120.7420541,
+              43.80051848
+            ],
+            [
+              -120.74063809,
+              43.78894184
+            ],
+            [
+              -120.73646968,
+              43.77771906
+            ],
+            [
+              -120.72967691,
+              43.76719085
+            ],
+            [
+              -120.72046719,
+              43.75767666
+            ],
+            [
+              -120.7091209,
+              43.74946504
+            ],
+            [
+              -120.6959828,
+              43.74280493
+            ],
+            [
+              -120.68145151,
+              43.73789814
+            ],
+            [
+              -120.66596755,
+              43.73489333
+            ],
+            [
+              -120.65,
+              43.73388151
+            ],
+            [
+              -120.63403245,
+              43.73489333
+            ],
+            [
+              -120.61854849,
+              43.73789814
+            ],
+            [
+              -120.6040172,
+              43.74280493
+            ],
+            [
+              -120.5908791,
+              43.74946504
+            ],
+            [
+              -120.57953281,
+              43.75767666
+            ],
+            [
+              -120.57032309,
+              43.76719085
+            ],
+            [
+              -120.56353032,
+              43.77771906
+            ],
+            [
+              -120.55936191,
+              43.78894184
+            ],
+            [
+              -120.5579459,
+              43.80051848
+            ],
+            [
+              -120.5593269,
+              43.81209734
+            ],
+            [
+              -120.56346452,
+              43.82332649
+            ],
+            [
+              -120.57023444,
+              43.83386446
+            ],
+            [
+              -120.579432,
+              43.84339062
+            ],
+            [
+              -120.59077828,
+              43.85161498
+            ],
+            [
+              -120.60392855,
+              43.85828706
+            ],
+            [
+              -120.61848268,
+              43.86320361
+            ],
+            [
+              -120.63399743,
+              43.86621479
+            ],
+            [
+              -120.65,
+              43.86722882
+            ],
+            [
+              -120.66600257,
+              43.86621479
+            ],
+            [
+              -120.68151732,
+              43.86320361
+            ],
+            [
+              -120.69607145,
+              43.85828706
+            ],
+            [
+              -120.70922172,
+              43.85161498
+            ],
+            [
+              -120.720568,
+              43.84339062
+            ],
+            [
+              -120.72976556,
+              43.83386446
+            ],
+            [
+              -120.73653548,
+              43.82332649
+            ],
+            [
+              -120.7406731,
+              43.81209734
+            ],
+            [
+              -120.7420541,
+              43.80051848
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "BROTHERS, OR, Saturday, February 01, 2025 through Sunday, February 02, 2025 UTC",
+        "notam": "5/9134",
+        "date_effective": "2025-02-01T21:30:00",
+        "date_expire": "2025-02-02T06:00:00",
+        "upper_val": "10000",
+        "lower_val": "0",
+        "facility": "ZSE",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9134 ZSE OR..AIRSPACE BROTHERS, OR..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 4NM RADIUS OF 434802N1203900W (DSD116039.0) SFC-10000FT MSL EFFECTIVE 2502012130 UTC UNTIL 2502020600 UTC. TO PROVIDE A SAFE ENVIRONMENT FOR AMATEUR ROCKET LAUNCH AND RECOVERY OF CLASS 2 ROCKETS OREGON ROCKETRY CLUB, TEL 508-244-0000, IS THE POINT OF CONTACT. THE SEATTLE /ZSE/ ARTCC, TEL 253-351-3520, IS THE CDN FAC. 2502012130-2502020600"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -80.68027778,
               41.34504519
             ],
@@ -755,7 +1152,7 @@
         "lower_val": "0",
         "facility": "ZDC",
         "type": "HAZARDS",
-        "fullDescription": "!FDC 5/9030 ZDC DC..AIRSPACE WASHINGTON, DC..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(2), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 385317N0770308W (DCA346001.9) TO 385244N0770221W (DCA003001.2) TO 385246N0770152W (DCA021001.2) TO 385228N0770129W (DCA040001.1) TO 385213N0770122W (DCA054000.9) TO 385149N0770119W (DCA079000.7) TO 385125N0770118W (DCA111000.7) TO 385043N0770117W (DCA149001.1) TO 385007N0770128W (DCA168001.6) TO 384914N0770137W (DCA178002.4) TO 384838N0770136W (DCA180003) TO 384738N0770124W (DCA180004) TO 384738N0770249W (DCA196004) TO 385018N0770242W (DCA207001.3) TO THE POINT OF ORIGIN SFC-17999FT MSL EFFECTIVE 2501312300 UTC UNTIL 2503312300 UTC. 2501312300-2503312300"
+        "fullDescription": "!FDC 5/9030 ZDC DC..AIRSPACE WASHINGTON, DC..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(2), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 385317N0770308W (DCA346001.9) TO 385244N0770221W (DCA003001.2) TO 385246N0770152W (DCA021001.2) TO 385228N0770129W (DCA040001.1) TO 385213N0770122W (DCA054000.9) TO 385149N0770119W (DCA079000.7) TO 385125N0770118W (DCA111000.7) TO 385043N0770117W (DCA149001.1) TO 385007N0770128W (DCA168001.6) TO 384914N0770137W (DCA178002.4) TO 384838N0770136W (DCA180003) TO 384738N0770124W (DCA180004) TO 384738N0770249W (DCA196004) TO 385018N0770242W (DCA207001.3) TO THE POINT OF ORIGIN SFC-17999FT MSL EFFECTIVE 2501312300 UTC UNTIL 2503312300 UTC. DUE TO PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT HELICOPTER TRAFFIC IS PROHIBITED FM OPERATING OVER THE POTOMAC RIVER NEAR DCA IF A LIFESAVING MEDICAL, ACTIVE LAW ENFORCEMENT, ACTIVE AIR DEFENSE, OR PRESIDENTIAL TRANSPORT HELICOPTER MISSION MUST OPERATE IN THIS RESTRICTED AREA, CIVILIAN ACFT WILL NOT BE ALLOWED IN THE AREA TO PREVENT POTENTIAL CONFLICTS IN THIS AIRSPACE. THE MIX OF HELICOPTER AND FIXED WING ACFT OPERATING IN THE AFFECTED AREA AT THE SAME TIME WILL NOT BE PERMITTED. PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT. THE WASHINGTON /ZDC/ ARTCC, TEL 703-771-3470, IS THE CDN FAC. 2501312300-2503312300"
       }
     },
     {
