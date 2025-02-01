@@ -201,13 +201,18 @@ when 'json'
     f.write(JSON.pretty_generate(content))
   end
   puts "Retrieved #{tfrs.size} TFRs and wrote to #{OUTPUT_FILE}."
+
 when 'geojson'
   features = []
   tfrs.each do |tfr|
     if tfr[:area_group] && tfr[:area_group][:boundary_areas]
       tfr[:area_group][:boundary_areas].each do |boundary|
         coordinates = convert_points_to_coordinates(boundary[:points].select { |p| p[:type] == 'GRC' })
-      
+
+        if tfr[:upper_unit] == "FL" && tfr[:upper_val]
+            tfr[:upper_val] = tfr[:upper_val].to_i * 100
+        end
+
         if coordinates.size > 0
           features << {
             type: 'Feature',
@@ -216,14 +221,16 @@ when 'geojson'
               coordinates: [coordinates],
             },
             properties: {
-              name: tfr[:short_description],
-              notam: convert_notam_to_path(tfr[:notam]),
+              description: tfr[:short_description].gsub("\r\n New", ""),
+              notam: tfr[:notam],
+              #notam: convert_notam_to_path(tfr[:notam]),
               date_effective: tfr[:date_effective],
               date_expire: tfr[:date_expire],
               upper_val: tfr[:upper_val],
-              upper_unit: tfr[:upper_unit],
               lower_val: tfr[:lower_val],
-              lower_unit: tfr[:lower_unit]
+              facility: tfr[:facility],
+              type: tfr[:type],
+              fullDescription: tfr[:description]
             }
           }
         end
