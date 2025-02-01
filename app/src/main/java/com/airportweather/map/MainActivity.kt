@@ -54,6 +54,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
+import java.util.concurrent.TimeUnit
 
 @Serializable
 data class METAR(
@@ -286,42 +287,38 @@ fun determineTAFConditions(forecast: TAF): String {
 }
 // TFR
 // step 1
-fun copyGeoJsonFromAssets(context: Context) {
-    val fileName = "tfrs.geojson"
-    val destinationFile = File(context.filesDir, fileName)
+suspend fun getOrDownloadTfrs(filesDir: File): File? {
+    val geoJsonCacheDir = File(filesDir, "geojson").apply { mkdirs() }
+    val tfrFile = File(geoJsonCacheDir, "tfrs.geojson")
+    val maxAgeMillis = TimeUnit.HOURS.toMillis(1) // 1 hour threshold
+    println("✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: ${geoJsonCacheDir}")
 
-    //if (!destinationFile.exists()) {
-        try {
-            context.assets.open(fileName).use { inputStream ->
-                FileOutputStream(destinationFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            println("✅ GeoJSON file copied from assets to: ${destinationFile.absolutePath}")
-        } catch (e: IOException) {
-            e.printStackTrace()
-            println("❌ Failed to copy GeoJSON file from assets: ${e.message}")
+
+    // Check if the cached file is valid
+    if (tfrFile.exists() && tfrFile.length() > 0 && System.currentTimeMillis() - tfrFile.lastModified() < maxAgeMillis) {
+        println("✅ Using cached TFR GeoJSON: ${tfrFile.absolutePath}, size: ${tfrFile.length()} bytes")
+        return tfrFile
+    }
+
+    // If file doesn't exist or is outdated, download a fresh copy
+    return try {
+        println("🔄 Downloading new TFR GeoJSON...")
+        downloadTfrData(geoJsonCacheDir)
+    } catch (e: IOException) {
+        println("🚨 Failed to download TFR GeoJSON: ${e.message}")
+        if (tfrFile.exists() && tfrFile.length() > 0) {
+            println("⚠️ Using last cached version at ${tfrFile.absolutePath}")
+            tfrFile
+        } else {
+            null // No valid file available
         }
-    //} else {
-       // println("✅ GeoJSON file already exists at: ${destinationFile.absolutePath}")
-    //}
-}
-
-suspend fun downloadAndProcessTfrs(filesDir: File) {
-    val jsonFile = downloadTfrData(filesDir)
-    val xmlCacheDir = File(filesDir, "xml")
-    //val geoJsonCacheDir = File(filesDir, "geojson")
-
-    xmlCacheDir.mkdirs()
-    //geoJsonCacheDir.mkdirs()
-
-    processTfrData(jsonFile, xmlCacheDir)
+    }
 }
 suspend fun downloadTfrData(filesDir: File): File {
     return withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://raw.githubusercontent.com/airframesio/data/refs/heads/master/json/faa/tfrs.json")
-//            val url = URL("https://raw.githubusercontent.com/mikekuriger/projext/refs/heads/master/tfrs.disney.json")
+//            val url = URL("https://raw.githubusercontent.com/airframesio/data/refs/heads/master/json/faa/tfrs.json")
+            val url = URL("https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connect()
@@ -331,325 +328,23 @@ suspend fun downloadTfrData(filesDir: File): File {
             }
 
             val inputStream: InputStream = connection.inputStream
-            val outputFile = File(filesDir, "tfrs.json")
+            val outputFile = File(filesDir, "tfrs.geojson")
+            println("✅ downloadTfrData: ${outputFile}, ${outputFile.absolutePath}")
+
 
             FileOutputStream(outputFile).use { outputStream ->
                 inputStream.copyTo(outputStream)
             }
 
-            println("Downloaded TFR JSON to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
+            println("Downloaded TFR GeoJSON to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
             outputFile
         } catch (e: Exception) {
             e.printStackTrace()
-            throw IOException("Error downloading TFR JSON: ${e.message}")
+            throw IOException("Error downloading TFR GeoJSON: ${e.message}")
         }
     }
 }
-suspend fun processTfrData(jsonFile: File, cacheDir: File) {
-    withContext(Dispatchers.IO) {
-        try {
-            val jsonString = jsonFile.readText()
-            val tfrsJson = JSONObject(jsonString)
-            val tfrList = tfrsJson.getJSONArray("tfrs")
-
-            println("🔍 Found ${tfrList.length()} TFRs in JSON")
-
-            val processedTfrs = mutableListOf<JSONObject>()  // Collect all processed TFRs
-
-            for (i in 0 until tfrList.length()) {
-                val tfr = tfrList.getJSONObject(i)
-                val notamId = tfr.getString("notam")
-                val xmlUrl = tfr.getJSONObject("links").optString("xml", "")
-
-                if (xmlUrl.isEmpty()) {
-                    println("⚠️ Skipping $notamId: No XML link")
-                    continue
-                }
-
-                val xmlFile = fetchAndCacheXml(xmlUrl, cacheDir, notamId)
-
-                // Process circles
-                val circleTfrs = convertXmlToGeoJson(xmlFile, tfr)
-                processedTfrs.addAll(circleTfrs)
-
-                // Process polygons
-                val polygonTfrs = parsePolygonTFRs(xmlFile, tfr)
-                processedTfrs.addAll(polygonTfrs)
-            }
-
-            if (processedTfrs.isNotEmpty()) {
-                generateGeoJson(processedTfrs, cacheDir)  // Generate the final GeoJSON file
-            } else {
-                println("❌ No valid TFRs were processed")
-            }
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            println("❌ Error processing TFR data: ${e.message}")
-        }
-    }
-}
-
-
-fun convertXmlToGeoJson(xmlFile: File, tfr: JSONObject): List<JSONObject> {
-    val geoJsonList = mutableListOf<JSONObject>()
-    try {
-        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
-        doc.documentElement.normalize()
-
-        val lowerBound = doc.getElementsByTagName("valDistVerLower").item(0)?.textContent ?: "0"
-        val lowerUnit = doc.getElementsByTagName("uomDistVerLower").item(0)?.textContent ?: "FT"
-        val upperBound = doc.getElementsByTagName("valDistVerUpper").item(0)?.textContent ?: "999"
-        val upperUnit = doc.getElementsByTagName("uomDistVerUpper").item(0)?.textContent ?: "FL"
-
-        val lowerAltitude = formatAltitude(lowerBound, lowerUnit)
-        val upperAltitude = formatAltitude(upperBound, upperUnit)
-
-        val circles = doc.getElementsByTagName("Avx")
-        for (i in 0 until circles.length) {
-            val node = circles.item(i) as Element
-            if (node.getElementsByTagName("codeType").item(0)?.textContent == "CIR") {
-                val latStr = node.getElementsByTagName("geoLat").item(0)?.textContent ?: "0"
-                val lonStr = node.getElementsByTagName("geoLong").item(0)?.textContent ?: "0"
-                val radiusStr = node.getElementsByTagName("valRadiusArc").item(0)?.textContent ?: "0"
-                val radiusUnit = node.getElementsByTagName("uomRadiusArc").item(0)?.textContent ?: "NM"
-
-                val lat = convertCoordinate(latStr)
-                val lon = convertCoordinate(lonStr)
-                val radius = convertRadius(radiusStr, radiusUnit) // Convert NM to meters
-
-                if (lat != 0.0 && lon != 0.0 && radius > 0) {
-                    val circlePolygon = generateCircle(lon, lat, radius)
-
-                    val geoJson = JSONObject().apply {
-                        put("type", "Feature")
-                        put("properties", JSONObject().apply {
-                            put("notam", tfr.getString("notam").replace("\\/", "/"))
-                            put("facility", tfr.getString("facility"))
-                            put("state", tfr.getString("state"))
-                            put("type", tfr.getString("type"))
-                            put("description", tfr.getString("short_description").replace("\r\n New", "").trim())
-                            put("altitude", JSONObject().apply {
-                                put("min", lowerAltitude)
-                                put("max", upperAltitude)
-                            })
-                            put("start_time", tfr.optString("date_issued", ""))
-                            put("end_time", tfr.optString("end_time", "Ongoing"))
-                        })
-                        put("geometry", JSONObject().apply {
-                            put("type", "Polygon")
-                            put("coordinates", JSONArray().put(circlePolygon))
-                        })
-                    }
-                    geoJsonList.add(geoJson)
-                }
-            }
-        }
-
-    } catch (e: Exception) {
-        e.printStackTrace()
-        println("❌ Error processing XML for TFR: ${tfr.getString("notam")}")
-    }
-    return geoJsonList
-}
-fun generateCircle(lon: Double, lat: Double, radius: Double, numPoints: Int = 64): JSONArray {
-    val earthRadius = 6371000.0
-    val polygon = JSONArray()
-    val latRad = Math.toRadians(lat)
-    val lonRad = Math.toRadians(lon)
-
-    for (i in 0..numPoints) {
-        val angle = 2 * Math.PI * i / numPoints
-        val latOffset = radius / earthRadius * Math.sin(angle)
-        val lonOffset = radius / (earthRadius * Math.cos(latRad)) * Math.cos(angle)
-
-        val newLat = Math.toDegrees(latRad + latOffset)
-        val newLon = Math.toDegrees(lonRad + lonOffset)
-        polygon.put(JSONArray().put(newLon).put(newLat))
-    }
-    polygon.put(polygon.get(0)) // Close the polygon
-    return polygon
-}
-fun formatAltitude(value: String, unit: String): String {
-    return when (unit) {
-        "FL" -> if (value == "999") "Unlimited" else "${value.toInt() * 100}"
-        "FT" -> value
-        else -> value
-    }
-}
-fun convertCoordinate(coord: String): Double {
-    val degrees = coord.substring(0, coord.length - 1).toDouble()
-    return if (coord.last() == 'S' || coord.last() == 'W') -degrees else degrees
-}
-fun convertRadius(value: String, unit: String): Double {
-    val radius = value.toDoubleOrNull() ?: 0.0
-    return if (unit == "NM") radius * 1852 else radius
-}
-fun parsePolygonTFRs(xmlFile: File, tfr: JSONObject): List<JSONObject> {
-    val geoJsonList = mutableListOf<JSONObject>()
-
-    try {
-        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xmlFile)
-        doc.documentElement.normalize()
-
-        val lowerBound = doc.getElementsByTagName("valDistVerLower").item(0)?.textContent ?: "0"
-        val lowerUnit = doc.getElementsByTagName("uomDistVerLower").item(0)?.textContent ?: "FT"
-        val upperBound = doc.getElementsByTagName("valDistVerUpper").item(0)?.textContent ?: "999"
-        val upperUnit = doc.getElementsByTagName("uomDistVerUpper").item(0)?.textContent ?: "FL"
-
-        val lowerAltitude = formatAltitude(lowerBound, lowerUnit)
-        val upperAltitude = formatAltitude(upperBound, upperUnit)
-
-        val polygonsList = mutableListOf<MutableList<List<Double>>>()
-        var currentPolygon = mutableListOf<List<Double>>()
-
-        val points = doc.getElementsByTagName("Avx")
-        for (j in 0 until points.length) {
-            val node = points.item(j) as Element
-
-            // Ignore circles since they are handled separately
-            if (node.getElementsByTagName("codeType").item(0)?.textContent != "CIR") {
-                val latStr = node.getElementsByTagName("geoLat").item(0)?.textContent ?: "0"
-                val lonStr = node.getElementsByTagName("geoLong").item(0)?.textContent ?: "0"
-
-                val lat = convertCoordinate(latStr)
-                val lon = convertCoordinate(lonStr)
-
-                if (lat != 0.0 && lon != 0.0) {
-                    currentPolygon.add(listOf(lon, lat))
-                }
-            }
-
-            // If this point starts a new polygon, save the previous one
-            if (j > 0 && node.getElementsByTagName("geoLat").length == 0) {
-                if (currentPolygon.isNotEmpty()) {
-                    polygonsList.add(currentPolygon)
-                    currentPolygon = mutableListOf()  // Start a new polygon
-                }
-            }
-        }
-
-        // Add the last polygon if not empty
-        if (currentPolygon.isNotEmpty()) {
-            polygonsList.add(currentPolygon)
-        }
-
-        // Ensure valid GeoJSON formatting
-        for (polygon in polygonsList) {
-            if (polygon.isNotEmpty()) {
-                val geoJson = JSONObject().apply {
-                    put("type", "Feature")
-                    put("properties", JSONObject().apply {
-                        put("notam", tfr.getString("notam").replace("\\/", "/"))
-                        put("facility", tfr.getString("facility"))
-                        put("state", tfr.getString("state"))
-                        put("type", tfr.getString("type"))
-                        put("description", tfr.getString("short_description").replace("\r\n New", "").trim())
-                        put("altitude", JSONObject().apply {
-                            put("min", lowerAltitude)
-                            put("max", upperAltitude)
-                        })
-                        put("start_time", tfr.optString("date_issued", ""))
-                        put("end_time", tfr.optString("end_time", "Ongoing"))
-                    })
-                    put("geometry", JSONObject().apply {
-                        put("type", "Polygon")
-                        put("coordinates", JSONArray().put(JSONArray(polygon))) // Properly formats as Polygon
-                    })
-                }
-                geoJsonList.add(geoJson)
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        println("❌ Error processing XML for TFR: ${tfr.getString("notam")}")
-    }
-    return geoJsonList
-}
-
-fun convertJSONArrayToList(jsonArray: JSONArray): List<List<Double>> {
-    val list = mutableListOf<List<Double>>()
-    for (i in 0 until jsonArray.length()) {
-        val pointArray = jsonArray.getJSONArray(i)
-        val point = listOf(pointArray.getDouble(0), pointArray.getDouble(1))  // Ensure Lon, Lat format
-        list.add(point)
-    }
-    return list
-}
-
-
-suspend fun fetchAndCacheXml(xmlUrl: String, cacheDir: File, notamId: String): File {
-    return withContext(Dispatchers.IO) {
-        try {
-            val safeNotamId = notamId.replace("/", "_")  // Replace slashes in file name
-            val xmlFile = File(cacheDir, "$safeNotamId.xml")
-
-            if (xmlFile.exists()) {
-                println("Using cached XML for $notamId")
-                return@withContext xmlFile
-            }
-
-            val url = URL(xmlUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connect()
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw IOException("HTTP error: ${connection.responseCode}")
-            }
-
-            val inputStream: InputStream = connection.inputStream
-            FileOutputStream(xmlFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-
-            println("Downloaded XML for $notamId to ${xmlFile.absolutePath}")
-            xmlFile
-        } catch (e: Exception) {
-            e.printStackTrace()
-            throw IOException("Error downloading XML for $notamId: ${e.message}")
-        }
-    }
-}
-fun generateGeoJson(processedTfrs: List<JSONObject>, cacheDir: File): File {
-    val geoJsonFile = File(cacheDir, "tfr_display.geojson")
-
-    try {
-        val geoJsonObject = JSONObject().apply {
-            put("type", "FeatureCollection")
-            put("features", JSONArray(processedTfrs))
-        }
-
-        geoJsonFile.writeText(geoJsonObject.toString(4))  // Pretty-print JSON
-        println("✅ Saved TFR Display GeoJSON to ${geoJsonFile.absolutePath}")
-
-    } catch (e: Exception) {
-        e.printStackTrace()
-        println("❌ Error generating GeoJSON: ${e.message}")
-    }
-
-    return geoJsonFile
-}
-
-
 // step 2
-fun loadGeoJsonFile(filesDir: File): File? {
-    //val geoJsonFile = File(filesDir, "xml/tfr_display.geojson")   // generated
-    val geoJsonFile = File(filesDir, "tfrs.geojson")                // manually uploaded this is for drawing the polygons
-
-    if (!geoJsonFile.exists()) {
-        println("🚨 GeoJSON file does NOT exist at ${geoJsonFile.absolutePath}")
-        return null
-    }
-
-    if (geoJsonFile.length() == 0L) {
-        println("🚨 GeoJSON file is EMPTY at ${geoJsonFile.absolutePath}")
-        return null
-    }
-
-    println("✅ Loaded cached GeoJSON: ${geoJsonFile.absolutePath}, size: ${geoJsonFile.length()} bytes")
-    return geoJsonFile
-}
 fun parseTFRGeoJson(file: File): List<TFRFeature> {
     val tfrFeatures = mutableListOf<TFRFeature>()
 
@@ -691,8 +386,8 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
                 val tfrType = properties.optString("type", "Unknown")
                 val description = properties.optString("description", "No description available")
                 val fullDescription = properties.optString("full_description", "No details available")
-                val altitudeMin = properties.optJSONObject("altitude")?.optString("min", "N/A") ?: "N/A"
-                val altitudeMax = properties.optJSONObject("altitude")?.optString("max", "N/A") ?: "N/A"
+                val altitudeMin = properties.optString("lower_val", "Surface")
+                val altitudeMax = properties.optString("upper_val", "Unlimited")
                 val startTime = properties.optString("start_time", "Ongoing")
                 val endTime = properties.optString("end_time", "Ongoing")
 
@@ -712,7 +407,6 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
 
     return tfrFeatures
 }
-
 // Other functions...
 fun getCurrentTimeLocalFormat(): String {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault())
@@ -782,8 +476,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        showBottomProgressBar("Copying Mike's tfr data...")
-        copyGeoJsonFromAssets(this)  // for manually uploading the GeoJSON file
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
@@ -806,22 +498,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // **Load TFR GeoJSON**
         lifecycleScope.launch {
             try {
-                // Step 1: Download and process TFRs (only new or updated ones)
-                //showBottomProgressBar("Downloading tfr data...")
-                //downloadAndProcessTfrs(filesDir)
+                // Step 1: Download TFRs
+                showBottomProgressBar("🚨 Updating tfr data")
+                val tfrFile = getOrDownloadTfrs(filesDir)
 
-                // Step 2: Load the cached GeoJSON file
-                //showBottomProgressBar("Loading cached tfr data...")
-                val tfrFile = loadGeoJsonFile(filesDir)
-
+                // Step 2: Load the GeoJSON file
                 if (tfrFile != null) {
-                    //showBottomProgressBar("Parsing cached tfr data...")
-                    println("✅ Parsing cached tfr data...")
-
+                    println("✅ Parsing tfr data...")
                     val tfrFeatures = parseTFRGeoJson(tfrFile)
-                    val jsonContent = tfrFile.readText()
-                    println("✅ GeoJSON Output:\n$jsonContent")
-
                     drawTFRPolygons(mMap, tfrFeatures)
                 } else {
                     showBottomProgressBar("No TFR data available")
@@ -830,9 +514,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-//            val tfrFile = downloadTfrData(filesDir)
-//            val tfrFeatures = parseTFRGeoJson(tfrFile)
-//            drawTFRPolygons(mMap, tfrFeatures)
         }
 
         // **Load Airspace Boundaries**
