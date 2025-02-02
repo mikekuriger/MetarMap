@@ -47,6 +47,63 @@
         ]
       },
       "properties": {
+        "description": "Van Horn, TX, Friday, February 07, 2025 Local",
+        "notam": "5/9137",
+        "date_effective": "2025-02-07T15:30:00",
+        "date_expire": "2025-02-07T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9137 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502071530 UTC (0930 LOCAL 02/07/25) UNTIL 2502072330 UTC (1730 LOCAL 02/07/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502071530-2502072330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
         "description": "Van Horn, TX, Thursday, February 06, 2025 Local",
         "notam": "5/9136",
         "date_effective": "2025-02-06T15:30:00",
@@ -113,6 +170,63 @@
         "facility": "ZAB",
         "type": "SPACE OPERATIONS",
         "fullDescription": "!FDC 5/9138 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502041530 UTC (0930 LOCAL 02/04/25) UNTIL 2502042330 UTC (1730 LOCAL 02/04/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502041530-2502042330"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Wednesday, February 05, 2025 Local",
+        "notam": "5/9135",
+        "date_effective": "2025-02-05T15:30:00",
+        "date_expire": "2025-02-05T23:30:00",
+        "upper_val": 99900,
+        "lower_val": "0",
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS",
+        "fullDescription": "!FDC 5/9135 ZAB TX..AIRSPACE VAN HORN, TX..TEMPORARY FLIGHT RESTRICTIONS. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 314100N1050800W (SFL200004.6) TO 312200N1050800W (HUP122017.4) TO 311300N1050000W (HUP125028.6) TO 311000N1045100W (HUP120036.2) TO 311300N1041800W (PEQ237040.2) TO 313000N1041800W (PEQ262037.3) TO 314000N1042400W (SFL086035.5) TO 314400N1043400W (SFL080026.6) TO THE POINT OF ORIGIN SFC-UNL EFFECTIVE 2502051530 UTC (0930 LOCAL 02/05/25) UNTIL 2502052330 UTC (1730 LOCAL 02/05/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITIED. A. ACFT SUPPORTING THE RECOVERY OF THE SPACE VEHICLE ARE EXEMPT FM THIS TFR. B. PILOTS MUST CONSULT ALL NOTAMS REGARDING THIS OPS AND MAY CONTACT ZAB FOR CURRENT AIRSPACE STATUS. THE ALBUQUERQUE /ZAB/ ARTCC, TEL 505-856-4500, IS THE CDN FAC. 2502051530-2502052330"
       }
     },
     {
@@ -4046,175 +4160,6 @@
         "coordinates": [
           [
             [
-              -80.70527778,
-              28.85444444
-            ],
-            [
-              -80.5,
-              29.125
-            ],
-            [
-              -80.4550957,
-              29.09911944
-            ],
-            [
-              -80.40792392,
-              29.08513178
-            ],
-            [
-              -80.36233436,
-              29.06757058
-            ],
-            [
-              -80.31867766,
-              29.04657125
-            ],
-            [
-              -80.277289,
-              29.0222956
-            ],
-            [
-              -80.23848542,
-              28.99493057
-            ],
-            [
-              -80.20256339,
-              28.96468674
-            ],
-            [
-              -80.16979646,
-              28.93179665
-            ],
-            [
-              -80.14043326,
-              28.89651293
-            ],
-            [
-              -80.11469555,
-              28.85910636
-            ],
-            [
-              -80.09277665,
-              28.81986369
-            ],
-            [
-              -80.07484001,
-              28.77908544
-            ],
-            [
-              -80.06101811,
-              28.73708351
-            ],
-            [
-              -80.05141156,
-              28.69417879
-            ],
-            [
-              -80.04608845,
-              28.65069868
-            ],
-            [
-              -80.04508404,
-              28.60697456
-            ],
-            [
-              -80.04840061,
-              28.56333926
-            ],
-            [
-              -80.05600764,
-              28.52012455
-            ],
-            [
-              -80.06784217,
-              28.47765859
-            ],
-            [
-              -80.08380945,
-              28.43626347
-            ],
-            [
-              -80.10378379,
-              28.3962528
-            ],
-            [
-              -80.12760965,
-              28.35792938
-            ],
-            [
-              -80.15510291,
-              28.3215829
-            ],
-            [
-              -80.18605238,
-              28.28748785
-            ],
-            [
-              -80.22022142,
-              28.25590147
-            ],
-            [
-              -80.25734983,
-              28.22706186
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78361111,
-              28.63361111
-            ],
-            [
-              -80.84555556,
-              28.81944444
-            ],
-            [
-              -80.78722222,
-              28.85444444
-            ],
-            [
-              -80.70527778,
-              28.85444444
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Monday, February 03, 2025 through Monday, February 03, 2025 Local",
-        "notam": "5/8661",
-        "date_effective": "2025-02-03T23:22:00",
-        "date_expire": "2025-02-04T01:03:00",
-        "upper_val": 18000,
-        "lower_val": "0",
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS",
-        "fullDescription": "!FDC 5/8661 ZMA FL..AIRSPACE CAPE CANAVERAL, FL..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 285116N0804219W (OMN141034.4) TO 290730N0803000W (OMN108033.9) THEN CLOCKWISE ON A 30 NM ARC CENTERED ON 283703N0803647W (MLB009030.7) TO 281330N0801600W (MLB077020.8) TO 282501N0803029W (MLB027019.8) TO 282501N0803759W (MLB007018.7) TO 282501N0804144W (MLB357018.9) TO 283121N0804349W (MLB356025.5) TO 283801N0804701W (ORL079029.6) TO 284910N0805044W (ORL057030.7) TO 285116N0804714W (OMN147031.8) TO THE POINT OF ORIGIN SFC-FL180 EFFECTIVE 2502032322 UTC (1822 LOCAL 02/03/25) UNTIL 2502040103 UTC (2003 LOCAL 02/03/25). THIS AREA ENCOMPASSES R2932, R2933 AND PORTIONS OF R2934 AND W497A. ADDITIONAL WARNING AND RESTRICTED AREAS WILL BE ACT. PILOTS MUST CONSULT ALL NOTAMS REGARDING THESE OPS AND MAY CTC ZMA FOR CURRENT AIRSPACE STATUS. THE MIAMI /ZMA/ ARTCC, TEL 305-716-1588, IS THE CDN FAC. 2502032322-2502040103"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -82.01361111,
               35.82674087
             ],
@@ -6961,220 +6906,6 @@
         "facility": "ZHU",
         "type": "SECURITY",
         "fullDescription": "!FDC 4/1525 ZHU TX..AIRSPACE BROWNSVILLE, TX..TEMPORARY FLIGHT RESTRICTIONS. DECEMBER 31 , 2024-JUNE 30 2025 LOCAL. PURSUANT TO 49 USC 40103(B)(3), THE FEDERAL AVIATION ADMINISTRATION (FAA) CLASSIFIES THE AIRSPACE DEFINED IN THIS NOTAM AS 'NTL DEFENSE AIRSPACE'. PILOTS WHO DO NOT ADHERE TO THE FOLLOWING PROC MAY BE INTERCEPTED, DETAINED AND INTERVIEWED BY LAW ENFORCEMENT/SECURITY PERSONNEL. ANY OF THE FOLLOWING ADDITIONAL ACTIONS MAY ALSO BE TAKEN AGAINST A PILOT WHO DOES NOT COMPLY WITH THE RQMNTS OR ANY SPECIAL INSTRUCTIONS OR PROC ANNOUNCED IN THIS NOTAM:\nA) THE FAA MAY TAKE ADMINISTRATIVE ACTION, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES; OR \nB) THE UNITED STATES GOVERNMENT MAY PURSUE CRIMINAL CHARGES, INCLUDING CHARGES UNDER 49 USC SECTION 46307; OR \nC) THE UNITED STATES GOVERNMENT MAY USE DEADLY FORCE AGAINST THE AIRBORNE ACFT, IF IT IS DETERMINED THAT THE ACFT POSES AN IMMINENT SECURITY THREAT. \nPURSUANT TO 14 CFR 99.7, SPECIAL SECURITY INSTRUCTIONS, ALL ACFT FLT OPS ARE PROHIBITED: WI AN AREA DEFINED AS 2.5NM RADIUS OF 255950N0970921W (BRO061012.6) SFC-10000FT AGL EFFECTIVE 2501010000 UTC (1800 LOCAL 12/31/24) UNTIL 2507010000 UTC (1900 LOCAL 06/30/25). EXC AS SPECIFIED BLW, EXCLUDING MEXICAN AIRSPACE AND/OR UNLESS AUTH BY ATC: A. APPROVED; LAW ENFORCEMENT, AIR AMBULANCE/SEARCH AND RESCUE, AND REGULARLY SCHEDULED COMMERCIAL PASSENGER AND CARGO CARRIER OPERATIONS ON ATC APPROVED APPROACH TO KBRO ONLY AT OR ABOVE 4,000FT AGL. B. ACFT OPS NECESSITATED FOR SAFETY OR EMERGENCY REASONS. C. ALL ACFT APPROVED TO OPERATE WI THE TFR MUST BE SQUAWKING AN ATC DISCRETE CODE AT ALL TIMES WHILE IN THE TFR AND MUST REMAIN IN TWO-WAY RADIO COM WITH ATC. D. UAS OPS MAY BE AUTH WI THE DEFINED SSI AIRSPACE IF IN COMPLIANCE WITH THE RQMNTS LISTED BLW: 1) UAS OPS IN DCT SUPPORT OF AN ACT NTL DEFENSE, HOMELAND SECURITY, LAW ENFORCEMENT, FIREFIGHTING, SAR, OR DISASTER RESPONSE MISSION; 2) UAS OPS IN SUPPORT OF EVENT OPS; 3) COMMERCIAL UAS OPS WITH A VALID STATEMENT OF WORK; 4) MUST BE IN POSSESSION OF AN APPROVED SPECIAL GOVERNMENTAL INTEREST(SGI) AIRSPACE WAIVER; 5) AND COMPLY WITH ALL OTHER APPLICABLE FEDERAL AVIATION REGULATIONS. E. UAS OPR IDENTIFIED IN C.1, C.2 OR C.3 ABV MUST APPLY FOR A SGI WAIVER VIA EMAIL AT 9-ATOR-HQ-SOSC@FAA.GOV. F. UAS OPR WHO DO NOT COMPLY WITH APPLICABLE AIRSPACE RESTRICTIONS ARE WARNED THAT PURSUANT TO 10 U.S.C.SECTION 130I AND 6 U.S.C.SECTION 124N, THE DEPARTMENT OF DEFENSE(DOD), THE DEPARTMENT OF HOMELAND SECURITY(DHS) OR THE DEPARTMENT OF JUSTICE(DOJ) MAY TAKE SECURITY ACTION THAT RESULTS IN THE INTERFERENCE, DISRUPTION, SEIZURE, DAMAGING, OR DESTRUCTION OF UNMANNED ACFT DEEMED TO POSE A CREDIBLE SAFETY OR SECURITY THREAT TO PROTECTED PERSONNEL, FAC, OR ASSETS. G. THE SYSTEM OPS SUPPORT CENTER (SOSC), IS THE CDN FAC FOR UAS OPR ACCESS AND IS AVBL DLY FM 0600-2359 EASTERN, TEL 202-267-8276 FOR CDN. H. THE FAA RECOMMENDS THAT ALL ACFT OPR CK NOTAMS FREQUENTLY FOR POSSIBLE CHANGES TO THIS TFR PRIOR TO OPS WI THIS REGION.OPR MAY REVIEW THE TFR DETAILS ON THE INTERNET AT HTTPS://TFR.FAA.GOV/ OR HTTPS://WWW.1800WXBRIEF.COM. IF QUESTIONS REMAIN, CTC FSS, TEL 800-992-7433. 2501010000-2507010000"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -97.39194444,
-              48.01666667
-            ],
-            [
-              -97.39194444,
-              47.90833333
-            ],
-            [
-              -97.45027778,
-              47.90833333
-            ],
-            [
-              -97.45027778,
-              48.01666667
-            ],
-            [
-              -97.39194444,
-              48.01666667
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Grand Forks AFB, ND",
-        "notam": "4/9716",
-        "date_effective": null,
-        "date_expire": "2025-03-09T07:59:00",
-        "upper_val": "2400180",
-        "lower_val": "02400",
-        "facility": "ZMP",
-        "type": "SECURITY",
-        "fullDescription": "!FDC 4/9716 ZMP ND..AIRSPACE GRAND FORKS AFB, ND..TEMPORARY FLIGHT RESTRICTIONS. THIS NOTAM REPLACES NOTAM 4/2883 DUE TO CHANGE IN AUTHORIZED EXCEPTIONS. PURSUANT TO 49 USC 40103(B)(3), THE FEDERAL AVIATION ADMINISTRATION (FAA) CLASSIFIES THE AIRSPACE DEFINED IN THIS NOTAM AS 'NTL DEFENSE AIRSPACE'. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES CONCERNING OPS IN THIS AIRSPACE MAY BE SUBJECT TO CERTAIN CRIMINAL PENALTIES UNDER 49 USC 40103(B)(3). PILOTS WHO DO NOT ADHERE TO THE FOLLOWING PROC MAY BE INTERCEPTED, DETAINED AND INTERVIEWED BY LAW ENFORCEMENT/SECURITY PERSONNEL. \nPURSUANT TO 14 CFR 99.7, SPECIAL SECURITY INSTRUCTIONS, ALL ACFT FLT OPS ARE PROHIBITED: WI AN AREA DEFINED AS 480100N0972331W (GFK285009.1) TO 475430N0972331W (GFK243008.8) TO 475430N0972701W (GFK246011) TO 480100N0972701W (GFK280011.3) TO THE POINT OF ORIGIN SFC-2400FT MSL EFFECTIVE IMMEDIATELY UNTIL 2503090759 UTC (0159 LOCAL 03/09/25). WI AN AREA DEFINED AS 480840N0972230W (GFK317013.7) TO 474640N0972230W (GFK207013.1) THEN CLOCKWISE ON A 11 NM ARC CENTERED ON 475740N0972230W (GFK264007.7) TO THE POINT OF ORIGIN 2400FT MSL-FL180 EFFECTIVE IMMEDIATELY UNTIL 2503090759 UTC (0159 LOCAL 03/09/25). EXCEPT AS SPECIFIED BELOW AND/OR UNLESS AUTHORIZED BY ATC: 1. ALL AIRCRAFT ENTERING OR EXITING THE TFR MUST BE ON A DISCRETE CODE ASSIGNED BY AN AIR TRAFFIC CONTROL (ATC) FACILITY. 2. AIRCRAFT MUST BE SQUAWKING THE DISCRETE CODE AT ALL TIMES WHILE IN THE TFR. 3. ALL AIRCRAFT ENTERING OR EXITING THE TFR MUST REMAIN IN TWO-WAY RADIO COMMUNICATIONS WITH ATC. 4. MINNEAPOLIS CENTER, PHONE 651-463-5580, IS THE FAA COORDINATION FACILITY. 2501291004-2503090759"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -97.375,
-              48.14444444
-            ],
-            [
-              -97.375,
-              47.77777778
-            ],
-            [
-              -97.39869144,
-              47.77858432
-            ],
-            [
-              -97.42220446,
-              47.78066341
-            ],
-            [
-              -97.44536194,
-              47.78411116
-            ],
-            [
-              -97.46798935,
-              47.78890159
-            ],
-            [
-              -97.48991605,
-              47.7949986
-            ],
-            [
-              -97.51097651,
-              47.80235625
-            ],
-            [
-              -97.53101153,
-              47.81091904
-            ],
-            [
-              -97.54986945,
-              47.82062239
-            ],
-            [
-              -97.56740725,
-              47.83139305
-            ],
-            [
-              -97.58349164,
-              47.84314969
-            ],
-            [
-              -97.59800006,
-              47.85580345
-            ],
-            [
-              -97.61082161,
-              47.86925866
-            ],
-            [
-              -97.62185793,
-              47.88341348
-            ],
-            [
-              -97.63102395,
-              47.89816071
-            ],
-            [
-              -97.63824857,
-              47.91338857
-            ],
-            [
-              -97.64347526,
-              47.92898153
-            ],
-            [
-              -97.64666252,
-              47.94482119
-            ],
-            [
-              -97.64778425,
-              47.96078719
-            ],
-            [
-              -97.64683001,
-              47.97675805
-            ],
-            [
-              -97.64380515,
-              47.9926122
-            ],
-            [
-              -97.63873084,
-              48.00822881
-            ],
-            [
-              -97.63164394,
-              48.02348876
-            ],
-            [
-              -97.62259682,
-              48.03827555
-            ],
-            [
-              -97.61165693,
-              48.0524762
-            ],
-            [
-              -97.59890644,
-              48.06598212
-            ],
-            [
-              -97.58444154,
-              48.07868993
-            ],
-            [
-              -97.5683718,
-              48.0905023
-            ],
-            [
-              -97.55081935,
-              48.1013287
-            ],
-            [
-              -97.53191792,
-              48.1110861
-            ],
-            [
-              -97.51181185,
-              48.1196996
-            ],
-            [
-              -97.49065496,
-              48.12710308
-            ],
-            [
-              -97.46860937,
-              48.13323966
-            ],
-            [
-              -97.44584422,
-              48.13806218
-            ],
-            [
-              -97.42253436,
-              48.14153358
-            ],
-            [
-              -97.39885894,
-              48.14362715
-            ],
-            [
-              -97.375,
-              48.14444444
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Grand Forks AFB, ND",
-        "notam": "4/9716",
-        "date_effective": null,
-        "date_expire": "2025-03-09T07:59:00",
-        "upper_val": "2400180",
-        "lower_val": "02400",
-        "facility": "ZMP",
-        "type": "SECURITY",
-        "fullDescription": "!FDC 4/9716 ZMP ND..AIRSPACE GRAND FORKS AFB, ND..TEMPORARY FLIGHT RESTRICTIONS. THIS NOTAM REPLACES NOTAM 4/2883 DUE TO CHANGE IN AUTHORIZED EXCEPTIONS. PURSUANT TO 49 USC 40103(B)(3), THE FEDERAL AVIATION ADMINISTRATION (FAA) CLASSIFIES THE AIRSPACE DEFINED IN THIS NOTAM AS 'NTL DEFENSE AIRSPACE'. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES CONCERNING OPS IN THIS AIRSPACE MAY BE SUBJECT TO CERTAIN CRIMINAL PENALTIES UNDER 49 USC 40103(B)(3). PILOTS WHO DO NOT ADHERE TO THE FOLLOWING PROC MAY BE INTERCEPTED, DETAINED AND INTERVIEWED BY LAW ENFORCEMENT/SECURITY PERSONNEL. \nPURSUANT TO 14 CFR 99.7, SPECIAL SECURITY INSTRUCTIONS, ALL ACFT FLT OPS ARE PROHIBITED: WI AN AREA DEFINED AS 480100N0972331W (GFK285009.1) TO 475430N0972331W (GFK243008.8) TO 475430N0972701W (GFK246011) TO 480100N0972701W (GFK280011.3) TO THE POINT OF ORIGIN SFC-2400FT MSL EFFECTIVE IMMEDIATELY UNTIL 2503090759 UTC (0159 LOCAL 03/09/25). WI AN AREA DEFINED AS 480840N0972230W (GFK317013.7) TO 474640N0972230W (GFK207013.1) THEN CLOCKWISE ON A 11 NM ARC CENTERED ON 475740N0972230W (GFK264007.7) TO THE POINT OF ORIGIN 2400FT MSL-FL180 EFFECTIVE IMMEDIATELY UNTIL 2503090759 UTC (0159 LOCAL 03/09/25). EXCEPT AS SPECIFIED BELOW AND/OR UNLESS AUTHORIZED BY ATC: 1. ALL AIRCRAFT ENTERING OR EXITING THE TFR MUST BE ON A DISCRETE CODE ASSIGNED BY AN AIR TRAFFIC CONTROL (ATC) FACILITY. 2. AIRCRAFT MUST BE SQUAWKING THE DISCRETE CODE AT ALL TIMES WHILE IN THE TFR. 3. ALL AIRCRAFT ENTERING OR EXITING THE TFR MUST REMAIN IN TWO-WAY RADIO COMMUNICATIONS WITH ATC. 4. MINNEAPOLIS CENTER, PHONE 651-463-5580, IS THE FAA COORDINATION FACILITY. 2501291004-2503090759"
       }
     },
     {
