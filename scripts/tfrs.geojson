@@ -514,7 +514,7 @@
       "properties": {
         "description": "West Palm Beach, FL, Friday, February 07, 2025 through Sunday, February 09, 2025 Local",
         "notam": "5/9677",
-        "date_effective": "2025-02-07T21:45:00",
+        "date_effective": null,
         "date_expire": "2025-02-09T22:30:00",
         "upper_val": "1799917999",
         "lower_val": "00",
@@ -683,7 +683,7 @@
       "properties": {
         "description": "West Palm Beach, FL, Friday, February 07, 2025 through Sunday, February 09, 2025 Local",
         "notam": "5/9677",
-        "date_effective": "2025-02-07T21:45:00",
+        "date_effective": null,
         "date_expire": "2025-02-09T22:30:00",
         "upper_val": "1799917999",
         "lower_val": "00",
@@ -852,7 +852,7 @@
       "properties": {
         "description": "HIBBING, MN, Wednesday, February 05, 2025 UTC",
         "notam": "5/9644",
-        "date_effective": "2025-02-05T15:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-05T17:00:00",
         "upper_val": "4500",
         "lower_val": "0",
@@ -1263,7 +1263,7 @@
       "properties": {
         "description": "New Orleans, LA, Sunday, February 09, 2025 through Sunday, February 09, 2025 Local",
         "notam": "5/9181",
-        "date_effective": "2025-02-09T22:30:00",
+        "date_effective": null,
         "date_expire": "2025-02-10T04:30:00",
         "upper_val": "1799917999",
         "lower_val": "00",
@@ -1432,7 +1432,7 @@
       "properties": {
         "description": "New Orleans, LA, Sunday, February 09, 2025 through Sunday, February 09, 2025 Local",
         "notam": "5/9181",
-        "date_effective": "2025-02-09T22:30:00",
+        "date_effective": null,
         "date_expire": "2025-02-10T04:30:00",
         "upper_val": "1799917999",
         "lower_val": "00",
@@ -1601,7 +1601,7 @@
       "properties": {
         "description": "New Orleans, LA, Saturday, February 08, 2025 through Saturday, February 08, 2025 Local",
         "notam": "5/9180",
-        "date_effective": "2025-02-08T15:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-09T05:00:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -1770,7 +1770,7 @@
       "properties": {
         "description": "New Orleans, LA, Friday, February 07, 2025 through Friday, February 07, 2025 Local",
         "notam": "5/9179",
-        "date_effective": "2025-02-07T20:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-08T05:30:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -1939,7 +1939,7 @@
       "properties": {
         "description": "New Orleans, LA, Sunday, February 09, 2025 Local",
         "notam": "5/9178",
-        "date_effective": "2025-02-09T18:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-09T22:30:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -2108,7 +2108,7 @@
       "properties": {
         "description": "HILO, HI, Saturday, February 01, 2025 through Sunday, February 09, 2025 UTC",
         "notam": "5/9072",
-        "date_effective": "2025-02-01T01:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-09T01:00:00",
         "upper_val": "5000",
         "lower_val": "0",
@@ -2353,7 +2353,7 @@
       "properties": {
         "description": "Mayport, FL, Friday, February 07, 2025 Local",
         "notam": "5/8897",
-        "date_effective": "2025-02-07T13:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T23:00:00",
         "upper_val": "25001400085003000",
         "lower_val": "0170025001200",
@@ -2414,7 +2414,7 @@
       "properties": {
         "description": "Mayport, FL, Friday, February 07, 2025 Local",
         "notam": "5/8897",
-        "date_effective": "2025-02-07T13:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T23:00:00",
         "upper_val": "25001400085003000",
         "lower_val": "0170025001200",
@@ -2463,7 +2463,7 @@
       "properties": {
         "description": "Mayport, FL, Friday, February 07, 2025 Local",
         "notam": "5/8897",
-        "date_effective": "2025-02-07T13:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T23:00:00",
         "upper_val": "25001400085003000",
         "lower_val": "0170025001200",
@@ -2504,7 +2504,7 @@
       "properties": {
         "description": "Mayport, FL, Friday, February 07, 2025 Local",
         "notam": "5/8897",
-        "date_effective": "2025-02-07T13:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T23:00:00",
         "upper_val": "25001400085003000",
         "lower_val": "0170025001200",
@@ -3069,7 +3069,7 @@
       "properties": {
         "description": "New Orleans, LA, Wednesday, February 05, 2025 through Wednesday, February 05, 2025 Local",
         "notam": "5/8850",
-        "date_effective": "2025-02-05T20:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-06T05:00:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -3238,7 +3238,7 @@
       "properties": {
         "description": "New Orleans, LA, Thursday, February 06, 2025 through Thursday, February 06, 2025 Local",
         "notam": "5/8851",
-        "date_effective": "2025-02-06T18:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T05:00:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -3407,7 +3407,7 @@
       "properties": {
         "description": "Cape Canaveral, FL, Wednesday, February 05, 2025 through Wednesday, February 05, 2025 Local",
         "notam": "5/8676",
-        "date_effective": "2025-02-05T22:32:00",
+        "date_effective": null,
         "date_expire": "2025-02-06T00:13:00",
         "upper_val": 18000,
         "lower_val": "0",
@@ -3576,7 +3576,7 @@
       "properties": {
         "description": "Cape Canaveral, FL, Wednesday, February 05, 2025 through Wednesday, February 05, 2025 Local",
         "notam": "5/8675",
-        "date_effective": "2025-02-05T22:32:00",
+        "date_effective": null,
         "date_expire": "2025-02-06T00:13:00",
         "upper_val": 18000,
         "lower_val": "0",
@@ -3745,7 +3745,7 @@
       "properties": {
         "description": "Cape Canaveral, FL, Tuesday, February 04, 2025 through Tuesday, February 04, 2025 Local",
         "notam": "5/8674",
-        "date_effective": "2025-02-04T22:57:00",
+        "date_effective": null,
         "date_expire": "2025-02-05T00:38:00",
         "upper_val": 18000,
         "lower_val": "0",
@@ -3914,7 +3914,7 @@
       "properties": {
         "description": "Cape Canaveral, FL, Tuesday, February 04, 2025 through Tuesday, February 04, 2025 Local",
         "notam": "5/8673",
-        "date_effective": "2025-02-04T22:57:00",
+        "date_effective": null,
         "date_expire": "2025-02-05T00:38:00",
         "upper_val": 18000,
         "lower_val": "0",
@@ -4083,7 +4083,7 @@
       "properties": {
         "description": "Bedminster, NJ, Friday, January 31, 2025 through Friday, February 28, 2025 Local",
         "notam": "5/8662",
-        "date_effective": "2025-01-31T21:00:00",
+        "date_effective": null,
         "date_expire": "2025-02-28T21:00:00",
         "upper_val": "1000",
         "lower_val": "0",
@@ -4421,7 +4421,7 @@
       "properties": {
         "description": "VIEQUES, PR, Monday, January 13, 2025 through Friday, December 19, 2025 UTC",
         "notam": "5/0633",
-        "date_effective": "2025-01-13T11:00:00",
+        "date_effective": null,
         "date_expire": "2025-12-19T21:00:00",
         "upper_val": "5000",
         "lower_val": "0",
@@ -4590,7 +4590,7 @@
       "properties": {
         "description": "St Francisville, LA, Monday, January 06, 2025 through Thursday, February 06, 2025 Local",
         "notam": "5/0542",
-        "date_effective": "2025-01-06T06:01:00",
+        "date_effective": null,
         "date_expire": "2025-02-07T05:59:00",
         "upper_val": "1000",
         "lower_val": "0",
@@ -4631,7 +4631,7 @@
       "properties": {
         "description": "Coyote Wells, CA, Saturday, January 04, 2025 through Saturday, July 05, 2025 Local",
         "notam": "5/0276",
-        "date_effective": "2025-01-05T00:00:00",
+        "date_effective": null,
         "date_expire": "2025-07-05T23:59:00",
         "upper_val": "500",
         "lower_val": "0",
@@ -4680,7 +4680,7 @@
       "properties": {
         "description": "Calexico, CA, Saturday, January 04, 2025 through Saturday, July 05, 2025 Local",
         "notam": "5/0275",
-        "date_effective": "2025-01-05T00:00:00",
+        "date_effective": null,
         "date_expire": "2025-07-05T23:59:00",
         "upper_val": "500",
         "lower_val": "0",
@@ -4849,7 +4849,7 @@
       "properties": {
         "description": "McGregor, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
         "notam": "4/1529",
-        "date_effective": "2025-01-01T00:00:00",
+        "date_effective": null,
         "date_expire": "2025-07-01T00:00:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -5018,7 +5018,7 @@
       "properties": {
         "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
         "notam": "4/1526",
-        "date_effective": "2025-01-01T00:00:00",
+        "date_effective": null,
         "date_expire": "2025-07-01T00:00:00",
         "upper_val": "2000",
         "lower_val": "0",
@@ -5187,7 +5187,7 @@
       "properties": {
         "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
         "notam": "4/1525",
-        "date_effective": "2025-01-01T00:00:00",
+        "date_effective": null,
         "date_expire": "2025-07-01T00:00:00",
         "upper_val": "10000",
         "lower_val": "0",
@@ -5570,7 +5570,7 @@
       "properties": {
         "description": "San Angelo, TX, Sunday, December 22, 2024 through Sunday, March 09, 2025 Local",
         "notam": "4/7364",
-        "date_effective": "2024-12-22T12:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T07:00:00",
         "upper_val": 18000,
         "lower_val": "3500",
@@ -5739,7 +5739,7 @@
       "properties": {
         "description": "South Padre Island, TX, Sunday, December 01, 2024 Local",
         "notam": "4/9672",
-        "date_effective": "2024-12-01T15:00:00",
+        "date_effective": null,
         "date_expire": null,
         "upper_val": "6000",
         "lower_val": "0",
@@ -6065,7 +6065,7 @@
       "properties": {
         "description": "Clear, AK, Saturday, November 02, 2024 through Saturday, March 08, 2025 Local",
         "notam": "4/8063",
-        "date_effective": "2024-11-03T02:01:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T03:00:00",
         "upper_val": "360360360360",
         "lower_val": "150010002600320",
@@ -6442,7 +6442,7 @@
       "properties": {
         "description": "Clear, AK, Saturday, November 02, 2024 through Saturday, March 08, 2025 Local",
         "notam": "4/8063",
-        "date_effective": "2024-11-03T02:01:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T03:00:00",
         "upper_val": "360360360360",
         "lower_val": "150010002600320",
@@ -6679,7 +6679,7 @@
       "properties": {
         "description": "Clear, AK, Saturday, November 02, 2024 through Saturday, March 08, 2025 Local",
         "notam": "4/8063",
-        "date_effective": "2024-11-03T02:01:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T03:00:00",
         "upper_val": "360360360360",
         "lower_val": "150010002600320",
@@ -7020,7 +7020,7 @@
       "properties": {
         "description": "Clear, AK, Saturday, November 02, 2024 through Saturday, March 08, 2025 Local",
         "notam": "4/8063",
-        "date_effective": "2024-11-03T02:01:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T03:00:00",
         "upper_val": "360360360360",
         "lower_val": "150010002600320",
@@ -7189,7 +7189,7 @@
       "properties": {
         "description": "Beale AFB, CA, Sunday, November 03, 2024 through Sunday, March 09, 2025 Local",
         "notam": "4/6447",
-        "date_effective": "2024-11-03T10:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T09:59:00",
         "upper_val": 18000,
         "lower_val": "4100",
@@ -7358,7 +7358,7 @@
       "properties": {
         "description": "BEALE AFB, CA, Sunday, November 03, 2024 through Sunday, March 09, 2025 Local",
         "notam": "4/6443",
-        "date_effective": "2024-11-03T10:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T09:59:00",
         "upper_val": 18000,
         "lower_val": "4100",
@@ -7527,7 +7527,7 @@
       "properties": {
         "description": "Andersen AFB, GU, Monday, November 04, 2024 through Monday, March 10, 2025 Local",
         "notam": "4/6445",
-        "date_effective": "2024-11-03T16:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T15:59:00",
         "upper_val": "20026002600",
         "lower_val": "260021002100",
@@ -7568,7 +7568,7 @@
       "properties": {
         "description": "Andersen AFB, GU, Monday, November 04, 2024 through Monday, March 10, 2025 Local",
         "notam": "4/6445",
-        "date_effective": "2024-11-03T16:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T15:59:00",
         "upper_val": "20026002600",
         "lower_val": "260021002100",
@@ -7609,7 +7609,7 @@
       "properties": {
         "description": "Andersen AFB, GU, Monday, November 04, 2024 through Monday, March 10, 2025 Local",
         "notam": "4/6445",
-        "date_effective": "2024-11-03T16:00:00",
+        "date_effective": null,
         "date_expire": "2025-03-09T15:59:00",
         "upper_val": "20026002600",
         "lower_val": "260021002100",
@@ -8176,7 +8176,7 @@
       "properties": {
         "description": "Mar A Lago, FL, Friday, May 31, 2024 through Saturday, May 31, 2025 Local",
         "notam": "4/9417",
-        "date_effective": "2024-06-01T03:59:00",
+        "date_effective": null,
         "date_expire": "2025-06-01T03:59:00",
         "upper_val": "1000",
         "lower_val": "0",
@@ -8333,7 +8333,7 @@
       "properties": {
         "description": "S. FINEGAYAN, GU, Wednesday, May 22, 2024 through Thursday, May 22, 2025 Local",
         "notam": "4/7707",
-        "date_effective": "2024-05-21T23:59:00",
+        "date_effective": null,
         "date_expire": "2025-05-22T00:01:00",
         "upper_val": "6000",
         "lower_val": "0",
@@ -8671,7 +8671,7 @@
       "properties": {
         "description": "DISNEY WORLD THEME PARK, ORLANDO, FL, Monday, October 27, 2014 UTC",
         "notam": "4/3634",
-        "date_effective": "2014-10-27T15:00:00",
+        "date_effective": null,
         "date_expire": null,
         "upper_val": "3000",
         "lower_val": "0",
