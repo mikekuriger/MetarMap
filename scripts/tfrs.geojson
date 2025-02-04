@@ -8,6 +8,344 @@
         "coordinates": [
           [
             [
+              -92.92333333,
+              47.48470424
+            ],
+            [
+              -92.9147991,
+              47.48419779
+            ],
+            [
+              -92.90652465,
+              47.48269385
+            ],
+            [
+              -92.89876182,
+              47.48023821
+            ],
+            [
+              -92.8917468,
+              47.4769056
+            ],
+            [
+              -92.88569291,
+              47.47279743
+            ],
+            [
+              -92.88078407,
+              47.4680387
+            ],
+            [
+              -92.87716929,
+              47.46277414
+            ],
+            [
+              -92.87495807,
+              47.45716385
+            ],
+            [
+              -92.8742172,
+              47.45137837
+            ],
+            [
+              -92.87496868,
+              47.44559352
+            ],
+            [
+              -92.87718923,
+              47.43998504
+            ],
+            [
+              -92.88081093,
+              47.43472325
+            ],
+            [
+              -92.88572345,
+              47.42996792
+            ],
+            [
+              -92.89177735,
+              47.42586337
+            ],
+            [
+              -92.89878868,
+              47.42253416
+            ],
+            [
+              -92.90654459,
+              47.42008129
+            ],
+            [
+              -92.9148097,
+              47.41857916
+            ],
+            [
+              -92.92333333,
+              47.41807334
+            ],
+            [
+              -92.93185696,
+              47.41857916
+            ],
+            [
+              -92.94012208,
+              47.42008129
+            ],
+            [
+              -92.94787798,
+              47.42253416
+            ],
+            [
+              -92.95488932,
+              47.42586337
+            ],
+            [
+              -92.96094321,
+              47.42996792
+            ],
+            [
+              -92.96585573,
+              47.43472325
+            ],
+            [
+              -92.96947744,
+              47.43998504
+            ],
+            [
+              -92.97169798,
+              47.44559352
+            ],
+            [
+              -92.97244947,
+              47.45137837
+            ],
+            [
+              -92.97170859,
+              47.45716385
+            ],
+            [
+              -92.96949738,
+              47.46277414
+            ],
+            [
+              -92.96588259,
+              47.4680387
+            ],
+            [
+              -92.96097376,
+              47.47279743
+            ],
+            [
+              -92.95491986,
+              47.4769056
+            ],
+            [
+              -92.94790485,
+              47.48023821
+            ],
+            [
+              -92.94014202,
+              47.48269385
+            ],
+            [
+              -92.93186757,
+              47.48419779
+            ],
+            [
+              -92.92333333,
+              47.48470424
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "HIBBING, MN, Wednesday, February 05, 2025 UTC",
+        "notam": "5/9644",
+        "date_effective": "2025-02-05T15:00:00",
+        "date_expire": "2025-02-05T17:00:00",
+        "upper_val": "4500",
+        "lower_val": "0",
+        "facility": "ZMP",
+        "type": "HAZARDS",
+        "fullDescription": "!FDC 5/9644 ZMP MN..AIRSPACE HIBBING, MN..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(1), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 2NM RADIUS OF 472705N0925524W (HIB313012.7) SFC-4500FT MSL EFFECTIVE 2502051500 UTC UNTIL 2502051700 UTC. HIBBING TACONITE COMPANY, TEL 218-262-5940, IS IN CHARGE OF THE OPS. 2502051500-2502051700"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -90.06166667,
+              30.80114931
+            ],
+            [
+              -90.05830628,
+              30.80089548
+            ],
+            [
+              -90.05504804,
+              30.80014171
+            ],
+            [
+              -90.05199101,
+              30.79891092
+            ],
+            [
+              -90.0492281,
+              30.79724052
+            ],
+            [
+              -90.04684327,
+              30.79518128
+            ],
+            [
+              -90.044909,
+              30.7927958
+            ],
+            [
+              -90.04348403,
+              30.79015657
+            ],
+            [
+              -90.04261162,
+              30.78734382
+            ],
+            [
+              -90.04231825,
+              30.784443
+            ],
+            [
+              -90.04261277,
+              30.78154227
+            ],
+            [
+              -90.04348618,
+              30.77872976
+            ],
+            [
+              -90.04491189,
+              30.77609091
+            ],
+            [
+              -90.04684656,
+              30.77370589
+            ],
+            [
+              -90.04923139,
+              30.77164715
+            ],
+            [
+              -90.0519939,
+              30.76997721
+            ],
+            [
+              -90.05505019,
+              30.7687468
+            ],
+            [
+              -90.05830742,
+              30.76799328
+            ],
+            [
+              -90.06166667,
+              30.76773954
+            ],
+            [
+              -90.06502591,
+              30.76799328
+            ],
+            [
+              -90.06828314,
+              30.7687468
+            ],
+            [
+              -90.07133943,
+              30.76997721
+            ],
+            [
+              -90.07410194,
+              30.77164715
+            ],
+            [
+              -90.07648677,
+              30.77370589
+            ],
+            [
+              -90.07842144,
+              30.77609091
+            ],
+            [
+              -90.07984716,
+              30.77872976
+            ],
+            [
+              -90.08072057,
+              30.78154227
+            ],
+            [
+              -90.08101509,
+              30.784443
+            ],
+            [
+              -90.08072171,
+              30.78734382
+            ],
+            [
+              -90.07984931,
+              30.79015657
+            ],
+            [
+              -90.07842434,
+              30.7927958
+            ],
+            [
+              -90.07649006,
+              30.79518128
+            ],
+            [
+              -90.07410524,
+              30.79724052
+            ],
+            [
+              -90.07134232,
+              30.79891092
+            ],
+            [
+              -90.06828529,
+              30.80014171
+            ],
+            [
+              -90.06502706,
+              30.80089548
+            ],
+            [
+              -90.06166667,
+              30.80114931
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "FRANKLINTON, LA, Tuesday, February 04, 2025 UTC",
+        "notam": "5/9626",
+        "date_effective": "2025-02-04T15:00:00",
+        "date_expire": "2025-02-04T17:00:00",
+        "upper_val": "2000",
+        "lower_val": "0",
+        "facility": "ZHU",
+        "type": "HAZARDS",
+        "fullDescription": "!FDC 5/9626 ZHU LA..AIRSPACE FRANKLINTON, LA..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(1), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 1NM RADIUS OF 304704N0900342W (PCU303021.7) SFC-2000FT MSL EFFECTIVE 2502041500 UTC UNTIL 2502041700 UTC. ZHU, TEL 281-230-5560, IS IN CHARGE OF THE OPS. 2502041500-2502041700"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -93.04861111,
               47.46109327
             ],
@@ -1733,232 +2071,6 @@
         "facility": "ZDC",
         "type": "HAZARDS",
         "fullDescription": "!FDC 5/9030 ZDC DC..AIRSPACE WASHINGTON, DC..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(2), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 385317N0770308W (DCA346001.9) TO 385244N0770221W (DCA003001.2) TO 385246N0770152W (DCA021001.2) TO 385228N0770129W (DCA040001.1) TO 385213N0770122W (DCA054000.9) TO 385149N0770119W (DCA079000.7) TO 385125N0770118W (DCA111000.7) TO 385043N0770117W (DCA149001.1) TO 385007N0770128W (DCA168001.6) TO 384914N0770137W (DCA178002.4) TO 384838N0770136W (DCA180003) TO 384738N0770124W (DCA180004) TO 384738N0770249W (DCA196004) TO 385018N0770242W (DCA207001.3) TO THE POINT OF ORIGIN SFC-17999FT MSL EFFECTIVE 2501312300 UTC UNTIL 2503312300 UTC. DUE TO PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT HELICOPTER TRAFFIC IS PROHIBITED FM OPERATING OVER THE POTOMAC RIVER NEAR DCA IF A LIFESAVING MEDICAL, ACTIVE LAW ENFORCEMENT, ACTIVE AIR DEFENSE, OR PRESIDENTIAL TRANSPORT HELICOPTER MISSION MUST OPERATE IN THIS RESTRICTED AREA, CIVILIAN ACFT WILL NOT BE ALLOWED IN THE AREA TO PREVENT POTENTIAL CONFLICTS IN THIS AIRSPACE. THE MIX OF HELICOPTER AND FIXED WING ACFT OPERATING IN THE AFFECTED AREA AT THE SAME TIME WILL NOT BE PERMITTED. PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT. THE WASHINGTON /ZDC/ ARTCC, TEL 703-771-3470, IS THE CDN FAC. 2501312300-2503312300"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -80.78777778,
-              28.63472222
-            ],
-            [
-              -80.08333333,
-              28.84416667
-            ],
-            [
-              -80.0818396,
-              28.79628774
-            ],
-            [
-              -80.06628467,
-              28.75475844
-            ],
-            [
-              -80.05490697,
-              28.71219137
-            ],
-            [
-              -80.04778825,
-              28.6689115
-            ],
-            [
-              -80.04497751,
-              28.62524886
-            ],
-            [
-              -80.0464908,
-              28.58153599
-            ],
-            [
-              -80.05231128,
-              28.53810541
-            ],
-            [
-              -80.06238946,
-              28.49528707
-            ],
-            [
-              -80.0766438,
-              28.45340592
-            ],
-            [
-              -80.09496139,
-              28.41277939
-            ],
-            [
-              -80.11719904,
-              28.37371508
-            ],
-            [
-              -80.14318439,
-              28.33650841
-            ],
-            [
-              -80.17271736,
-              28.3014405
-            ],
-            [
-              -80.20557175,
-              28.26877601
-            ],
-            [
-              -80.24149695,
-              28.23876127
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78777778,
-              28.63472222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Tuesday, February 04, 2025 Local",
-        "notam": "5/8901",
-        "date_effective": "2025-02-04T08:16:00",
-        "date_expire": "2025-02-04T12:57:00",
-        "upper_val": 18000,
-        "lower_val": "0",
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS",
-        "fullDescription": "!FDC 5/8901 ZMA FL..AIRSPACE CAPE CANAVERAL, FL..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 283805N0804716W (ORL079029.4) TO 285039N0800500W (MLB040053) THEN CLOCKWISE ON A 30 NM ARC CENTERED ON 283703N0803647W (MLB009030.7) TO 281330N0801600W (MLB077020.8) TO 282501N0803029W (MLB027019.8) TO 282501N0803759W (MLB007018.7) TO 282501N0804144W (MLB357018.9) TO 283121N0804349W (MLB356025.5) TO THE POINT OF ORIGIN SFC-FL180 EFFECTIVE 2502040816 UTC (0316 LOCAL 02/04/25) UNTIL 2502041257 UTC (0757 LOCAL 02/04/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITED. THE MIAMI CENTER /ZMA/ ARTCC, TEL 305-716-1589, IS THE CDN FAC. 2502040816-2502041257"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -80.78777778,
-              28.63472222
-            ],
-            [
-              -80.08333333,
-              28.84416667
-            ],
-            [
-              -80.0818396,
-              28.79628774
-            ],
-            [
-              -80.06628467,
-              28.75475844
-            ],
-            [
-              -80.05490697,
-              28.71219137
-            ],
-            [
-              -80.04778825,
-              28.6689115
-            ],
-            [
-              -80.04497751,
-              28.62524886
-            ],
-            [
-              -80.0464908,
-              28.58153599
-            ],
-            [
-              -80.05231128,
-              28.53810541
-            ],
-            [
-              -80.06238946,
-              28.49528707
-            ],
-            [
-              -80.0766438,
-              28.45340592
-            ],
-            [
-              -80.09496139,
-              28.41277939
-            ],
-            [
-              -80.11719904,
-              28.37371508
-            ],
-            [
-              -80.14318439,
-              28.33650841
-            ],
-            [
-              -80.17271736,
-              28.3014405
-            ],
-            [
-              -80.20557175,
-              28.26877601
-            ],
-            [
-              -80.24149695,
-              28.23876127
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78777778,
-              28.63472222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Wednesday, February 05, 2025 Local",
-        "notam": "5/8902",
-        "date_effective": "2025-02-05T07:49:00",
-        "date_expire": "2025-02-05T12:30:00",
-        "upper_val": 18000,
-        "lower_val": "0",
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS",
-        "fullDescription": "!FDC 5/8902 ZMA FL..AIRSPACE CAPE CANAVERAL, FL..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.143, SPACE OPS AREA, ACFT OPS ARE PROHIBITED WI AN AREA DEFINED AS 283805N0804716W (ORL079029.4) TO 285039N0800500W (MLB040053) THEN CLOCKWISE ON A 30 NM ARC CENTERED ON 283703N0803647W (MLB009030.7) TO 281330N0801600W (MLB077020.8) TO 282501N0803029W (MLB027019.8) TO 282501N0803759W (MLB007018.7) TO 282501N0804144W (MLB357018.9) TO 283121N0804349W (MLB356025.5) TO THE POINT OF ORIGIN SFC-FL180 EFFECTIVE 2502050749 UTC (0249 LOCAL 02/05/25) UNTIL 2502051230 UTC (0730 LOCAL 02/05/25). SPACE OPS AREA: ACFT OPS ARE PROHIBITED. THE MIAMI CENTER /ZMA/ ARTCC, TEL 305-716-1589, IS THE CDN FAC. 2502050749-2502051230"
       }
     },
     {
