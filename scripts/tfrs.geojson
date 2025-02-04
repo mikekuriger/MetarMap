@@ -8,6 +8,87 @@
         "coordinates": [
           [
             [
+              -77.05222222,
+              38.88805556
+            ],
+            [
+              -77.03916667,
+              38.87888889
+            ],
+            [
+              -77.03111111,
+              38.87944444
+            ],
+            [
+              -77.02472222,
+              38.87444444
+            ],
+            [
+              -77.02277778,
+              38.87027778
+            ],
+            [
+              -77.02194444,
+              38.86361111
+            ],
+            [
+              -77.02166667,
+              38.85694444
+            ],
+            [
+              -77.02138889,
+              38.84527778
+            ],
+            [
+              -77.02444444,
+              38.83527778
+            ],
+            [
+              -77.02694444,
+              38.82055556
+            ],
+            [
+              -77.02666667,
+              38.81055556
+            ],
+            [
+              -77.02333333,
+              38.79388889
+            ],
+            [
+              -77.04694444,
+              38.79388889
+            ],
+            [
+              -77.045,
+              38.83833333
+            ],
+            [
+              -77.05222222,
+              38.88805556
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Washington, DC",
+        "notam": "5/9909",
+        "date_effective": null,
+        "date_expire": "2025-03-31T23:59:00",
+        "upper_val": "17999",
+        "lower_val": "0",
+        "facility": "ZDC",
+        "type": "HAZARDS",
+        "fullDescription": "!FDC Y/NNNN ZDC DC..AIRSPACE WASHINGTON, DC..TEMPORARY FLIGHT  RESTRICTIONS.        THIS NOTAM REPLACES NOTAM 5/9030 TO UPDATE TFR LANGUAGE.   PURSUANT TO 14 CFR SECTION 91.137(A)(2), TEMPORARY FLIGHT  RESTRICTIONS ARE IN EFFECT  WI AN AREA DEFINED AS 385317N0770308W  (DCA346001.9) TO 385244N0770221W (DCA003001.2) TO 385246N0770152W  (DCA021001.2) TO 385228N0770129W (DCA040001.1) TO 385213N0770122W  (DCA054000.9) TO 385149N0770119W (DCA079000.7) TO 385125N0770118W  (DCA111000.7) TO 385043N0770117W (DCA149001.1) TO 385007N0770128W  (DCA168001.6) TO 384914N0770137W (DCA178002.4) TO 384838N0770136W  (DCA180003) TO 384738N0770124W (DCA180004) TO 384738N0770249W  (DCA196004) TO 385018N0770242W (DCA207001.3) TO THE POINT OF  ORIGIN SFC-17999FT MSL    EFFECTIVE IMMEDIATELY UNTIL 2503312359 UTC (1959 LOCAL 03/31/25).   HELICOPTER TRAFFIC IS RESTRICTED FROM OPERATING OVER THE POTOMAC  RIVER NEAR DCA. IF A LIFESAVING MEDICAL, ACTIVE LAW ENFORCEMENT,  ACTIVE AIR DEFENSE, OR PRESIDENTIAL TRANSPORT HELICOPTER MISSION  MUST OPERATE IN THIS RESTRICTED AREA, CIVILIAN AIRCRAFT WILL NOT  BE ALLOWED IN THE AREA TO PREVENT POTENTIAL CONFLICTS IN THIS  AIRSPACE. THE MIX OF HELICOPTER AND FIXED WING AIRCRAFT OPERATING  IN THE AFFECTED AREA AT THE SAME TIME WILL NOT BE PERMITTED.   THE WASHINGTON /ZDC/ ARTCC, TEL 703-771-3470, IS THE CDN FAC.  2502042228-2503312359"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -80.24079733,
               27.15316953
             ],
@@ -2034,87 +2115,6 @@
         "facility": "ZHN",
         "type": "HAZARDS",
         "fullDescription": "!FDC 5/9072 ZHN HI..AIRSPACE HILO, HI..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(1), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 2NM RADIUS OF 192437N1551647W (ITO208024.0) SFC-5000FT MSL EFFECTIVE 2502010100 UTC UNTIL 2502090100 UTC. HAWAII VOLCANOES NATIONAL PARK, TEL 808-985-6073, IS IN CHARGE OF THE OPS. 2502010100-2502090100"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -77.05222222,
-              38.88805556
-            ],
-            [
-              -77.03916667,
-              38.87888889
-            ],
-            [
-              -77.03111111,
-              38.87944444
-            ],
-            [
-              -77.02472222,
-              38.87444444
-            ],
-            [
-              -77.02277778,
-              38.87027778
-            ],
-            [
-              -77.02194444,
-              38.86361111
-            ],
-            [
-              -77.02166667,
-              38.85694444
-            ],
-            [
-              -77.02138889,
-              38.84527778
-            ],
-            [
-              -77.02444444,
-              38.83527778
-            ],
-            [
-              -77.02694444,
-              38.82055556
-            ],
-            [
-              -77.02666667,
-              38.81055556
-            ],
-            [
-              -77.02333333,
-              38.79388889
-            ],
-            [
-              -77.04694444,
-              38.79388889
-            ],
-            [
-              -77.045,
-              38.83833333
-            ],
-            [
-              -77.05222222,
-              38.88805556
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "WASHINGTON, DC, Friday, January 31, 2025 through Monday, March 31, 2025 UTC",
-        "notam": "5/9030",
-        "date_effective": "2025-01-31T23:00:00",
-        "date_expire": "2025-03-31T23:00:00",
-        "upper_val": "17999",
-        "lower_val": "0",
-        "facility": "ZDC",
-        "type": "HAZARDS",
-        "fullDescription": "!FDC 5/9030 ZDC DC..AIRSPACE WASHINGTON, DC..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 14 CFR SECTION 91.137(A)(2), TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT WI AN AREA DEFINED AS 385317N0770308W (DCA346001.9) TO 385244N0770221W (DCA003001.2) TO 385246N0770152W (DCA021001.2) TO 385228N0770129W (DCA040001.1) TO 385213N0770122W (DCA054000.9) TO 385149N0770119W (DCA079000.7) TO 385125N0770118W (DCA111000.7) TO 385043N0770117W (DCA149001.1) TO 385007N0770128W (DCA168001.6) TO 384914N0770137W (DCA178002.4) TO 384838N0770136W (DCA180003) TO 384738N0770124W (DCA180004) TO 384738N0770249W (DCA196004) TO 385018N0770242W (DCA207001.3) TO THE POINT OF ORIGIN SFC-17999FT MSL EFFECTIVE 2501312300 UTC UNTIL 2503312300 UTC. DUE TO PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT HELICOPTER TRAFFIC IS PROHIBITED FM OPERATING OVER THE POTOMAC RIVER NEAR DCA IF A LIFESAVING MEDICAL, ACTIVE LAW ENFORCEMENT, ACTIVE AIR DEFENSE, OR PRESIDENTIAL TRANSPORT HELICOPTER MISSION MUST OPERATE IN THIS RESTRICTED AREA, CIVILIAN ACFT WILL NOT BE ALLOWED IN THE AREA TO PREVENT POTENTIAL CONFLICTS IN THIS AIRSPACE. THE MIX OF HELICOPTER AND FIXED WING ACFT OPERATING IN THE AFFECTED AREA AT THE SAME TIME WILL NOT BE PERMITTED. PURSUANT TO 14 CFR SECTION 91.137(A)(2) TEMPORARY FLIGHT RESTRICTIONS ARE IN EFFECT. THE WASHINGTON /ZDC/ ARTCC, TEL 703-771-3470, IS THE CDN FAC. 2501312300-2503312300"
       }
     },
     {
