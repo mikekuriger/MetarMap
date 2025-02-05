@@ -4558,6 +4558,176 @@
         "coordinates": [
           [
             [
+              -97.15583333,
+              26.03901365
+            ],
+            [
+              -97.14780026,
+              26.03837852
+            ],
+            [
+              -97.14001153,
+              26.03649246
+            ],
+            [
+              -97.132704,
+              26.03341282
+            ],
+            [
+              -97.12609989,
+              26.02923328
+            ],
+            [
+              -97.12039995,
+              26.02408092
+            ],
+            [
+              -97.11577735,
+              26.01811242
+            ],
+            [
+              -97.11237248,
+              26.01150923
+            ],
+            [
+              -97.11028862,
+              26.00447207
+            ],
+            [
+              -97.10958886,
+              25.99721483
+            ],
+            [
+              -97.11029421,
+              25.98995802
+            ],
+            [
+              -97.112383,
+              25.98292213
+            ],
+            [
+              -97.11579152,
+              25.97632087
+            ],
+            [
+              -97.12041606,
+              25.97035475
+            ],
+            [
+              -97.12611601,
+              25.96520491
+            ],
+            [
+              -97.13271817,
+              25.96102774
+            ],
+            [
+              -97.14002204,
+              25.95795004
+            ],
+            [
+              -97.14780586,
+              25.95606524
+            ],
+            [
+              -97.15583333,
+              25.95543055
+            ],
+            [
+              -97.1638608,
+              25.95606524
+            ],
+            [
+              -97.17164462,
+              25.95795004
+            ],
+            [
+              -97.17894849,
+              25.96102774
+            ],
+            [
+              -97.18555065,
+              25.96520491
+            ],
+            [
+              -97.1912506,
+              25.97035475
+            ],
+            [
+              -97.19587514,
+              25.97632087
+            ],
+            [
+              -97.19928366,
+              25.98292213
+            ],
+            [
+              -97.20137245,
+              25.98995802
+            ],
+            [
+              -97.2020778,
+              25.99721483
+            ],
+            [
+              -97.20137804,
+              26.00447207
+            ],
+            [
+              -97.19929418,
+              26.01150923
+            ],
+            [
+              -97.19588931,
+              26.01811242
+            ],
+            [
+              -97.19126671,
+              26.02408092
+            ],
+            [
+              -97.18556677,
+              26.02923328
+            ],
+            [
+              -97.17896266,
+              26.03341282
+            ],
+            [
+              -97.17165513,
+              26.03649246
+            ],
+            [
+              -97.1638664,
+              26.03837852
+            ],
+            [
+              -97.15583333,
+              26.03901365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
+        "notam": "4/1525",
+        "date_issued": "2024-12-27T13:33:00",
+        "date_effective": "2025-01-01T00:00:00",
+        "date_expire": "2025-07-01T00:00:00",
+        "upper_val": "10000",
+        "lower_val": "0",
+        "facility": "ZHU",
+        "type": "SECURITY",
+        "fullDescription": "!FDC 4/1525 ZHU TX..AIRSPACE BROWNSVILLE, TX..TEMPORARY FLIGHT RESTRICTIONS. DECEMBER 31 , 2024-JUNE 30 2025 LOCAL. PURSUANT TO 49 USC 40103(B)(3), THE FEDERAL AVIATION ADMINISTRATION (FAA) CLASSIFIES THE AIRSPACE DEFINED IN THIS NOTAM AS 'NTL DEFENSE AIRSPACE'. PILOTS WHO DO NOT ADHERE TO THE FOLLOWING PROC MAY BE INTERCEPTED, DETAINED AND INTERVIEWED BY LAW ENFORCEMENT/SECURITY PERSONNEL. ANY OF THE FOLLOWING ADDITIONAL ACTIONS MAY ALSO BE TAKEN AGAINST A PILOT WHO DOES NOT COMPLY WITH THE RQMNTS OR ANY SPECIAL INSTRUCTIONS OR PROC ANNOUNCED IN THIS NOTAM:\nA) THE FAA MAY TAKE ADMINISTRATIVE ACTION, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES; OR \nB) THE UNITED STATES GOVERNMENT MAY PURSUE CRIMINAL CHARGES, INCLUDING CHARGES UNDER 49 USC SECTION 46307; OR \nC) THE UNITED STATES GOVERNMENT MAY USE DEADLY FORCE AGAINST THE AIRBORNE ACFT, IF IT IS DETERMINED THAT THE ACFT POSES AN IMMINENT SECURITY THREAT. \nPURSUANT TO 14 CFR 99.7, SPECIAL SECURITY INSTRUCTIONS, ALL ACFT FLT OPS ARE PROHIBITED: WI AN AREA DEFINED AS 2.5NM RADIUS OF 255950N0970921W (BRO061012.6) SFC-10000FT AGL EFFECTIVE 2501010000 UTC (1800 LOCAL 12/31/24) UNTIL 2507010000 UTC (1900 LOCAL 06/30/25). EXC AS SPECIFIED BLW, EXCLUDING MEXICAN AIRSPACE AND/OR UNLESS AUTH BY ATC: A. APPROVED; LAW ENFORCEMENT, AIR AMBULANCE/SEARCH AND RESCUE, AND REGULARLY SCHEDULED COMMERCIAL PASSENGER AND CARGO CARRIER OPERATIONS ON ATC APPROVED APPROACH TO KBRO ONLY AT OR ABOVE 4,000FT AGL. B. ACFT OPS NECESSITATED FOR SAFETY OR EMERGENCY REASONS. C. ALL ACFT APPROVED TO OPERATE WI THE TFR MUST BE SQUAWKING AN ATC DISCRETE CODE AT ALL TIMES WHILE IN THE TFR AND MUST REMAIN IN TWO-WAY RADIO COM WITH ATC. D. UAS OPS MAY BE AUTH WI THE DEFINED SSI AIRSPACE IF IN COMPLIANCE WITH THE RQMNTS LISTED BLW: 1) UAS OPS IN DCT SUPPORT OF AN ACT NTL DEFENSE, HOMELAND SECURITY, LAW ENFORCEMENT, FIREFIGHTING, SAR, OR DISASTER RESPONSE MISSION; 2) UAS OPS IN SUPPORT OF EVENT OPS; 3) COMMERCIAL UAS OPS WITH A VALID STATEMENT OF WORK; 4) MUST BE IN POSSESSION OF AN APPROVED SPECIAL GOVERNMENTAL INTEREST(SGI) AIRSPACE WAIVER; 5) AND COMPLY WITH ALL OTHER APPLICABLE FEDERAL AVIATION REGULATIONS. E. UAS OPR IDENTIFIED IN C.1, C.2 OR C.3 ABV MUST APPLY FOR A SGI WAIVER VIA EMAIL AT 9-ATOR-HQ-SOSC@FAA.GOV. F. UAS OPR WHO DO NOT COMPLY WITH APPLICABLE AIRSPACE RESTRICTIONS ARE WARNED THAT PURSUANT TO 10 U.S.C.SECTION 130I AND 6 U.S.C.SECTION 124N, THE DEPARTMENT OF DEFENSE(DOD), THE DEPARTMENT OF HOMELAND SECURITY(DHS) OR THE DEPARTMENT OF JUSTICE(DOJ) MAY TAKE SECURITY ACTION THAT RESULTS IN THE INTERFERENCE, DISRUPTION, SEIZURE, DAMAGING, OR DESTRUCTION OF UNMANNED ACFT DEEMED TO POSE A CREDIBLE SAFETY OR SECURITY THREAT TO PROTECTED PERSONNEL, FAC, OR ASSETS. G. THE SYSTEM OPS SUPPORT CENTER (SOSC), IS THE CDN FAC FOR UAS OPR ACCESS AND IS AVBL DLY FM 0600-2359 EASTERN, TEL 202-267-8276 FOR CDN. H. THE FAA RECOMMENDS THAT ALL ACFT OPR CK NOTAMS FREQUENTLY FOR POSSIBLE CHANGES TO THIS TFR PRIOR TO OPS WI THIS REGION.OPR MAY REVIEW THE TFR DETAILS ON THE INTERNET AT HTTPS://TFR.FAA.GOV/ OR HTTPS://WWW.1800WXBRIEF.COM. IF QUESTIONS REMAIN, CTC FSS, TEL 800-992-7433. 2501010000-2507010000"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -97.39194444,
               48.01666667
             ],
