@@ -103,7 +103,7 @@ def process_xml(tfr, xml)
   uid = notam.xpath('NotUid')
   tfr[:local_name] = uid.at_xpath('txtLocalName')&.text
   tfr[:sequence_number] = uid.at_xpath('noSeqNo')&.text
-  tfr[:date_issued] = uid.at_xpath('dateIssued')&.text
+  tfr[:dateIssued] = uid.at_xpath('dateIssued')&.text
 
   schedule_group = notam.at_xpath('//TfrNot/TFRAreaGroup/aseTFRArea/ScheduleGroup')
 
@@ -111,11 +111,11 @@ def process_xml(tfr, xml)
     is_time_separate = schedule_group.at_xpath('isTimeSeparate')&.text == "TRUE"
 
     if is_time_separate
-      tfr[:date_effective] = schedule_group.at_xpath('startTime')&.text
-      tfr[:date_expire] = schedule_group.at_xpath('endTime')&.text
+      tfr[:dateEffective] = schedule_group.at_xpath('startTime')&.text
+      tfr[:dateExpire] = schedule_group.at_xpath('endTime')&.text
     else
-      tfr[:date_effective] = schedule_group.at_xpath('dateEffective')&.text
-      tfr[:date_expire] = schedule_group.at_xpath('dateExpire')&.text
+      tfr[:dateEffective] = schedule_group.at_xpath('dateEffective')&.text
+      tfr[:dateExpire] = schedule_group.at_xpath('dateExpire')&.text
     end
   end
 
@@ -126,10 +126,11 @@ def process_xml(tfr, xml)
   area_group = tfr_notam.xpath('//TFRAreaGroup')
 
   boundary = area_group.xpath('//aseTFRArea')
-  tfr[:upper_val] = boundary.xpath('//valDistVerUpper')&.text
-  tfr[:upper_unit] = boundary.xpath('//uomDistVerUpper')&.text
-  tfr[:lower_val] = boundary.xpath('//valDistVerLower')&.text
-  tfr[:lower_unit] = boundary.xpath('//uomDistVerLower')&.text
+  tfr[:upperVal] = boundary.xpath('//valDistVerUpper')&.text.to_i
+  tfr[:upperUnit] = boundary.xpath('//uomDistVerUpper')&.text
+  tfr[:lowerVal] = boundary.xpath('//valDistVerLower')&.text.to_i
+  tfr[:lowerUnit] = boundary.xpath('//uomDistVerLower')&.text
+  tfr[:upperVal] *= 100 if tfr[:upperUnit] == "FL"
 
   # 🔥 NEW CODE: Extract Multiple Polygons 🔥
   tfr[:area_group] = { boundary_areas: [] }
@@ -224,10 +225,11 @@ when 'geojson'
               description: tfr[:short_description].gsub("\r\n New", ""),
               notam: tfr[:notam],
               #notam: convert_notam_to_path(tfr[:notam]),
-              date_effective: tfr[:date_effective],
-              date_expire: tfr[:date_expire],
-              upper_val: tfr[:upper_val],
-              lower_val: tfr[:lower_val],
+              dateIssued: tfr[:dateIssued],
+              dateEffective: tfr[:dateEffective],
+              dateExpire: tfr[:dateExpire],
+              upperVal: tfr[:upperVal],
+              lowerVal: tfr[:lowerVal],
               facility: tfr[:facility],
               type: tfr[:type],
               fullDescription: tfr[:description]
