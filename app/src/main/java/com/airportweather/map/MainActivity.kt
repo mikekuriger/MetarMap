@@ -41,19 +41,23 @@ import kotlin.math.roundToInt
 import org.json.JSONArray
 import org.json.JSONObject
 import android.os.Bundle
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.Polygon
 import kotlinx.serialization.*
 import java.io.IOException
 import java.net.HttpURLConnection
-import javax.xml.parsers.DocumentBuilderFactory
-import org.w3c.dom.Element
 import java.util.concurrent.TimeUnit
 
 @Serializable
@@ -82,6 +86,7 @@ data class METAR(
     val metarType: String?,      // Example: "METAR"
     val elevationM: Int?         // Example: 221
 )
+
 @Serializable
 data class TAF(
     val stationId: String,
@@ -95,14 +100,16 @@ data class TFRGeometry(
     val coordinates: List<List<List<Double>>>
 )
 data class TFRProperties(
-    val notam: String,
-    val type: String,
     val description: String,
+    val notam: String,
+    val dateIssued: String,
+    val dateEffective: String,
+    val dateExpire: String,
+    val type: String,
     val fullDescription: String,
     val altitudeMin: String,
     val altitudeMax: String,
-    val startTime: String,
-    val endTime: String
+    val facility: String
 )
 data class TFRFeature(
     val properties: TFRProperties,
@@ -286,13 +293,11 @@ fun determineTAFConditions(forecast: TAF): String {
     }
 }
 // TFR
-// step 1
 suspend fun getOrDownloadTfrs(filesDir: File): File? {
     val geoJsonCacheDir = File(filesDir, "geojson").apply { mkdirs() }
     val tfrFile = File(geoJsonCacheDir, "tfrs.geojson")
     val maxAgeMillis = TimeUnit.HOURS.toMillis(1) // 1 hour threshold
-    println("✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: ${geoJsonCacheDir}")
-
+    println("✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: $geoJsonCacheDir")
 
     // Check if the cached file is valid
     if (tfrFile.exists() && tfrFile.length() > 0 && System.currentTimeMillis() - tfrFile.lastModified() < maxAgeMillis) {
@@ -344,7 +349,6 @@ suspend fun downloadTfrData(filesDir: File): File {
         }
     }
 }
-// step 2
 fun parseTFRGeoJson(file: File): List<TFRFeature> {
     val tfrFeatures = mutableListOf<TFRFeature>()
 
@@ -382,18 +386,21 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
                 val tfrGeometry = TFRGeometry(type, parsedCoordinates)
 
                 // Extract updated properties
-                val notam = properties.optString("notam", "Unknown")
-                val tfrType = properties.optString("type", "Unknown")
                 val description = properties.optString("description", "No description available")
-                val fullDescription = properties.optString("full_description", "No details available")
-                val altitudeMin = properties.optString("lower_val", "Surface")
-                val altitudeMax = properties.optString("upper_val", "Unlimited")
-                val startTime = properties.optString("start_time", "Ongoing")
-                val endTime = properties.optString("end_time", "Ongoing")
+                val notam = properties.optString("notam", "Unknown")
+                val dateIssued = properties.optString("dateIssued", "Unknown")
+                val dateEffective = properties.optString("dateEffective", "Unknown")
+                val dateExpire = properties.optString("dateExpire", "Ongoing")
+                val tfrType = properties.optString("type", "Unknown")
+                val fullDescription = properties.optString("fullDescription", "No details available")
+                val altitudeMin = properties.optString("lowerVal", "Surface")
+                val altitudeMax = properties.optString("upperVal", "Unlimited")
+                val facility = properties.optString("facility", "Unknown")
+
 
                 // Create TFRProperties object
                 val tfrProperties = TFRProperties(
-                    notam, tfrType, description, fullDescription, altitudeMin, altitudeMax, startTime, endTime
+                    description, notam, dateIssued, dateEffective, dateExpire, tfrType, fullDescription, altitudeMin, altitudeMax, facility
                 )
 
                 // Add to list
@@ -469,6 +476,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val tfrPolygons = mutableListOf<Polygon>()
     private var areAirspacesVisible = true
     private val airspacePolygons = mutableListOf<Polygon>()
+    private var areMetarsVisible = true
+    private val metarMarkers = mutableListOf<Marker>()
+    //private val tfrPolygonInfo = mutableMapOf<Polygon, String>()
+    private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
+
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -490,36 +502,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
         mMap.mapType = GoogleMap.MAP_TYPE_TERRAIN // Options: NORMAL, SATELLITE, TERRAIN, HYBRID
         mMap.uiSettings.isRotateGesturesEnabled = false
-
+        mMap.setMinZoomPreference(6.0f) // Set minimum zoom level (adjust as needed)
+        mMap.setMaxZoomPreference(15.0f) // Set maximum zoom level (adjust as needed)
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
         checkLocationPermission()
         moveToCurrentLocation()
 
-        // **Load TFR GeoJSON**
-        lifecycleScope.launch {
-            try {
-                // Step 1: Download TFRs
-                showBottomProgressBar("🚨 Updating tfr data")
-                val tfrFile = getOrDownloadTfrs(filesDir)
+        showBottomProgressBar("🚨 Downloading METAR data...")
 
-                // Step 2: Load the GeoJSON file
-                if (tfrFile != null) {
-                    println("✅ Parsing tfr data...")
-                    val tfrFeatures = parseTFRGeoJson(tfrFile)
-                    drawTFRPolygons(mMap, tfrFeatures)
-                } else {
-                    showBottomProgressBar("No TFR data available")
-                    println("🚨 No TFR data available")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // **Load TFR GeoJSON**
+        loadAndDrawTFR()
 
         // **Load Airspace Boundaries**
         loadAndDrawAirspace(mMap, this)
 
-        // Initialize the toggle button
+        // **Load Metars**
+        loadAndDrawMetar()
+
+        // Initialize the airspace button
         val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
         var isAirspaceVisible = true
         airspaceButton.setOnClickListener {
@@ -528,6 +528,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             updateButtonState(airspaceButton, isAirspaceVisible)
         }
 
+        // Initialize the tfr button
         val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
         var isTFRVisible = true
         tfrButton.setOnClickListener {
@@ -536,6 +537,32 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             updateButtonState(tfrButton, isTFRVisible)
         }
 
+        // Handle when user clicks on a TFR
+        mMap.setOnPolygonClickListener { polygon ->
+            val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+
+            if (tfrList != null) {
+                if (tfrList.size == 1) {
+                    // ✅ Show single TFR pop-up
+                    showTfrPopup(this, tfrList[0])
+                } else {
+                    // ✅ Show list selection if multiple TFRs exist
+                    showTfrSelectionDialog(this, tfrList)
+                }
+            }
+        }
+
+
+        // Initialize the metar button
+        val metarButton = findViewById<Button>(R.id.toggle_metar_button)
+        var isMetarVisible = true
+        metarButton.setOnClickListener {
+            isMetarVisible = !isMetarVisible
+            toggleMetarVisibility()
+            updateButtonState(metarButton, isMetarVisible)
+        }
+
+        // Handle when user clicks on a metar marker
         mMap.setOnMarkerClickListener { marker ->
             // Move the camera to center the marker on the screen
             val cameraUpdate = CameraUpdateFactory.newLatLng(marker.position)
@@ -548,34 +575,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             true
         }
 
-        // Fetch METAR data in a coroutine
-//        lifecycleScope.launch {
-//            try {
-//                val metarFile = downloadAndUnzipMetarData(filesDir)
-//                //val metarFile = downloadMetarData(filesDir)
-//                val metars = parseMetarCsv(metarFile)
-//                val tafFile = downloadAndUnzipTafData(filesDir)
-//                val tafs = parseTAFCsv(tafFile)
-//
-//                if (metars.isEmpty()) {
-//                    Toast.makeText(this@MainActivity, "No airports found in METAR data", Toast.LENGTH_LONG).show()
-//                } else {
-//                    // Update markers based on visible map area
-//                    mMap.setOnCameraIdleListener {
-//                        updateVisibleMarkers(metars, tafs)
-//                    }
-//                    // Initial rendering of markers based on the current visible map area
-//                    updateVisibleMarkers(metars, tafs)
-//                }
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//                Toast.makeText(
-//                    this@MainActivity,
-//                    "Error fetching METAR data: ${e.message}",
-//                    Toast.LENGTH_LONG
-//                ).show()
-//            }
-//        }
     }
 
     private fun checkLocationPermission() {
@@ -629,7 +628,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             e.printStackTrace()
         }
     }
-
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -656,74 +654,62 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         return bitmap
     }
-    private fun createTransparentCircle(size: Int): Bitmap {
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint()
-        paint.isAntiAlias = true
-        paint.color = Color.TRANSPARENT
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
-        return bitmap
-    }
-
     // Update markers based on visible map area
     private fun updateVisibleMarkers(metars: List<METAR>, tafs: List<TAF>) {
         val visibleBounds = mMap.projection.visibleRegion.latLngBounds
         //mMap.clear()
-
         for (metar in metars) {
             val location = LatLng(metar.latitude, metar.longitude)
             if (visibleBounds.contains(location)) {
-                val dotSize = 60
-                val borderWidth = 13
-                // Determine the METAR circle color based on flight category
-                val circleColor = when (metar.flightCategory) {
-                    "VFR" -> Color.GREEN
-                    "MVFR" -> Color.parseColor("#0080FF") // BLUE
-                    "IFR" -> Color.RED
-                    "LIFR" -> Color.parseColor("#FF00FF") // PURPLE
-                    else -> Color.WHITE
+                val existingMarker = metarMarkers.find { it.position == location }
+
+                if (existingMarker != null) {
+                    // 🔹 Just update visibility, don't recreate
+                    existingMarker.isVisible = areMetarsVisible
+                } else {
+                    // 🔹 Create marker only if missing
+                    val dotSize = 60
+                    val borderWidth = 13
+                    val circleColor = when (metar.flightCategory) {
+                        "VFR" -> Color.GREEN
+                        "MVFR" -> Color.parseColor("#0080FF") // BLUE
+                        "IFR" -> Color.RED
+                        "LIFR" -> Color.parseColor("#FF00FF") // PURPLE
+                        else -> Color.WHITE
+                    }
+
+                    val taf = tafs.find { it.stationId == metar.stationId }
+                    val borderColor = when (taf?.flightCategory) {
+                        "VFR" -> Color.GREEN
+                        "MVFR" -> Color.parseColor("#0080FF") // Blue
+                        "IFR" -> Color.RED
+                        "LIFR" -> Color.parseColor("#FF00FF") // Purple
+                        else -> Color.WHITE
+                    }
+
+                    if (circleColor == Color.WHITE) continue
+                    val dotBitmap = createDotBitmap(dotSize, circleColor, borderColor, borderWidth)
+
+                    val marker = mMap.addMarker(
+                        MarkerOptions()
+                            .position(location)
+                            .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                            .anchor(0.5f, 0.5f)
+                            .visible(areMetarsVisible)
+                            .title(
+                                metar.stationId + " - " + metar.flightCategory +
+                                        (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+                            )
+                            .snippet(formatAirportDetails(metar))
+                    )
+
+                    marker?.let { metarMarkers.add(it) }
+
                 }
-
-                // Find the corresponding TAF for this METAR station
-                val taf = tafs.find { it.stationId == metar.stationId }
-
-                // Determine the TAF border color based on forecast flight condition
-                val borderColor = when (taf?.flightCategory) {
-                    "VFR" -> Color.GREEN
-                    "MVFR" -> Color.parseColor("#0080FF") // Blue
-                    "IFR" -> Color.RED
-                    "LIFR" -> Color.parseColor("#FF00FF") // Purple
-                    else -> Color.WHITE // circleColor
-                }
-
-                if (circleColor == Color.WHITE) continue
-                val dotBitmap = createDotBitmap(dotSize, circleColor, borderColor, borderWidth)
-
-                // Add a visible marker with the dot icon
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(location)
-                        .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
-                        .anchor(0.5f, 0.5f)
-                )
-                // Add an invisible marker with a larger clickable area
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(location)
-                        .icon(BitmapDescriptorFactory.fromBitmap(createTransparentCircle(dotSize + 20)))
-                        .anchor(0.5f, 0.5f) // Center the larger circle
-                        .title(
-                            metar.stationId + " - " + metar.flightCategory +
-                                    (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
-                        )
-                        .snippet(formatAirportDetails(metar))
-                )
             }
         }
     }
-
-    // Format the airport details for the marker snippet
+    // Format the weather details for the popup snippet
     private fun formatAirportDetails(metars: METAR): String {
         val ageInMinutes = calculateMetarAge(metars.observationTime)
         return """
@@ -752,7 +738,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     """.trimIndent()
 
     }
-
     private fun showBottomProgressBar(message: String) {
         val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
         val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
@@ -776,7 +761,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun updateButtonState(button: Button, isActive: Boolean) {
         // Change button color based on state
         if (isActive) {
-            //button.setBackgroundColor(Color.DKGRAY) // Active state
             button.setBackgroundColor(Color.parseColor("#90000000")) // Active state
             button.setTextColor(Color.WHITE)
         } else {
@@ -785,6 +769,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private fun loadAndDrawTFR() {
+        lifecycleScope.launch {
+            try {
+                // Step 1: Download TFRs
+                //showBottomProgressBar("🚨 Updating TFR data")
+                val tfrFile = getOrDownloadTfrs(filesDir)
+
+                // Step 2: Load the GeoJSON file
+                if (tfrFile != null) {
+                    println("✅ Parsing tfr data...")
+                    val tfrFeatures = parseTFRGeoJson(tfrFile)
+                    drawTFRPolygons(mMap, tfrFeatures)
+                } else {
+                    showBottomProgressBar("No TFR data available")
+                    println("🚨 No TFR data available")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
     private fun drawTFRPolygons(map: GoogleMap, tfrFeatures: List<TFRFeature>) {
         val dateFormat = SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.US)
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
@@ -802,7 +807,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             // Convert coordinates to a list of LatLng objects
             for (polygon in coordinatesList) {
-                //val latLngList = polygon.map { LatLng(it[1], it[0]) }
                 var latLngList = polygon.map { LatLng(it[1], it[0]) }.toMutableList()
                 val name = feature.properties.description
 
@@ -814,7 +818,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     latLngList = deduplicatedLatLngList.toMutableList()
                     latLngList.add(deduplicatedLatLngList.first()) // Close the polygon
                 }
-
 
                 // Extract dates from the name field
                 val regex = Regex("""(\w+, \w+ \d{1,2}, \d{4}) through (\w+, \w+ \d{1,2}, \d{4})""")
@@ -847,22 +850,93 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         .strokeColor(strokeColor)
                         .fillColor(fillColor)
                         .strokeWidth(2f)
-                        //.strokePattern(listOf(Dash(20f), Gap(5f)))
                         .visible(areTFRsVisible)
+                        .clickable(true)
                 )
                 tfrPolygons.add(mapPolygon)
+
+                // Store TFR info for later use
+                tfrPolygonInfo.getOrPut(mapPolygon) { mutableListOf() }.add(feature.properties)
             }
         }
+    }
+    private fun showTfrPopup(context: Context, tfr: TFRProperties) {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
+        val currentDate = Date()
+
+        // ✅ Ensure `dateEffective` and `dateExpire` are used for date parsing
+        val startDateString = if (tfr.dateEffective.isEmpty() || tfr.dateEffective == "null") {
+            tfr.dateIssued
+        } else {
+            tfr.dateEffective
+        }
+        val startDate = try { dateFormat.parse(startDateString) } catch (e: Exception) { null }
+        val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
+
+        // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
+        val altitudeInfo = "${if (tfr.altitudeMin == "0") "Surface" else tfr.altitudeMin} - " +
+                if ((tfr.altitudeMax.replace(",", "").toIntOrNull() ?: 0) >= 90000) "Unlimited" else tfr.altitudeMax
+
+        // ✅ Check if the TFR is active
+        val status = if (endDate == null || (startDate != null && currentDate in startDate..endDate)) {
+            "Active"
+        } else {
+            "Inactive"
+        }
+
+        // **Set Custom Colors** (you can define these in `colors.xml` if needed)
+        val activeColor = ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Green for Active
+        val inactiveColor = ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Red for Inactive
+        val altitudeColor = ContextCompat.getColor(context, android.R.color.holo_blue_dark) // Blue for altitude
+
+        // **Create Spannable Title with Custom Colors**
+        val tfrHead = SpannableString("$status, $altitudeInfo")
+
+        // Apply color to status
+        tfrHead.setSpan(
+            ForegroundColorSpan(if (status == "Active") activeColor else inactiveColor),
+            0, status.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // Apply color to altitude info
+        tfrHead.setSpan(
+            ForegroundColorSpan(altitudeColor),
+            status.length + 2, tfrHead.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // ✅ Keep the rest of your function the same
+        val tfrBody = """
+            ${tfr.facility} ${tfr.notam} ${tfr.type}
+            Effective: ${startDate?.let { outputFormat.format(it) } ?: "Unknown"}
+            Description: ${tfr.description}
+        """.trimIndent()
+
+        AlertDialog.Builder(context)
+            .setTitle(tfrHead)  // ✅ Now supports colored text
+            .setMessage(tfrBody)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+    private fun showTfrSelectionDialog(context: Context, tfrList: List<TFRProperties>) {
+        val tfrTitles = tfrList.map { "${it.notam} - ${it.type}" }.toTypedArray()
+
+        AlertDialog.Builder(context)
+            .setTitle("Please Select One")
+            .setItems(tfrTitles) { _, which ->
+                showTfrPopup(context, tfrList[which])
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
     private fun toggleTFRVisibility() {
         areTFRsVisible = !areTFRsVisible
         tfrPolygons.forEach { it.isVisible = areTFRsVisible }
         Log.d("ToggleTFR", "TFR visibility set to $areTFRsVisible")
     }
-    private fun loadAndDrawAirspace(map: GoogleMap, context: Context) {
-        if (airspacePolygons.isNotEmpty()) return // Skip if already loaded
 
-        //showBottomProgressBar("Loading airspace data...")
+    private fun loadAndDrawAirspace(map: GoogleMap, context: Context) {
+        if (airspacePolygons.isNotEmpty()) return
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -888,19 +962,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             polygonOptions.strokeColor(Color.argb(90, 200, 63, 200))
                                 .strokeWidth(2f)
                         } else if (airspaceTypeCode == "CLASS") {
-                            when (val airspaceClass = properties.optString("CLASS", "Unknown")) {
-                                "B" -> polygonOptions.strokeColor(Color.argb(128, 0, 64, 255))
-                                    //.fillColor(Color.argb(0, 0, 64, 255))
+                            val airspaceClass = properties.optString("LOCAL_TYPE", "Unknown").trim()
+                            //Log.d("DEBUG", "Airspace Class: '$airspaceClass'")
+                            //Log.d("DEBUG", "Airspace Properties: $properties")
+
+                            when (airspaceClass) {
+                                "CLASS_B" -> polygonOptions.strokeColor(Color.argb(128, 0, 64, 255))
                                     .strokeWidth(8f)
-                                "C" -> polygonOptions.strokeColor(Color.MAGENTA)
-                                    //.fillColor(Color.argb(0, 150, 63, 150))
+                                "CLASS_C" -> polygonOptions.strokeColor(Color.MAGENTA)
                                     .strokeWidth(4f)
-                                "D", "E" -> polygonOptions.strokeColor(
-                                    if (airspaceClass == "D") Color.parseColor("#0080FF") else Color.parseColor(
+                                "CLASS_D", "CLASS_E4" -> polygonOptions.strokeColor(
+                                    if (airspaceClass == "CLASS_D") Color.parseColor("#0080FF") else Color.parseColor(
                                         "#863F67"
                                     )
                                 ).strokeWidth(4f)
                                     .strokePattern(listOf(Dash(20f), Gap(10f)))
+//                                "CLASS_E5" -> polygonOptions.strokeColor(Color.argb(32, 134, 63, 103))
+//                                    .strokeWidth(15f)
                                 else -> polygonOptions.strokeColor(Color.TRANSPARENT)
                                     .fillColor(Color.argb(0, 0, 0, 0))
                                     .strokeWidth(1f)
@@ -918,22 +996,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 airspacePolygons.addAll(newPolygons) // Add polygons to global list
             } catch (e: Exception) {
                 Log.e("GeoJSON", "Error loading boundaries: ${e.localizedMessage}")
-            } finally {
-                // Dismiss the progress dialog
-                withContext(Dispatchers.Main) {
-                    hideBottomProgressBar()
-                }
             }
         }
-    }
-    private fun toggleAirspace() {
-        areAirspacesVisible = !areAirspacesVisible
-//        airspacePolygons.forEach { polygon ->
-//            polygon.isVisible = areAirspacesVisible
-//        }
-        airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
-        
-        Log.d("ToggleAirspace", "Airspace visibility set to $areAirspacesVisible")
     }
     private fun extractPolygonCoordinates(coordinatesArray: JSONArray): List<LatLng> {
         val points = mutableListOf<LatLng>()
@@ -946,5 +1010,53 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         return points
     }
+    private fun toggleAirspace() {
+        areAirspacesVisible = !areAirspacesVisible
+        airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
+        Log.d("ToggleAirspace", "Airspace visibility set to $areAirspacesVisible")
+    }
 
+    private fun loadAndDrawMetar() {
+        lifecycleScope.launch {
+            try {
+                val metarFile = downloadAndUnzipMetarData(filesDir)
+                val metarData = parseMetarCsv(metarFile)
+                val tafFile = downloadAndUnzipTafData(filesDir)
+                val tafData = parseTAFCsv(tafFile)
+
+                if (metarData.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "No airports found in METAR data", Toast.LENGTH_LONG).show()
+                } else {
+                    // Update markers based on visible map area
+                    mMap.setOnCameraIdleListener {
+                        updateVisibleMarkers(metarData, tafData)
+                    }
+                    // Initial rendering of markers based on the current visible map area
+                    updateVisibleMarkers(metarData, tafData)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error fetching METAR data: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }finally {
+                // Dismiss the progress dialog
+                withContext(Dispatchers.Main) {
+                    hideBottomProgressBar()
+                }
+            }
+        }
+    }
+    private fun toggleMetarVisibility() {
+        areMetarsVisible = !areMetarsVisible
+        metarMarkers.forEach { marker ->
+            //if (marker.snippet == null) {
+            // 🔹 This is a METAR dot marker, toggle it
+            marker.isVisible = areMetarsVisible
+            //}
+        }
+        Log.d("ToggleAirspace", "Airspace visibility set to $areMetarsVisible")
+    }
 }

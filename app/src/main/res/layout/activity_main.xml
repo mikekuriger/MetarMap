@@ -73,10 +73,10 @@
                 style="@style/CustomButtonBarStyle"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginStart="8dp"
-                android:layout_marginLeft="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginRight="8dp"
+                android:layout_marginStart="4dp"
+
+                android:layout_marginEnd="1dp"
+
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
                 android:text="@string/toggle_airspace"
@@ -90,10 +90,10 @@
                 style="@style/CustomButtonBarStyle"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginStart="8dp"
-                android:layout_marginLeft="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginRight="8dp"
+                android:layout_marginStart="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginEnd="1dp"
+                android:layout_marginRight="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
                 android:text="@string/toggle_tfr"
@@ -107,14 +107,30 @@
                 style="@style/CustomButtonBarStyle"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginStart="8dp"
-                android:layout_marginLeft="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginRight="8dp"
+                android:layout_marginStart="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginEnd="1dp"
+                android:layout_marginRight="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
                 android:text="@string/toggle_wind"
                 android:textColor="@android:color/secondary_text_dark"
+                tools:ignore="TouchTargetSizeCheck" />
+
+            <!-- Button 4 -->
+            <Button
+                android:id="@+id/toggle_metar_button"
+                style="@style/CustomButtonBarStyle"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="1dp"
+
+                android:layout_marginEnd="4dp"
+
+                android:layout_marginBottom="4dp"
+                android:layout_weight="1"
+                android:text="@string/toggle_weather"
+                android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
         </LinearLayout>
 
