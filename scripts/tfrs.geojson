@@ -277,7 +277,7 @@
         "dateIssued": "2025-02-05T17:14:00",
         "dateEffective": "2025-02-08T18:13:00",
         "dateExpire": "2025-02-08T22:54:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 0,
         "facility": "ZMA",
         "type": "SPACE OPERATIONS"
@@ -390,7 +390,7 @@
         "dateIssued": "2025-02-05T17:14:00",
         "dateEffective": "2025-02-09T17:45:00",
         "dateExpire": "2025-02-09T22:26:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 0,
         "facility": "ZMA",
         "type": "SPACE OPERATIONS"
@@ -503,7 +503,7 @@
         "dateIssued": "2025-02-05T17:13:00",
         "dateEffective": "2025-02-07T18:40:00",
         "dateExpire": "2025-02-07T23:21:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 0,
         "facility": "ZMA",
         "type": "SPACE OPERATIONS"
@@ -1573,7 +1573,7 @@
         "dateIssued": "2025-02-02T21:41:00",
         "dateEffective": "2025-02-02T04:45:00",
         "dateExpire": "2025-02-02T14:15:00",
-        "upperVal": 910,
+        "upperVal": 91000,
         "lowerVal": 0,
         "facility": "ZAN",
         "type": "SPACE OPERATIONS"
@@ -1630,7 +1630,7 @@
         "dateIssued": "2025-02-02T21:36:00",
         "dateEffective": "2025-02-02T04:45:00",
         "dateExpire": "2025-02-02T14:15:00",
-        "upperVal": 910,
+        "upperVal": 91000,
         "lowerVal": 0,
         "facility": "ZAN",
         "type": "SPACE OPERATIONS"
@@ -5574,7 +5574,7 @@
         "dateIssued": "2024-12-16T15:49:00",
         "dateEffective": "2024-12-22T12:00:00",
         "dateExpire": "2025-03-09T07:00:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 3500,
         "facility": "ZFW",
         "type": "SECURITY"
@@ -6069,7 +6069,7 @@
         "dateIssued": "2024-11-01T19:18:00",
         "dateEffective": "2024-11-03T02:01:00",
         "dateExpire": "2025-03-09T03:00:00",
-        "upperVal": 360,
+        "upperVal": 36000,
         "lowerVal": 1500,
         "facility": "ZAN",
         "type": "SECURITY"
@@ -6446,7 +6446,7 @@
         "dateIssued": "2024-11-01T19:18:00",
         "dateEffective": "2024-11-03T02:01:00",
         "dateExpire": "2025-03-09T03:00:00",
-        "upperVal": 360,
+        "upperVal": 36000,
         "lowerVal": 1500,
         "facility": "ZAN",
         "type": "SECURITY"
@@ -6683,7 +6683,7 @@
         "dateIssued": "2024-11-01T19:18:00",
         "dateEffective": "2024-11-03T02:01:00",
         "dateExpire": "2025-03-09T03:00:00",
-        "upperVal": 360,
+        "upperVal": 36000,
         "lowerVal": 1500,
         "facility": "ZAN",
         "type": "SECURITY"
@@ -7024,7 +7024,7 @@
         "dateIssued": "2024-11-01T19:18:00",
         "dateEffective": "2024-11-03T02:01:00",
         "dateExpire": "2025-03-09T03:00:00",
-        "upperVal": 360,
+        "upperVal": 36000,
         "lowerVal": 1500,
         "facility": "ZAN",
         "type": "SECURITY"
@@ -7193,7 +7193,7 @@
         "dateIssued": "2024-10-30T22:47:00",
         "dateEffective": "2024-11-03T10:00:00",
         "dateExpire": "2025-03-09T09:59:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 4100,
         "facility": "ZOA",
         "type": "SECURITY"
@@ -7362,7 +7362,7 @@
         "dateIssued": "2024-10-30T22:32:00",
         "dateEffective": "2024-11-03T10:00:00",
         "dateExpire": "2025-03-09T09:59:00",
-        "upperVal": 180,
+        "upperVal": 18000,
         "lowerVal": 4100,
         "facility": "ZOA",
         "type": "SECURITY"
@@ -7531,7 +7531,7 @@
         "dateIssued": "2024-10-30T22:25:00",
         "dateEffective": "2024-11-03T16:00:00",
         "dateExpire": "2025-03-09T15:59:00",
-        "upperVal": 200,
+        "upperVal": 20000,
         "lowerVal": 2600,
         "facility": "ZUA",
         "type": "SECURITY"
@@ -7572,7 +7572,7 @@
         "dateIssued": "2024-10-30T22:25:00",
         "dateEffective": "2024-11-03T16:00:00",
         "dateExpire": "2025-03-09T15:59:00",
-        "upperVal": 200,
+        "upperVal": 20000,
         "lowerVal": 2600,
         "facility": "ZUA",
         "type": "SECURITY"
@@ -7613,7 +7613,7 @@
         "dateIssued": "2024-10-30T22:25:00",
         "dateEffective": "2024-11-03T16:00:00",
         "dateExpire": "2025-03-09T15:59:00",
-        "upperVal": 200,
+        "upperVal": 20000,
         "lowerVal": 2600,
         "facility": "ZUA",
         "type": "SECURITY"
