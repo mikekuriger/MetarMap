@@ -159,7 +159,7 @@
         ]
       },
       "properties": {
-        "description": "HILO, HI, Saturday, February 08, 2025 through Sunday, February 16, 2025 UTC",
+        "description": "HILO, HI, Saturday, February 08, 2025 through Sunday, February 16, 2025 UTC\r\n New",
         "notam": "5/1226",
         "dateIssued": "2025-02-07T18:42:00",
         "dateEffective": "2025-02-08T01:00:00",
@@ -208,7 +208,7 @@
         ]
       },
       "properties": {
-        "description": "Fort Wingate, NM, Friday, February 14, 2025 Local",
+        "description": "Fort Wingate, NM, Friday, February 14, 2025 Local\r\n New",
         "notam": "5/1216",
         "dateIssued": "2025-02-07T17:54:00",
         "dateEffective": "2025-02-14T13:40:00",
@@ -257,7 +257,7 @@
         ]
       },
       "properties": {
-        "description": "Fort Wingate, NM, Wednesday, February 12, 2025 Local",
+        "description": "Fort Wingate, NM, Wednesday, February 12, 2025 Local\r\n New",
         "notam": "5/1215",
         "dateIssued": "2025-02-07T17:50:00",
         "dateEffective": "2025-02-12T13:40:00",
