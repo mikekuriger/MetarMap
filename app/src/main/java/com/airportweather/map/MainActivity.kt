@@ -86,7 +86,6 @@ data class METAR(
     val metarType: String?,      // Example: "METAR"
     val elevationM: Int?         // Example: 221
 )
-
 @Serializable
 data class TAF(
     val stationId: String,
@@ -106,15 +105,17 @@ data class TFRProperties(
     val dateEffective: String,
     val dateExpire: String,
     val type: String,
-    val fullDescription: String,
     val altitudeMin: String,
     val altitudeMax: String,
-    val facility: String
+    val facility: String,
+    //val fullDescription: String
 )
 data class TFRFeature(
     val properties: TFRProperties,
     val geometry: TFRGeometry
 )
+data class MetarTafData(val metar: METAR, val taf: TAF?)
+
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): File {
@@ -392,15 +393,14 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
                 val dateEffective = properties.optString("dateEffective", "Unknown")
                 val dateExpire = properties.optString("dateExpire", "Ongoing")
                 val tfrType = properties.optString("type", "Unknown")
-                val fullDescription = properties.optString("fullDescription", "No details available")
                 val altitudeMin = properties.optString("lowerVal", "Surface")
                 val altitudeMax = properties.optString("upperVal", "Unlimited")
                 val facility = properties.optString("facility", "Unknown")
-
+                //val fullDescription = properties.optString("fullDescription", "No details available")
 
                 // Create TFRProperties object
                 val tfrProperties = TFRProperties(
-                    description, notam, dateIssued, dateEffective, dateExpire, tfrType, fullDescription, altitudeMin, altitudeMax, facility
+                    description, notam, dateIssued, dateEffective, dateExpire, tfrType, altitudeMin, altitudeMax, facility
                 )
 
                 // Add to list
@@ -478,8 +478,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val airspacePolygons = mutableListOf<Polygon>()
     private var areMetarsVisible = true
     private val metarMarkers = mutableListOf<Marker>()
-    //private val tfrPolygonInfo = mutableMapOf<Polygon, String>()
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
+    private var metarData: List<METAR> = emptyList()
+    private var tafData: List<TAF> = emptyList()
 
 
     companion object {
@@ -505,10 +506,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.setMinZoomPreference(6.0f) // Set minimum zoom level (adjust as needed)
         mMap.setMaxZoomPreference(15.0f) // Set maximum zoom level (adjust as needed)
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
+        mMap.uiSettings.isTiltGesturesEnabled = false
+        mMap.setOnCameraIdleListener {
+            saveMapPosition()
+            updateVisibleMarkers(metarData, tafData)
+        }
         checkLocationPermission()
-        moveToCurrentLocation()
+        //moveToCurrentLocation()
+        moveToLastSavedLocationOrCurrent()
 
-        showBottomProgressBar("🚨 Downloading METAR data...")
+        showBottomProgressBar("🚨 Updating weather data...")
 
         // **Load TFR GeoJSON**
         loadAndDrawTFR()
@@ -564,17 +571,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Handle when user clicks on a metar marker
         mMap.setOnMarkerClickListener { marker ->
-            // Move the camera to center the marker on the screen
-            val cameraUpdate = CameraUpdateFactory.newLatLng(marker.position)
-            mMap.animateCamera(cameraUpdate)
-
-            // Show the info window for the clicked marker
-            marker.showInfoWindow()
-
-            // Return true to indicate that the click event is consumed
+            val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
+            if (data != null) {
+                showMetarDialog(data.metar, data.taf)
+            }
             true
         }
-
     }
 
     private fun checkLocationPermission() {
@@ -610,7 +612,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 mMap.isMyLocationEnabled = true
-                moveToCurrentLocation()
+                //moveToCurrentLocation()
+                moveToLastSavedLocationOrCurrent()
             }
         } catch (e: SecurityException) {
             e.printStackTrace()
@@ -627,6 +630,42 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         } catch (e: SecurityException) {
             e.printStackTrace()
         }
+    }
+    private fun moveToLastSavedLocationOrCurrent() {
+        val prefs = getSharedPreferences("map_prefs", MODE_PRIVATE)
+        val savedLat = prefs.getFloat("lat", Float.MIN_VALUE)
+        val savedLng = prefs.getFloat("lng", Float.MIN_VALUE)
+        val savedZoom = prefs.getFloat("zoom", 10f) // Default zoom level
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (savedLat != Float.MIN_VALUE && savedLng != Float.MIN_VALUE &&
+                (savedLat != 0.0f || savedLng != 0.0f)
+            ) {
+                // ✅ Move to last saved position
+                val lastLatLng = LatLng(savedLat.toDouble(), savedLng.toDouble())
+                Log.d("MapDebug", "Moving to saved position: lat=$savedLat, lng=$savedLng, zoom=$savedZoom")
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastLatLng, savedZoom))
+            } else {
+                // ✅ No saved position → Move to current location
+                Log.d("MapDebug", "No saved position, moving to current location: lat=$savedLat, lng=$savedLng, zoom=$savedZoom")
+                moveToCurrentLocation()
+            }
+        } else {
+            // ✅ Request permission if not granted
+            checkLocationPermission()
+        }
+    }
+
+    private fun saveMapPosition() {
+        val prefs = getSharedPreferences("map_prefs", MODE_PRIVATE)
+        val editor = prefs.edit()
+        val target = mMap.cameraPosition.target
+        editor.putFloat("lat", target.latitude.toFloat())
+        editor.putFloat("lng", target.longitude.toFloat())
+        editor.putFloat("zoom", mMap.cameraPosition.zoom)
+        editor.apply()
+        // ✅ Debugging: Check if values are saved
+        Log.d("MapDebug", "Saved Position: lat=${target.latitude}, lng=${target.longitude}, zoom=${mMap.cameraPosition.zoom}")
     }
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -662,6 +701,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val location = LatLng(metar.latitude, metar.longitude)
             if (visibleBounds.contains(location)) {
                 val existingMarker = metarMarkers.find { it.position == location }
+
+
+//
+                val windSpeed = metar.windSpeedKt ?: 0
+                val windDir = metar.windDirDegrees
+
+                createWindBarbBitmap(windSpeed, windDir)?.let { barbBitmap ->
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(location)
+                            .icon(BitmapDescriptorFactory.fromBitmap(barbBitmap))
+                            .anchor(0.5f, 0.5f)
+                    )?.let { metarMarkers.add(it) }
+                }
+
+
 
                 if (existingMarker != null) {
                     // 🔹 Just update visibility, don't recreate
@@ -702,8 +757,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             )
                             .snippet(formatAirportDetails(metar))
                     )
-
-                    marker?.let { metarMarkers.add(it) }
+                    marker?.let {
+                        it.tag = MetarTafData(metar, taf)  // ✅ Attach METAR data to the marker
+                        metarMarkers.add(it)  // ✅ Add the marker to the list
+                    }
+                    //marker?.let { metarMarkers.add(it) }
 
                 }
             }
@@ -860,7 +918,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
+    private fun formatAltitude(altitude: String): String {
+        return when {
+            altitude == "0" -> "Surface"  // ✅ Convert "0" to "Surface"
+            (altitude.replace(",", "").toIntOrNull() ?: 0) >= 90000 -> "Unlimited" // ✅ Convert 90,000+ to "Unlimited"
+            altitude.toIntOrNull() != null -> "%,d'".format(altitude.replace(",", "").toInt()) // ✅ Add comma + tick
+            else -> altitude // ✅ Keep text altitudes unchanged (e.g., "FL600")
+        }
+    }
     private fun showTfrPopup(context: Context, tfr: TFRProperties) {
+
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
         val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
         val currentDate = Date()
@@ -875,8 +942,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
 
         // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
-        val altitudeInfo = "${if (tfr.altitudeMin == "0") "Surface" else tfr.altitudeMin} - " +
-                if ((tfr.altitudeMax.replace(",", "").toIntOrNull() ?: 0) >= 90000) "Unlimited" else tfr.altitudeMax
+        val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"
 
         // ✅ Check if the TFR is active
         val status = if (endDate == null || (startDate != null && currentDate in startDate..endDate)) {
@@ -885,9 +951,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             "Inactive"
         }
 
-        // **Set Custom Colors** (you can define these in `colors.xml` if needed)
-        val activeColor = ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Green for Active
-        val inactiveColor = ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Red for Inactive
+        // **Set Custom Colors**
+        val activeColor = ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Red for Active
+        val inactiveColor = ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Green for Inactive
         val altitudeColor = ContextCompat.getColor(context, android.R.color.holo_blue_dark) // Blue for altitude
 
         // **Create Spannable Title with Custom Colors**
@@ -905,7 +971,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             status.length + 2, tfrHead.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
 
-        // ✅ Keep the rest of your function the same
         val tfrBody = """
             ${tfr.facility} ${tfr.notam} ${tfr.type}
             Effective: ${startDate?.let { outputFormat.format(it) } ?: "Unknown"}
@@ -913,7 +978,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         """.trimIndent()
 
         AlertDialog.Builder(context)
-            .setTitle(tfrHead)  // ✅ Now supports colored text
+            .setTitle(tfrHead)
             .setMessage(tfrBody)
             .setPositiveButton("OK", null)
             .show()
@@ -1020,9 +1085,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             try {
                 val metarFile = downloadAndUnzipMetarData(filesDir)
-                val metarData = parseMetarCsv(metarFile)
+                metarData = parseMetarCsv(metarFile)
                 val tafFile = downloadAndUnzipTafData(filesDir)
-                val tafData = parseTAFCsv(tafFile)
+                tafData = parseTAFCsv(tafFile)
 
                 if (metarData.isEmpty()) {
                     Toast.makeText(this@MainActivity, "No airports found in METAR data", Toast.LENGTH_LONG).show()
@@ -1049,14 +1114,101 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
+    private fun showMetarDialog(metar: METAR, taf: TAF?) {
+        val messageTextView = TextView(this).apply {
+            text = formatAirportDetails(metar)
+            textSize = 15f  // ✅ Adjust the text size (Default is ~16sp, so 12sp is smaller)
+            setPadding(40, 20, 40, 20)  // ✅ Add padding for better readability
+        }
+        AlertDialog.Builder(this)
+            .setTitle(
+                metar.stationId + " - " + metar.flightCategory +
+                        (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+            )
+            //.setMessage(formatAirportDetails(metar))
+            .setView(messageTextView)
+            .setPositiveButton("OK", null) // ✅ Closes dialog
+            .show()
+    }
     private fun toggleMetarVisibility() {
         areMetarsVisible = !areMetarsVisible
         metarMarkers.forEach { marker ->
-            //if (marker.snippet == null) {
-            // 🔹 This is a METAR dot marker, toggle it
             marker.isVisible = areMetarsVisible
-            //}
         }
         Log.d("ToggleAirspace", "Airspace visibility set to $areMetarsVisible")
+    }
+    private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
+        // Skip calm winds or invalid data
+        if (windSpeedKt < 5 || windDirDegrees == null) return null
+
+        // Fixed size bitmap (adjust as needed)
+        val size = 150
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            color = Color.BLACK
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+            isAntiAlias = true
+            strokeCap = Paint.Cap.ROUND
+        }
+
+        val centerX = size / 2f
+        val centerY = size / 2f
+        val staffLength = size * 0.4f  // Length of main line
+
+        // Rotate canvas to wind direction (wind comes FROM this direction)
+        canvas.save()
+        canvas.rotate(windDirDegrees.toFloat(), centerX, centerY)
+
+        // Draw main staff line (center to edge)
+        canvas.drawLine(
+            centerX, centerY,
+            centerX, centerY - staffLength,
+            paint
+        )
+
+        var remainingKts = windSpeedKt
+        val flags = remainingKts / 50
+        remainingKts %= 50
+        val fullLines = remainingKts / 10
+        remainingKts %= 10
+        val halfLines = remainingKts / 5
+
+        // Start drawing symbols at staff end
+        var currentY = centerY - staffLength
+
+        // Draw flags (50kt) - right side triangles
+        repeat(flags) {
+            canvas.drawLine(
+                centerX, currentY,
+                centerX + 30f, currentY - 30f, // Right-leaning flag
+                paint
+            )
+            currentY += 30f  // Move toward station
+        }
+
+        // Draw full lines (10kt) - right side
+        repeat(fullLines) {
+            canvas.drawLine(
+                centerX, currentY,
+                centerX + 30f, currentY, // Right horizontal line
+                paint
+            )
+            currentY += 20f
+        }
+
+        // Draw half lines (5kt) - right side
+        repeat(halfLines) {
+            canvas.drawLine(
+                centerX, currentY,
+                centerX + 15f, currentY, // Shorter right line
+                paint
+            )
+            currentY += 20f
+        }
+
+        canvas.restore()
+        return bitmap
     }
 }
