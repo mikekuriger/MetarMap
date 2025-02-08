@@ -5,4 +5,17 @@
     <string name="toggle_wind">WIND</string>
     <string name="toggle_weather">METAR</string>
     <string name="app_name">Metar Map Plus</string>
+    <string-array name="layer_options">
+        <item>Altimiter</item>
+        <item>Celing</item>
+        <item>Clouds</item>
+        <item>Dewpoint</item>
+        <item>Dewpoint Spread</item>
+        <item>Flight Condition</item>
+        <item>Station ID</item>
+        <item>Temperature</item>
+        <item>Visibility</item>
+        <item>Wind Barbs</item>
+        <item>Wind Speed</item>
+    </string-array>
 </resources>
