@@ -51,7 +51,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Friday, February 14, 2025 Local",
+        "description": "Kaneohe Bay, HI, Friday, February 14, 2025 Local\r\n New",
         "notam": "5/1424",
         "dateIssued": "2025-02-09T12:08:00",
         "dateEffective": "2025-02-15T00:01:00",
@@ -112,7 +112,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Thursday, February 13, 2025 Local",
+        "description": "Kaneohe Bay, HI, Thursday, February 13, 2025 Local\r\n New",
         "notam": "5/1423",
         "dateIssued": "2025-02-09T12:07:00",
         "dateEffective": "2025-02-14T00:01:00",
@@ -173,7 +173,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Wednesday, February 12, 2025 Local",
+        "description": "Kaneohe Bay, HI, Wednesday, February 12, 2025 Local\r\n New",
         "notam": "5/1422",
         "dateIssued": "2025-02-09T12:06:00",
         "dateEffective": "2025-02-13T00:01:00",
