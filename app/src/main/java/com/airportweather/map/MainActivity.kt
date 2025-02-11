@@ -1139,7 +1139,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
     private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
         // Skip calm winds or invalid data
-        if (windSpeedKt < 5 || windDirDegrees == null) return null
+        if (windSpeedKt < 4 || windDirDegrees == null) return null
 
         // Fixed size bitmap (adjust as needed)
         val size = 150
