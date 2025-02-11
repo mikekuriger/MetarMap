@@ -8,6 +8,175 @@
         "coordinates": [
           [
             [
+              -112.35,
+              34.4501429
+            ],
+            [
+              -112.33250216,
+              34.44887346
+            ],
+            [
+              -112.31553753,
+              34.44510384
+            ],
+            [
+              -112.29962293,
+              34.4389489
+            ],
+            [
+              -112.28524293,
+              34.43059614
+            ],
+            [
+              -112.27283498,
+              34.42029996
+            ],
+            [
+              -112.2627761,
+              34.40837385
+            ],
+            [
+              -112.25537137,
+              34.39518077
+            ],
+            [
+              -112.25084477,
+              34.38112208
+            ],
+            [
+              -112.24933248,
+              34.36662527
+            ],
+            [
+              -112.25087892,
+              34.35213092
+            ],
+            [
+              -112.25543554,
+              34.33807932
+            ],
+            [
+              -112.26286256,
+              34.3248971
+            ],
+            [
+              -112.27293331,
+              34.31298431
+            ],
+            [
+              -112.28534126,
+              34.30270231
+            ],
+            [
+              -112.2997094,
+              34.29436288
+            ],
+            [
+              -112.31560171,
+              34.2882188
+            ],
+            [
+              -112.33253631,
+              34.28445627
+            ],
+            [
+              -112.35,
+              34.2831893
+            ],
+            [
+              -112.36746369,
+              34.28445627
+            ],
+            [
+              -112.38439829,
+              34.2882188
+            ],
+            [
+              -112.4002906,
+              34.29436288
+            ],
+            [
+              -112.41465874,
+              34.30270231
+            ],
+            [
+              -112.42706669,
+              34.31298431
+            ],
+            [
+              -112.43713744,
+              34.3248971
+            ],
+            [
+              -112.44456446,
+              34.33807932
+            ],
+            [
+              -112.44912108,
+              34.35213092
+            ],
+            [
+              -112.45066752,
+              34.36662527
+            ],
+            [
+              -112.44915523,
+              34.38112208
+            ],
+            [
+              -112.44462863,
+              34.39518077
+            ],
+            [
+              -112.4372239,
+              34.40837385
+            ],
+            [
+              -112.42716502,
+              34.42029996
+            ],
+            [
+              -112.41475707,
+              34.43059614
+            ],
+            [
+              -112.40037707,
+              34.4389489
+            ],
+            [
+              -112.38446247,
+              34.44510384
+            ],
+            [
+              -112.36749784,
+              34.44887346
+            ],
+            [
+              -112.35,
+              34.4501429
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "10NM SE PRESCOTT, AZ, Tuesday, February 11, 2025 through Tuesday, February 25, 2025 UTC\r\n New",
+        "notam": "5/1825",
+        "dateIssued": "2025-02-11T02:34:00",
+        "dateEffective": "2025-02-11T02:00:00",
+        "dateExpire": "2025-02-25T02:00:00",
+        "upperVal": 10000,
+        "lowerVal": 0,
+        "facility": "ZAB",
+        "type": "HAZARDS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -112.38333333,
               41.73337287
             ],
@@ -159,7 +328,7 @@
         ]
       },
       "properties": {
-        "description": "OGDEN, UT, Thursday, February 13, 2025 UTC",
+        "description": "OGDEN, UT, Thursday, February 13, 2025 UTC\r\n New",
         "notam": "5/1806",
         "dateIssued": "2025-02-10T23:43:00",
         "dateEffective": "2025-02-13T19:30:00",
@@ -328,7 +497,7 @@
         ]
       },
       "properties": {
-        "description": "Buckeye, AZ, Saturday, February 15, 2025 through Sunday, February 16, 2025 UTC",
+        "description": "Buckeye, AZ, Saturday, February 15, 2025 through Sunday, February 16, 2025 UTC\r\n New",
         "notam": "5/1792",
         "dateIssued": "2025-02-10T21:59:00",
         "dateEffective": "2025-02-15T18:30:00",
@@ -497,7 +666,7 @@
         ]
       },
       "properties": {
-        "description": "Buckeye, AZ, Friday, February 14, 2025 through Saturday, February 15, 2025 UTC",
+        "description": "Buckeye, AZ, Friday, February 14, 2025 through Saturday, February 15, 2025 UTC\r\n New",
         "notam": "5/1791",
         "dateIssued": "2025-02-10T21:54:00",
         "dateEffective": "2025-02-14T18:30:00",
@@ -666,7 +835,7 @@
         ]
       },
       "properties": {
-        "description": "San Francisco, CA, Sunday, February 16, 2025 through Sunday, February 16, 2025 Local",
+        "description": "San Francisco, CA, Sunday, February 16, 2025 through Sunday, February 16, 2025 Local\r\n New",
         "notam": "5/1648",
         "dateIssued": "2025-02-10T16:21:00",
         "dateEffective": "2025-02-16T17:00:00",
@@ -835,7 +1004,7 @@
         ]
       },
       "properties": {
-        "description": "San Francisco, CA, Thursday, February 13, 2025 through Thursday, February 13, 2025 Local",
+        "description": "San Francisco, CA, Thursday, February 13, 2025 through Thursday, February 13, 2025 Local\r\n New",
         "notam": "5/1647",
         "dateIssued": "2025-02-10T16:18:00",
         "dateEffective": "2025-02-13T16:00:00",
@@ -1004,11 +1173,11 @@
         ]
       },
       "properties": {
-        "description": "San Francisco, CA, Friday, February 14, 2025 through Friday, February 14, 2025 Local",
-        "notam": "5/1645",
+        "description": "San Francisco, CA, Saturday, February 15, 2025 through Saturday, February 15, 2025 Local\r\n New",
+        "notam": "5/1646",
         "dateIssued": "2025-02-10T16:01:00",
-        "dateEffective": "2025-02-14T16:00:00",
-        "dateExpire": "2025-02-15T06:00:00",
+        "dateEffective": "2025-02-15T16:00:00",
+        "dateExpire": "2025-02-16T05:00:00",
         "upperVal": 400,
         "lowerVal": 0,
         "facility": "ZOA",
@@ -1173,11 +1342,11 @@
         ]
       },
       "properties": {
-        "description": "San Francisco, CA, Saturday, February 15, 2025 through Saturday, February 15, 2025 Local",
-        "notam": "5/1646",
+        "description": "San Francisco, CA, Friday, February 14, 2025 through Friday, February 14, 2025 Local\r\n New",
+        "notam": "5/1645",
         "dateIssued": "2025-02-10T16:01:00",
-        "dateEffective": "2025-02-15T16:00:00",
-        "dateExpire": "2025-02-16T05:00:00",
+        "dateEffective": "2025-02-14T16:00:00",
+        "dateExpire": "2025-02-15T06:00:00",
         "upperVal": 400,
         "lowerVal": 0,
         "facility": "ZOA",
@@ -1342,7 +1511,7 @@
         ]
       },
       "properties": {
-        "description": "HIBBING, MN, Tuesday, February 11, 2025 UTC",
+        "description": "HIBBING, MN, Tuesday, February 11, 2025 UTC\r\n New",
         "notam": "5/1554",
         "dateIssued": "2025-02-10T13:47:00",
         "dateEffective": "2025-02-11T15:00:00",
@@ -3351,6 +3520,175 @@
         "lowerVal": 0,
         "facility": "ZDC",
         "type": "HAZARDS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -74.6975,
+              40.67167756
+            ],
+            [
+              -74.69369645,
+              40.67142413
+            ],
+            [
+              -74.69000855,
+              40.67067154
+            ],
+            [
+              -74.68654843,
+              40.66944268
+            ],
+            [
+              -74.68342129,
+              40.6677749
+            ],
+            [
+              -74.68072216,
+              40.66571892
+            ],
+            [
+              -74.67853306,
+              40.66333723
+            ],
+            [
+              -74.67692047,
+              40.66070223
+            ],
+            [
+              -74.67593335,
+              40.65789402
+            ],
+            [
+              -74.67560159,
+              40.65499792
+            ],
+            [
+              -74.67593521,
+              40.65210195
+            ],
+            [
+              -74.67692398,
+              40.64929409
+            ],
+            [
+              -74.67853778,
+              40.64665964
+            ],
+            [
+              -74.68072753,
+              40.64427863
+            ],
+            [
+              -74.68342666,
+              40.64222336
+            ],
+            [
+              -74.68655316,
+              40.64055625
+            ],
+            [
+              -74.69001206,
+              40.63932793
+            ],
+            [
+              -74.69369831,
+              40.6385757
+            ],
+            [
+              -74.6975,
+              40.63832239
+            ],
+            [
+              -74.70130169,
+              40.6385757
+            ],
+            [
+              -74.70498794,
+              40.63932793
+            ],
+            [
+              -74.70844684,
+              40.64055625
+            ],
+            [
+              -74.71157334,
+              40.64222336
+            ],
+            [
+              -74.71427247,
+              40.64427863
+            ],
+            [
+              -74.71646222,
+              40.64665964
+            ],
+            [
+              -74.71807602,
+              40.64929409
+            ],
+            [
+              -74.71906479,
+              40.65210195
+            ],
+            [
+              -74.71939841,
+              40.65499792
+            ],
+            [
+              -74.71906665,
+              40.65789402
+            ],
+            [
+              -74.71807953,
+              40.66070223
+            ],
+            [
+              -74.71646694,
+              40.66333723
+            ],
+            [
+              -74.71427784,
+              40.66571892
+            ],
+            [
+              -74.71157871,
+              40.6677749
+            ],
+            [
+              -74.70845157,
+              40.66944268
+            ],
+            [
+              -74.70499145,
+              40.67067154
+            ],
+            [
+              -74.70130355,
+              40.67142413
+            ],
+            [
+              -74.6975,
+              40.67167756
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Bedminster, NJ, Friday, January 31, 2025 through Friday, February 28, 2025 Local",
+        "notam": "5/8662",
+        "dateIssued": "2025-01-30T21:41:00",
+        "dateEffective": "2025-01-31T21:00:00",
+        "dateExpire": "2025-02-28T21:00:00",
+        "upperVal": 1000,
+        "lowerVal": 0,
+        "facility": "ZNY",
+        "type": "SECURITY"
       }
     },
     {
