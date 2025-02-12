@@ -71,22 +71,22 @@
             <Button
                 android:id="@+id/toggle_airspace_button"
                 style="@style/CustomButtonBarStyle"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
+                android:background="#80000000"
                 android:text="@string/toggle_airspace"
                 android:textColor="@android:color/white"
-                android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
 
             <!-- Button 2 -->
             <Button
                 android:id="@+id/toggle_tfr_button"
                 style="@style/CustomButtonBarStyle"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_marginStart="1dp"
                 android:layout_marginLeft="1dp"
@@ -94,22 +94,23 @@
                 android:layout_marginRight="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
+                android:background="#80000000"
                 android:text="@string/toggle_tfr"
                 android:textColor="@android:color/white"
-                android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
 
             <!-- Button 3 -->
             <Button
                 android:id="@+id/toggle_metar_button"
                 style="@style/CustomButtonBarStyle"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_marginStart="1dp"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
                 android:text="@string/toggle_weather"
+                android:textColor="@android:color/white"
                 android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
 
@@ -118,8 +119,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_marginTop="0dp"
-                android:layout_marginEnd="1dp"
-                android:background="@android:drawable/btn_dropdown"
+                android:layout_marginStart="1dp"
+                android:layout_marginEnd="4dp"
+                android:layout_marginBottom="4dp"
+                android:textColor="@android:color/holo_red_light"
+                android:textSize="12sp"
+                android:background="#80000000"
                 android:entries="@array/layer_options"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />

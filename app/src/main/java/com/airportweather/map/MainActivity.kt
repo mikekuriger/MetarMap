@@ -45,9 +45,12 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -115,7 +118,7 @@ data class TFRFeature(
     val geometry: TFRGeometry
 )
 data class MetarTafData(val metar: METAR, val taf: TAF?)
-
+private var currentLayer = "Flight Conditions"
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): File {
@@ -482,7 +485,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
 
-
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
     }
@@ -496,6 +498,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Initialize the map
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        // imitialize spinner and adapter
+        val layerSpinner = findViewById<Spinner>(R.id.layer_selector)
+        val adapter = ArrayAdapter.createFromResource(
+            this,
+            R.array.layer_options,
+            R.layout.spinner_item
+        ).apply {
+            setDropDownViewResource(R.layout.spinner_dropdown_item)
+        }
+
+        // Apply the custom adapter
+        layerSpinner.adapter = adapter
+
+        // Keep your existing listener
+        layerSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                currentLayer = parent?.getItemAtPosition(pos).toString()
+                refreshMarkers()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
     }
 
     @SuppressLint("PotentialBehaviorOverride")
@@ -558,7 +582,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-
 
         // Initialize the metar button
         val metarButton = findViewById<Button>(R.id.toggle_metar_button)
@@ -655,7 +678,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             checkLocationPermission()
         }
     }
-
     private fun saveMapPosition() {
         val prefs = getSharedPreferences("map_prefs", MODE_PRIVATE)
         val editor = prefs.edit()
@@ -693,76 +715,132 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         return bitmap
     }
+    private fun refreshMarkers() {
+        metarMarkers.forEach { it.remove() }
+        metarMarkers.clear()
+        updateVisibleMarkers(metarData, tafData)
+    }
+
     // Update markers based on visible map area
     private fun updateVisibleMarkers(metars: List<METAR>, tafs: List<TAF>) {
         val visibleBounds = mMap.projection.visibleRegion.latLngBounds
         //mMap.clear()
         for (metar in metars) {
             val location = LatLng(metar.latitude, metar.longitude)
+            val taf = tafs.find { it.stationId == metar.stationId }
             if (visibleBounds.contains(location)) {
                 val existingMarker = metarMarkers.find { it.position == location }
 
+                when (currentLayer) {
+                    "Wind Barbs" -> {
+                        if (existingMarker != null) {
+                            // 🔹 Just update visibility, don't recreate
+                            existingMarker.isVisible = areMetarsVisible
+                        } else {
+                            // 🔹 Create marker only if missing
+                            val dotSize = 60
+                            val borderWidth = 13
+                            val borderColor = Color.WHITE
+                            val circleColor = when (metar.flightCategory) {
+                                "VFR" -> Color.GREEN
+                                "MVFR" -> Color.parseColor("#0080FF") // BLUE
+                                "IFR" -> Color.RED
+                                "LIFR" -> Color.parseColor("#FF00FF") // PURPLE
+                                else -> Color.WHITE
+                            }
 
-//
-                val windSpeed = metar.windSpeedKt ?: 0
-                val windDir = metar.windDirDegrees
+                            if (circleColor == Color.WHITE) continue
+                            val dotBitmap =
+                                createDotBitmap(dotSize, circleColor, borderColor, borderWidth)
 
-                createWindBarbBitmap(windSpeed, windDir)?.let { barbBitmap ->
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(location)
-                            .icon(BitmapDescriptorFactory.fromBitmap(barbBitmap))
-                            .anchor(0.5f, 0.5f)
-                    )?.let { metarMarkers.add(it) }
-                }
-
-
-
-                if (existingMarker != null) {
-                    // 🔹 Just update visibility, don't recreate
-                    existingMarker.isVisible = areMetarsVisible
-                } else {
-                    // 🔹 Create marker only if missing
-                    val dotSize = 60
-                    val borderWidth = 13
-                    val circleColor = when (metar.flightCategory) {
-                        "VFR" -> Color.GREEN
-                        "MVFR" -> Color.parseColor("#0080FF") // BLUE
-                        "IFR" -> Color.RED
-                        "LIFR" -> Color.parseColor("#FF00FF") // PURPLE
-                        else -> Color.WHITE
-                    }
-
-                    val taf = tafs.find { it.stationId == metar.stationId }
-                    val borderColor = when (taf?.flightCategory) {
-                        "VFR" -> Color.GREEN
-                        "MVFR" -> Color.parseColor("#0080FF") // Blue
-                        "IFR" -> Color.RED
-                        "LIFR" -> Color.parseColor("#FF00FF") // Purple
-                        else -> Color.WHITE
-                    }
-
-                    if (circleColor == Color.WHITE) continue
-                    val dotBitmap = createDotBitmap(dotSize, circleColor, borderColor, borderWidth)
-
-                    val marker = mMap.addMarker(
-                        MarkerOptions()
-                            .position(location)
-                            .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
-                            .anchor(0.5f, 0.5f)
-                            .visible(areMetarsVisible)
-                            .title(
-                                metar.stationId + " - " + metar.flightCategory +
-                                        (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+                            val marker = mMap.addMarker(
+                                MarkerOptions()
+                                    .position(location)
+                                    .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                                    .anchor(0.5f, 0.5f)
+                                    .visible(areMetarsVisible)
+                                    .title(
+                                        metar.stationId + " - " + metar.flightCategory +
+                                                (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+                                    )
+                                    .snippet(formatAirportDetails(metar))
                             )
-                            .snippet(formatAirportDetails(metar))
-                    )
-                    marker?.let {
-                        it.tag = MetarTafData(metar, taf)  // ✅ Attach METAR data to the marker
-                        metarMarkers.add(it)  // ✅ Add the marker to the list
-                    }
-                    //marker?.let { metarMarkers.add(it) }
+                            marker?.let {
+                                it.tag =
+                                    MetarTafData(metar, taf)  // ✅ Attach METAR data to the marker
+                                metarMarkers.add(it)  // ✅ Add the marker to the list
+                            }
 
+                            val windSpeed = metar.windSpeedKt ?: 0
+                            val windDir = metar.windDirDegrees
+                            createWindBarbBitmap(windSpeed, windDir)?.let { barbBitmap ->
+                                mMap.addMarker(
+                                    MarkerOptions()
+                                        .position(location)
+                                        .icon(BitmapDescriptorFactory.fromBitmap(barbBitmap))
+                                        .anchor(0.5f, 0.5f)
+                                        .title(
+                                            metar.stationId + " - " + metar.flightCategory +
+                                                    (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+                                        )
+                                        .snippet(formatAirportDetails(metar))
+                                )?.let {
+                                    it.tag =
+                                        MetarTafData(metar, taf)
+                                    metarMarkers.add(it)
+                                }
+                            }
+                        }
+                    }
+
+                    "Flight Condition" -> {
+                        if (existingMarker != null) {
+                            // 🔹 Just update visibility, don't recreate
+                            existingMarker.isVisible = areMetarsVisible
+                        } else {
+                            // 🔹 Create marker only if missing
+                            val dotSize = 60
+                            val borderWidth = 13
+                            val circleColor = when (metar.flightCategory) {
+                                "VFR" -> Color.GREEN
+                                "MVFR" -> Color.parseColor("#0080FF") // BLUE
+                                "IFR" -> Color.RED
+                                "LIFR" -> Color.parseColor("#FF00FF") // PURPLE
+                                else -> Color.WHITE
+                            }
+
+                            //val taf = tafs.find { it.stationId == metar.stationId }
+                            val borderColor = when (taf?.flightCategory) {
+                                "VFR" -> Color.GREEN
+                                "MVFR" -> Color.parseColor("#0080FF") // Blue
+                                "IFR" -> Color.RED
+                                "LIFR" -> Color.parseColor("#FF00FF") // Purple
+                                else -> Color.WHITE
+                            }
+
+                            if (circleColor == Color.WHITE) continue
+                            val dotBitmap =
+                                createDotBitmap(dotSize, circleColor, borderColor, borderWidth)
+
+                            val marker = mMap.addMarker(
+                                MarkerOptions()
+                                    .position(location)
+                                    .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                                    .anchor(0.5f, 0.5f)
+                                    .visible(areMetarsVisible)
+                                    .title(
+                                        metar.stationId + " - " + metar.flightCategory +
+                                                (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
+                                    )
+                                    .snippet(formatAirportDetails(metar))
+                            )
+                            marker?.let {
+                                it.tag =
+                                    MetarTafData(metar, taf)  // ✅ Attach METAR data to the marker
+                                metarMarkers.add(it)  // ✅ Add the marker to the list
+                            }
+                        }
+                    }
                 }
             }
         }
