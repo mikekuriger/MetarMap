@@ -60,6 +60,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.Polygon
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.serialization.*
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -135,13 +137,15 @@ data class MarkerStyle(
 )
 
 // METAR
-suspend fun downloadAndUnzipMetarData(filesDir: File): File {
+/*suspend fun downloadAndUnzipMetarData(filesDir: File): File {
     return withContext(Dispatchers.IO) {
         try {
+            // ✅ Load existing cached METARs
+            //val cachedMetars = loadMetarDataFromCache(filesDir)
+
             val url = URL("https://aviationweather.gov/data/cache/metars.cache.csv.gz")
             val connection = url.openConnection()
             val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
-
             val outputFile = File(filesDir, "metars.cache.csv")
             FileOutputStream(outputFile).use { outputStream ->
                 inputStream.copyTo(outputStream)
@@ -160,6 +164,53 @@ suspend fun downloadAndUnzipMetarData(filesDir: File): File {
             throw Exception("Error downloading or unzipping METAR data: ${e.message}")
         }
     }
+}*/
+suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
+    return withContext(Dispatchers.IO) {
+        try {
+            // ✅ Load existing cached METARs
+            val cachedMetars = loadMetarDataFromCache(filesDir)
+
+            // ✅ Download and unzip new METAR data
+            val url = URL("https://aviationweather.gov/data/cache/metars.cache.csv.gz")
+            val connection = url.openConnection()
+            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
+            val outputFile = File(filesDir, "metars.cache.csv")
+            FileOutputStream(outputFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                throw Exception("Downloaded METAR file is empty or missing")
+            }
+
+            Log.d("METAR_DOWNLOAD", "Downloaded METAR data to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
+
+            // ✅ Parse the new METAR data
+            val newMetars = parseMetarCsv(outputFile)
+
+            // ✅ Merge new METARs with cached ones
+            val mergedMetars = mergeMetarData(cachedMetars, newMetars)
+
+            // ✅ Save the merged METARs back to the cache
+            saveMetarDataToCache(mergedMetars, filesDir)
+
+            return@withContext mergedMetars
+        } catch (e: Exception) {
+            Log.e("METAR_DOWNLOAD", "Error downloading or unzipping METAR data: ${e.message}")
+            e.printStackTrace()
+            return@withContext loadMetarDataFromCache(filesDir) // ✅ Load cached METARs if download fails
+        }
+    }
+}
+fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
+    val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
+
+    newMetars.forEach { metar ->
+        metarMap[metar.stationId] = metar // Replace old METAR if new one exists
+    }
+
+    return metarMap.values.toList()
 }
 fun parseMetarCsv(file: File): List<METAR> {
     return file.bufferedReader().useLines { lines ->
@@ -179,6 +230,18 @@ fun parseMetarCsv(file: File): List<METAR> {
 }
 fun parseCsvLineToMETAR(line: String): METAR? {
     val fields = line.split(",")
+    if (fields.size < 43) {
+        Log.e("METAR_PARSE", "Skipping line due to insufficient fields: $line")
+        return null // Skip malformed lines instead of crashing
+    }
+
+    // ✅ Filter: Only allow station IDs that start with "K"
+//    if (!fields[1].startsWith("K")) {
+//        //Log.d("METAR_PARSE", "Skipping non-US station: $fields[1]")
+//        return null
+//    }
+
+
     return try {
         METAR(
             stationId = fields[1],
@@ -231,7 +294,7 @@ fun calculateMetarAge(observationTime: String?): Int? {
     }
 }
 // TAF
-suspend fun downloadAndUnzipTafData(filesDir: File): File {
+/*suspend fun downloadAndUnzipTafData(filesDir: File): File {
     return withContext(Dispatchers.IO) {
         try {
             val url = URL("https://aviationweather.gov/data/cache/tafs.cache.csv.gz")
@@ -257,6 +320,53 @@ suspend fun downloadAndUnzipTafData(filesDir: File): File {
             throw Exception("Error downloading or unzipping TAF data: ${e.message}")
         }
     }
+}*/
+suspend fun downloadAndUnzipTafData(filesDir: File): List<TAF> {
+    return withContext(Dispatchers.IO) {
+        try {
+            // ✅ Load existing cached TAFs
+            val cachedTafs = loadTafDataFromCache(filesDir)
+
+            // ✅ Download and unzip new TAF data
+            val url = URL("https://aviationweather.gov/data/cache/tafs.cache.csv.gz") // Correct TAF URL
+            val connection = url.openConnection()
+            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
+            val outputFile = File(filesDir, "tafs.cache.csv") // Save as TAF file
+            FileOutputStream(outputFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                throw Exception("Downloaded TAF file is empty or missing")
+            }
+
+            Log.d("TAF_DOWNLOAD", "Downloaded TAF data to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
+
+            // ✅ Parse the new TAF data
+            val newTafs = parseTAFCsv(outputFile)
+
+            // ✅ Merge new TAFs with cached ones
+            val mergedTafs = mergeTafData(cachedTafs, newTafs)
+
+            // ✅ Save the merged TAFs back to the cache
+            saveTafDataToCache(mergedTafs, filesDir)
+
+            return@withContext mergedTafs
+        } catch (e: Exception) {
+            Log.e("TAF_DOWNLOAD", "Error downloading or unzipping TAF data: ${e.message}")
+            e.printStackTrace()
+            return@withContext loadTafDataFromCache(filesDir) // ✅ Load cached TAFs if download fails
+        }
+    }
+}
+fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
+    val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
+
+    newTafs.forEach { taf ->
+        tafMap[taf.stationId] = taf // ✅ Replace old TAF if new one exists
+    }
+
+    return tafMap.values.toList()
 }
 fun parseTAFCsv(file: File): List<TAF> {
     return file.bufferedReader().useLines { lines ->
@@ -753,6 +863,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         Log.d("MapDebug", "Saved layer: $layerName")
     }
 
+
+
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -831,40 +943,44 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         metarMarkers.forEach { it.remove() }
         metarMarkers.clear()
 
+        //Log.d("DEBUG", "Total METARs loaded: ${metars.size}")
+
         metars.forEach { metar ->
             val location = LatLng(metar.latitude, metar.longitude)
-            //if (!visibleBounds.contains(location)) return@forEach
-            if (visibleBounds.contains(location)) {
-                val existingMarker = metarMarkers.find { it.position == location }
 
-                if (existingMarker != null) {
-                    // 🔹 Just update visibility, don't recreate
-                    existingMarker.isVisible = areMetarsVisible
-                } else {
+            // ✅ Log every airport (before filtering)
+            //Log.d("METAR_DEBUG", "Processing: ${metar.stationId} at $location")
 
-                    val windSpeed = metar.windSpeedKt ?: 0
-                    if (windSpeed <= 4) return@forEach
+            if (!visibleBounds.contains(location)) return@forEach
+                //Log.d("METAR_DEBUG", "Skipping ${metar.stationId}: Out of visible bounds")
 
-                    val taf = tafs.find { it.stationId == metar.stationId }
+            val existingMarker = metarMarkers.find { it.position == location }
 
-                    val currentLayer = MapLayer.fromName(currentLayerName)
+            if (existingMarker != null) {
+                // 🔹 Just update visibility, don't recreate
+                existingMarker.isVisible = areMetarsVisible
+            } else {
 
+                val taf = tafs.find { it.stationId == metar.stationId }
+                val currentLayer = MapLayer.fromName(currentLayerName)
+                val marker = when (currentLayer) {
+                    MapLayer.FlightConditions -> createFlightConditionMarker(
+                        metar,
+                        taf,
+                        location
+                    )
+                    MapLayer.Wind -> createMetarDotForWindLayer(metar, location)
+                    MapLayer.Temperature -> createTemperatureMarker(metar, location)
+                    MapLayer.Altimeter -> createAltimeterMarker(metar, location)
+                    MapLayer.Ceiling -> createCeilingMarker(metar, location)
+                    MapLayer.Clouds -> createCloudMarker(metar, location)
+                }
+                marker?.let { metarMarkers.add(it) }
 
-                    val marker = when (currentLayer) {
-                        MapLayer.FlightConditions -> createFlightConditionMarker(
-                            metar,
-                            taf,
-                            location
-                        )
-
-                        MapLayer.Wind -> createWindMarker(metar, taf, location)
-                        MapLayer.Temperature -> createTemperatureMarker(metar, location)
-                        MapLayer.Altimeter -> createAltimeterMarker(metar, location)
-                        MapLayer.Ceiling -> createCeilingMarker(metar, location)
-                        MapLayer.Clouds -> createCloudMarker(metar, location)
-                    }
-
-                    marker?.let { metarMarkers.add(it) }
+                // ✅ Add wind barb only when "Wind Barbs" layer is selected
+                if (currentLayer == MapLayer.Wind) {
+                    val windMarker = createWindMarker(metar, taf, location)
+                    windMarker?.let { metarMarkers.add(it) }
                 }
             }
         }
@@ -908,6 +1024,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun createWindMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
         val windSpeed = metar.windSpeedKt ?: 0
+        if (windSpeed <= 4) return null
         val windDir = metar.windDirDegrees
         val barbBitmap = createWindBarbBitmap(windSpeed, windDir)
         return mMap.addMarker(
@@ -933,9 +1050,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             borderColor = taf?.flightCategory?.let { getFlightCategoryColor(it) } ?: Color.WHITE,
             borderWidth = 13
         )
-
         return createDotMarker(metar, taf, location, style)
     }
+    private fun createMetarDotForWindLayer(metar: METAR, location: LatLng): Marker? {
+        val style = MarkerStyle(
+            size = 60,
+            fillColor = getFlightCategoryColor(metar.flightCategory),
+            borderColor = Color.WHITE, // ✅ White border to "skip" the TAF border effect
+            borderWidth = 13
+        )
+        return createDotMarker(metar, null, location, style) // No TAF border
+    }
+
     private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
@@ -976,7 +1102,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 .visible(areMetarsVisible)
                 .anchor(0.5f, 0.5f))
         }
-        return null
     }
     private fun createCeilingMarker(metar: METAR, location: LatLng): Marker? {
         metar.cloudBase1?.let {
@@ -1310,7 +1435,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         Log.d("ToggleAirspace", "Airspace visibility set to $areAirspacesVisible")
     }
 
-    private fun loadAndDrawMetar() {
+    /*private fun loadAndDrawMetar() {
         lifecycleScope.launch {
             try {
                 val metarFile = downloadAndUnzipMetarData(filesDir)
@@ -1322,9 +1447,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     Toast.makeText(this@MainActivity, "No airports found in METAR data", Toast.LENGTH_LONG).show()
                 } else {
                     // Update markers based on visible map area
-                   /* mMap.setOnCameraIdleListener {
+                    mMap.setOnCameraIdleListener {
                         updateVisibleMarkers(metarData, tafData)
-                    }*/
+                    }
                     // Initial rendering of markers based on the current visible map area
                     updateVisibleMarkers(metarData, tafData)
                 }
@@ -1342,7 +1467,53 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
+    }*/
+    private fun loadAndDrawMetar() {
+        lifecycleScope.launch {
+            try {
+                // ✅ Load cached METAR & TAF data before downloading new ones
+                metarData = loadMetarDataFromCache(filesDir)
+                tafData = loadTafDataFromCache(filesDir)
+
+                updateVisibleMarkers(metarData, tafData) // Show cached data immediately
+
+                // ✅ Download and merge new data
+                val newMetars = downloadAndUnzipMetarData(filesDir)
+                val newTafs = downloadAndUnzipTafData(filesDir)
+
+                // ✅ Merge new and cached data
+                metarData = mergeMetarData(metarData, newMetars)
+                tafData = mergeTafData(tafData, newTafs)
+
+                // ✅ Save updated data
+                saveMetarDataToCache(metarData, filesDir)
+                saveTafDataToCache(tafData, filesDir)
+
+                updateVisibleMarkers(metarData, tafData) // Refresh UI
+
+            } catch (e: Exception) {
+                Log.e("METAR_UPDATE", "Error fetching METAR data", e)
+                Toast.makeText(this@MainActivity, "Error fetching METAR data: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                withContext(Dispatchers.Main) {
+                    hideBottomProgressBar()
+                }
+            }
+        }
     }
+
+    private fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
+        val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
+        newMetars.forEach { metar -> metarMap[metar.stationId] = metar } // Update with new data
+        return metarMap.values.toList()
+    }
+
+    private fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
+        val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
+        newTafs.forEach { taf -> tafMap[taf.stationId] = taf } // Update with new data
+        return tafMap.values.toList()
+    }
+
     private fun showMetarDialog(metar: METAR, taf: TAF?) {
         val messageTextView = TextView(this).apply {
             text = formatAirportDetails(metar)
