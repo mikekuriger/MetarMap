@@ -6,16 +6,18 @@
     <string name="toggle_weather">METAR</string>
     <string name="app_name">Metar Map Plus</string>
     <string-array name="layer_options">
-<!--        <item>Altimeter</item>-->
-<!--        <item>Celing</item>-->
-<!--        <item>Clouds</item>-->
-<!--        <item>Dewpoint</item>-->
-<!--        <item>Dewpoint Spread</item>-->
+        <item>Altimeter</item>
+        <item>Ceiling</item>
+        <item>Clouds</item>
         <item>Flight Condition</item>
-<!--        <item>Station ID</item>-->
-<!--        <item>Temperature</item>-->
-<!--        <item>Visibility</item>-->
+        <item>Temperature</item>
         <item>Wind Barbs</item>
-<!--        <item>Wind Speed</item>-->
     </string-array>
 </resources>
+    <!--        <item>Wind Speed</item>-->
+    <!--        <item>Visibility</item>-->
+    <!--        <item>Station ID</item>-->
+    <!--        <item>Dewpoint</item>-->
+    <!--        <item>Dewpoint Spread</item>-->
+
+
