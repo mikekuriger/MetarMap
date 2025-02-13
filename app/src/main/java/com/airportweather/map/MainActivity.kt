@@ -62,6 +62,7 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.Polygon
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.delay
 import kotlinx.serialization.*
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -704,7 +705,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         //moveToCurrentLocation()
         moveToLastSavedLocationOrCurrent()
 
-        showBottomProgressBar("🚨 Updating weather data...")
+        showBottomProgressBar("🚨 Initializing all the things")
 
         // **Load TFR GeoJSON**
         loadAndDrawTFR()
@@ -714,6 +715,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // **Load Metars**
         loadAndDrawMetar()
+
+        // ** refresh weather data
+        startAutoRefresh(15)
 
         // Initialize the airspace button
         val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
@@ -862,9 +866,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         Log.d("MapDebug", "Saved layer: $layerName")
     }
-
-
-
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -935,6 +936,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         canvas.drawText(text, padding.toFloat(), adjustedY, paint)
 
         return bitmap
+    }
+    private fun startAutoRefresh(intervalMinutes: Long) {
+        lifecycleScope.launch {
+            while (true) {
+                delay(intervalMinutes * 60 * 1000) // ✅ Wait before updating
+                Log.d("AUTO_REFRESH", "Refreshing METAR & TAF data")
+                showBottomProgressBar("🚨 Refreshing METAR & TAF data")
+                loadAndDrawMetar() // ✅ Re-fetch and update data
+            }
+        }
     }
 
     // Update markers based on visible map area
@@ -1021,7 +1032,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             else -> Color.WHITE
         }
     }
-
     private fun createWindMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
         val windSpeed = metar.windSpeedKt ?: 0
         if (windSpeed <= 4) return null
@@ -1061,7 +1071,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         )
         return createDotMarker(metar, null, location, style) // No TAF border
     }
-
     private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
@@ -1434,41 +1443,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
         Log.d("ToggleAirspace", "Airspace visibility set to $areAirspacesVisible")
     }
-
-    /*private fun loadAndDrawMetar() {
-        lifecycleScope.launch {
-            try {
-                val metarFile = downloadAndUnzipMetarData(filesDir)
-                metarData = parseMetarCsv(metarFile)
-                val tafFile = downloadAndUnzipTafData(filesDir)
-                tafData = parseTAFCsv(tafFile)
-
-                if (metarData.isEmpty()) {
-                    Toast.makeText(this@MainActivity, "No airports found in METAR data", Toast.LENGTH_LONG).show()
-                } else {
-                    // Update markers based on visible map area
-                    mMap.setOnCameraIdleListener {
-                        updateVisibleMarkers(metarData, tafData)
-                    }
-                    // Initial rendering of markers based on the current visible map area
-                    updateVisibleMarkers(metarData, tafData)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(
-                    this@MainActivity,
-                    "Error fetching METAR data: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }finally {
-                // Dismiss the progress dialog
-                withContext(Dispatchers.Main) {
-                    hideBottomProgressBar()
-                }
-            }
-        }
-    }*/
     private fun loadAndDrawMetar() {
+
         lifecycleScope.launch {
             try {
                 // ✅ Load cached METAR & TAF data before downloading new ones
@@ -1501,19 +1477,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-
     private fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
         val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
         newMetars.forEach { metar -> metarMap[metar.stationId] = metar } // Update with new data
         return metarMap.values.toList()
     }
-
     private fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
         val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
         newTafs.forEach { taf -> tafMap[taf.stationId] = taf } // Update with new data
         return tafMap.values.toList()
     }
-
     private fun showMetarDialog(metar: METAR, taf: TAF?) {
         val messageTextView = TextView(this).apply {
             text = formatAirportDetails(metar)
