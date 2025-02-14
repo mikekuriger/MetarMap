@@ -3549,47 +3549,6 @@
         "coordinates": [
           [
             [
-              -75.20555556,
-              39.97555556
-            ],
-            [
-              -75.18583333,
-              39.89916667
-            ],
-            [
-              -75.16416667,
-              39.8975
-            ],
-            [
-              -75.14805556,
-              39.97138889
-            ],
-            [
-              -75.20555556,
-              39.97555556
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Philadelphia, PA, Friday, February 14, 2025 Local",
-        "notam": "5/2157",
-        "dateIssued": "2025-02-11T23:36:00",
-        "dateEffective": "2025-02-14T15:00:00",
-        "dateExpire": "2025-02-14T22:00:00",
-        "upperVal": 2000,
-        "lowerVal": 0,
-        "facility": "ZDC",
-        "type": "SECURITY"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -86.0551697,
               30.72416523
             ],
