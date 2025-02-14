@@ -1465,7 +1465,7 @@
         ]
       },
       "properties": {
-        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local\r\n New",
+        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local",
         "notam": "5/2680",
         "dateIssued": "2025-02-13T12:54:00",
         "dateEffective": "2025-02-15T13:00:00",
@@ -1634,7 +1634,7 @@
         ]
       },
       "properties": {
-        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local\r\n New",
+        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local",
         "notam": "5/2680",
         "dateIssued": "2025-02-13T12:54:00",
         "dateEffective": "2025-02-15T13:00:00",
@@ -1803,7 +1803,7 @@
         ]
       },
       "properties": {
-        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local\r\n New",
+        "description": "Oceanside, CA, Saturday, February 15, 2025 through Monday, February 17, 2025 Local",
         "notam": "5/2680",
         "dateIssued": "2025-02-13T12:54:00",
         "dateEffective": "2025-02-15T13:00:00",
@@ -1980,55 +1980,6 @@
         "upperVal": 5000,
         "lowerVal": 0,
         "facility": "ZHN",
-        "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -149.05833333,
-              60.70833333
-            ],
-            [
-              -149.01305556,
-              60.6075
-            ],
-            [
-              -149.09944444,
-              60.57861111
-            ],
-            [
-              -149.11722222,
-              60.60111111
-            ],
-            [
-              -149.1125,
-              60.69444444
-            ],
-            [
-              -149.13235008,
-              60.68147992
-            ],
-            [
-              -149.05833333,
-              60.70833333
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "ANCHORAGE, AK, Thursday, February 13, 2025 through Friday, February 14, 2025 UTC",
-        "notam": "5/2382",
-        "dateIssued": "2025-02-12T18:37:00",
-        "dateEffective": "2025-02-13T19:00:00",
-        "dateExpire": "2025-02-14T01:00:00",
-        "upperVal": 10000,
-        "lowerVal": 0,
-        "facility": "ZAN",
         "type": "HAZARDS"
       }
     },
