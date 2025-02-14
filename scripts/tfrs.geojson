@@ -432,10 +432,10 @@
       },
       "properties": {
         "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local\r\n New",
-        "notam": "5/3044",
-        "dateIssued": "2025-02-14T18:22:00",
+        "notam": "5/3088",
+        "dateIssued": "2025-02-14T22:05:00",
         "dateEffective": "2025-02-16T22:45:00",
-        "dateExpire": "2025-02-19T21:30:00",
+        "dateExpire": "2025-02-19T15:30:00",
         "upperVal": 17999,
         "lowerVal": 0,
         "facility": "ZMA",
@@ -601,10 +601,10 @@
       },
       "properties": {
         "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local\r\n New",
-        "notam": "5/3044",
-        "dateIssued": "2025-02-14T18:22:00",
+        "notam": "5/3088",
+        "dateIssued": "2025-02-14T22:05:00",
         "dateEffective": "2025-02-16T22:45:00",
-        "dateExpire": "2025-02-19T21:30:00",
+        "dateExpire": "2025-02-19T15:30:00",
         "upperVal": 17999,
         "lowerVal": 0,
         "facility": "ZMA",
@@ -788,67 +788,6 @@
         "dateIssued": "2025-02-14T16:44:00",
         "dateEffective": "2025-02-22T07:00:00",
         "dateExpire": "2025-02-24T04:00:00",
-        "upperVal": 17999,
-        "lowerVal": 0,
-        "facility": "ZHN",
-        "type": "SECURITY"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -157.54138889,
-              21.58805556
-            ],
-            [
-              -157.79305556,
-              21.42111111
-            ],
-            [
-              -157.81833333,
-              21.42222222
-            ],
-            [
-              -157.84222222,
-              21.42888889
-            ],
-            [
-              -157.84972222,
-              21.45888889
-            ],
-            [
-              -157.84472222,
-              21.48472222
-            ],
-            [
-              -157.78888889,
-              21.53777778
-            ],
-            [
-              -157.80277778,
-              21.72611111
-            ],
-            [
-              -157.79333333,
-              21.83416667
-            ],
-            [
-              -157.54138889,
-              21.58805556
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Kaneohe Bay, HI, Monday, February 17, 2025 through Tuesday, February 18, 2025 Local\r\n New",
-        "notam": "5/3033",
-        "dateIssued": "2025-02-14T16:40:00",
-        "dateEffective": "2025-02-17T23:00:00",
-        "dateExpire": "2025-02-18T11:00:00",
         "upperVal": 17999,
         "lowerVal": 0,
         "facility": "ZHN",
@@ -3615,47 +3554,6 @@
         "lowerVal": 0,
         "facility": "ZMA",
         "type": "VIP"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.20555556,
-              39.97555556
-            ],
-            [
-              -75.18583333,
-              39.89916667
-            ],
-            [
-              -75.16416667,
-              39.8975
-            ],
-            [
-              -75.14805556,
-              39.97138889
-            ],
-            [
-              -75.20555556,
-              39.97555556
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Philadelphia, PA, Friday, February 14, 2025 Local",
-        "notam": "5/2157",
-        "dateIssued": "2025-02-11T23:36:00",
-        "dateEffective": "2025-02-14T15:00:00",
-        "dateExpire": "2025-02-14T22:00:00",
-        "upperVal": 2000,
-        "lowerVal": 0,
-        "facility": "ZDC",
-        "type": "SECURITY"
       }
     },
     {
