@@ -972,47 +972,6 @@
         "coordinates": [
           [
             [
-              -119.02888889,
-              36.94333333
-            ],
-            [
-              -119.00638889,
-              36.92777778
-            ],
-            [
-              -119.12472222,
-              36.87083333
-            ],
-            [
-              -119.17055556,
-              36.89055556
-            ],
-            [
-              -119.02888889,
-              36.94333333
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Balch Camp, CA, Saturday, February 15, 2025 through Sunday, February 16, 2025 Local\r\n New",
-        "notam": "5/3117",
-        "dateIssued": "2025-02-15T01:01:00",
-        "dateEffective": "2025-02-15T14:30:00",
-        "dateExpire": "2025-02-17T03:00:00",
-        "upperVal": 800,
-        "lowerVal": 0,
-        "facility": "ZOA",
-        "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -94.82333333,
               39.13000767
             ],
@@ -1164,7 +1123,7 @@
         ]
       },
       "properties": {
-        "description": "Kansas City, KS, Tuesday, February 18, 2025 Local",
+        "description": "Kansas City, KS, Tuesday, February 18, 2025 Local\r\n New",
         "notam": "5/3109",
         "dateIssued": "2025-02-14T23:19:00",
         "dateEffective": "2025-02-19T00:00:00",
@@ -1225,7 +1184,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Thursday, February 20, 2025 through Friday, February 21, 2025 Local",
+        "description": "Kaneohe Bay, HI, Thursday, February 20, 2025 through Friday, February 21, 2025 Local\r\n New",
         "notam": "5/3106",
         "dateIssued": "2025-02-14T23:13:00",
         "dateEffective": "2025-02-20T23:00:00",
@@ -1666,7 +1625,7 @@
         ]
       },
       "properties": {
-        "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local",
+        "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local\r\n New",
         "notam": "5/3088",
         "dateIssued": "2025-02-14T22:05:00",
         "dateEffective": "2025-02-16T22:45:00",
@@ -1835,7 +1794,7 @@
         ]
       },
       "properties": {
-        "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local",
+        "description": "West Palm Beach, FL, Sunday, February 16, 2025 through Wednesday, February 19, 2025 Local\r\n New",
         "notam": "5/3088",
         "dateIssued": "2025-02-14T22:05:00",
         "dateEffective": "2025-02-16T22:45:00",
@@ -1896,7 +1855,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Tuesday, February 25, 2025 through Saturday, March 01, 2025 Local",
+        "description": "Kaneohe Bay, HI, Tuesday, February 25, 2025 through Saturday, March 01, 2025 Local\r\n New",
         "notam": "5/3036",
         "dateIssued": "2025-02-14T16:46:00",
         "dateEffective": "2025-02-26T06:30:00",
@@ -1957,7 +1916,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Tuesday, February 18, 2025 through Thursday, February 20, 2025 Local",
+        "description": "Kaneohe Bay, HI, Tuesday, February 18, 2025 through Thursday, February 20, 2025 Local\r\n New",
         "notam": "5/3035",
         "dateIssued": "2025-02-14T16:45:00",
         "dateEffective": "2025-02-18T21:00:00",
@@ -2018,7 +1977,7 @@
         ]
       },
       "properties": {
-        "description": "Kaneohe Bay, HI, Friday, February 21, 2025 through Sunday, February 23, 2025 Local",
+        "description": "Kaneohe Bay, HI, Friday, February 21, 2025 through Sunday, February 23, 2025 Local\r\n New",
         "notam": "5/3034",
         "dateIssued": "2025-02-14T16:44:00",
         "dateEffective": "2025-02-22T07:00:00",
@@ -2876,345 +2835,6 @@
         "lowerVal": 0,
         "facility": "ZHN",
         "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -80.78777778,
-              28.63472222
-            ],
-            [
-              -80.08333333,
-              28.84416667
-            ],
-            [
-              -80.0818396,
-              28.79628774
-            ],
-            [
-              -80.06628467,
-              28.75475844
-            ],
-            [
-              -80.05490697,
-              28.71219137
-            ],
-            [
-              -80.04778825,
-              28.6689115
-            ],
-            [
-              -80.04497751,
-              28.62524886
-            ],
-            [
-              -80.0464908,
-              28.58153599
-            ],
-            [
-              -80.05231128,
-              28.53810541
-            ],
-            [
-              -80.06238946,
-              28.49528707
-            ],
-            [
-              -80.0766438,
-              28.45340592
-            ],
-            [
-              -80.09496139,
-              28.41277939
-            ],
-            [
-              -80.11719904,
-              28.37371508
-            ],
-            [
-              -80.14318439,
-              28.33650841
-            ],
-            [
-              -80.17271736,
-              28.3014405
-            ],
-            [
-              -80.20557175,
-              28.26877601
-            ],
-            [
-              -80.24149695,
-              28.23876127
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78777778,
-              28.63472222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Friday, February 14, 2025 Local",
-        "notam": "5/2379",
-        "dateIssued": "2025-02-12T18:13:00",
-        "dateEffective": "2025-02-15T04:50:00",
-        "dateExpire": "2025-02-15T08:59:00",
-        "upperVal": 18000,
-        "lowerVal": 0,
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -80.78777778,
-              28.63472222
-            ],
-            [
-              -80.08333333,
-              28.84416667
-            ],
-            [
-              -80.0818396,
-              28.79628774
-            ],
-            [
-              -80.06628467,
-              28.75475844
-            ],
-            [
-              -80.05490697,
-              28.71219137
-            ],
-            [
-              -80.04778825,
-              28.6689115
-            ],
-            [
-              -80.04497751,
-              28.62524886
-            ],
-            [
-              -80.0464908,
-              28.58153599
-            ],
-            [
-              -80.05231128,
-              28.53810541
-            ],
-            [
-              -80.06238946,
-              28.49528707
-            ],
-            [
-              -80.0766438,
-              28.45340592
-            ],
-            [
-              -80.09496139,
-              28.41277939
-            ],
-            [
-              -80.11719904,
-              28.37371508
-            ],
-            [
-              -80.14318439,
-              28.33650841
-            ],
-            [
-              -80.17271736,
-              28.3014405
-            ],
-            [
-              -80.20557175,
-              28.26877601
-            ],
-            [
-              -80.24149695,
-              28.23876127
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78777778,
-              28.63472222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Saturday, February 15, 2025 Local",
-        "notam": "5/2380",
-        "dateIssued": "2025-02-12T18:13:00",
-        "dateEffective": "2025-02-16T04:50:00",
-        "dateExpire": "2025-02-16T08:59:00",
-        "upperVal": 18000,
-        "lowerVal": 0,
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -80.78777778,
-              28.63472222
-            ],
-            [
-              -80.08333333,
-              28.84416667
-            ],
-            [
-              -80.0818396,
-              28.79628774
-            ],
-            [
-              -80.06628467,
-              28.75475844
-            ],
-            [
-              -80.05490697,
-              28.71219137
-            ],
-            [
-              -80.04778825,
-              28.6689115
-            ],
-            [
-              -80.04497751,
-              28.62524886
-            ],
-            [
-              -80.0464908,
-              28.58153599
-            ],
-            [
-              -80.05231128,
-              28.53810541
-            ],
-            [
-              -80.06238946,
-              28.49528707
-            ],
-            [
-              -80.0766438,
-              28.45340592
-            ],
-            [
-              -80.09496139,
-              28.41277939
-            ],
-            [
-              -80.11719904,
-              28.37371508
-            ],
-            [
-              -80.14318439,
-              28.33650841
-            ],
-            [
-              -80.17271736,
-              28.3014405
-            ],
-            [
-              -80.20557175,
-              28.26877601
-            ],
-            [
-              -80.24149695,
-              28.23876127
-            ],
-            [
-              -80.26666667,
-              28.225
-            ],
-            [
-              -80.50805556,
-              28.41694444
-            ],
-            [
-              -80.63305556,
-              28.41694444
-            ],
-            [
-              -80.69555556,
-              28.41694444
-            ],
-            [
-              -80.73027778,
-              28.5225
-            ],
-            [
-              -80.78777778,
-              28.63472222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Cape Canaveral, FL, Sunday, February 16, 2025 Local",
-        "notam": "5/2378",
-        "dateIssued": "2025-02-12T18:10:00",
-        "dateEffective": "2025-02-17T04:50:00",
-        "dateExpire": "2025-02-17T08:59:00",
-        "upperVal": 18000,
-        "lowerVal": 0,
-        "facility": "ZMA",
-        "type": "SPACE OPERATIONS"
       }
     },
     {
