@@ -159,10 +159,10 @@
         ]
       },
       "properties": {
-        "description": "Kermit, KY, Monday, February 17, 2025 through Wednesday, February 19, 2025 Local\r\n New",
-        "notam": "5/3326",
-        "dateIssued": "2025-02-17T13:38:00",
-        "dateEffective": "2025-02-17T14:00:00",
+        "description": "Kermit, KY\r\n New",
+        "notam": "5/3334",
+        "dateIssued": "2025-02-17T15:28:00",
+        "dateEffective": null,
         "dateExpire": "2025-02-19T23:50:00",
         "upperVal": 6000,
         "lowerVal": 0,
