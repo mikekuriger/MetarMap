@@ -1631,7 +1631,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local",
         "notam": "5/4383",
         "dateIssued": "2025-02-19T20:07:00",
         "dateEffective": "2025-02-26T23:30:00",
@@ -1800,7 +1800,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local",
         "notam": "5/4382",
         "dateIssued": "2025-02-19T20:06:00",
         "dateEffective": "2025-02-22T16:30:00",
@@ -1969,7 +1969,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local",
         "notam": "5/4381",
         "dateIssued": "2025-02-19T20:02:00",
         "dateEffective": "2025-02-21T20:30:00",
@@ -2050,7 +2050,7 @@
         ]
       },
       "properties": {
-        "description": "Washington, DC\r\n New",
+        "description": "Washington, DC",
         "notam": "5/4379",
         "dateIssued": "2025-02-19T19:57:00",
         "dateEffective": null,
