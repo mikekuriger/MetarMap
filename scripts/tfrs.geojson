@@ -235,7 +235,7 @@
         ]
       },
       "properties": {
-        "description": "Mayport, FL, Friday, February 28, 2025 Local\r\n New",
+        "description": "Mayport, FL, Friday, February 28, 2025 Local",
         "notam": "5/4591",
         "dateIssued": "2025-02-19T23:35:00",
         "dateEffective": "2025-02-28T13:00:00",
@@ -480,7 +480,7 @@
         ]
       },
       "properties": {
-        "description": "Mayport, FL, Monday, February 24, 2025 through Thursday, February 27, 2025 Local\r\n New",
+        "description": "Mayport, FL, Monday, February 24, 2025 through Thursday, February 27, 2025 Local",
         "notam": "5/4590",
         "dateIssued": "2025-02-19T23:27:00",
         "dateEffective": "2025-02-24T13:00:00",
@@ -649,7 +649,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local",
         "notam": "5/4383",
         "dateIssued": "2025-02-19T20:07:00",
         "dateEffective": "2025-02-26T23:30:00",
@@ -818,7 +818,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local",
         "notam": "5/4382",
         "dateIssued": "2025-02-19T20:06:00",
         "dateEffective": "2025-02-22T16:30:00",
@@ -987,7 +987,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local",
         "notam": "5/4381",
         "dateIssued": "2025-02-19T20:02:00",
         "dateEffective": "2025-02-21T20:30:00",
@@ -1068,7 +1068,7 @@
         ]
       },
       "properties": {
-        "description": "Washington, DC\r\n New",
+        "description": "Washington, DC",
         "notam": "5/4379",
         "dateIssued": "2025-02-19T19:57:00",
         "dateEffective": null,
@@ -1237,7 +1237,7 @@
         ]
       },
       "properties": {
-        "description": "HIBBING, MN, Friday, February 21, 2025 UTC\r\n New",
+        "description": "HIBBING, MN, Friday, February 21, 2025 UTC",
         "notam": "5/4338",
         "dateIssued": "2025-02-19T19:02:00",
         "dateEffective": "2025-02-21T15:00:00",
@@ -4337,6 +4337,175 @@
         "dateEffective": "2025-01-01T00:00:00",
         "dateExpire": "2025-07-01T00:00:00",
         "upperVal": 2000,
+        "lowerVal": 0,
+        "facility": "ZHU",
+        "type": "SECURITY"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -97.15583333,
+              26.03901365
+            ],
+            [
+              -97.14780026,
+              26.03837852
+            ],
+            [
+              -97.14001153,
+              26.03649246
+            ],
+            [
+              -97.132704,
+              26.03341282
+            ],
+            [
+              -97.12609989,
+              26.02923328
+            ],
+            [
+              -97.12039995,
+              26.02408092
+            ],
+            [
+              -97.11577735,
+              26.01811242
+            ],
+            [
+              -97.11237248,
+              26.01150923
+            ],
+            [
+              -97.11028862,
+              26.00447207
+            ],
+            [
+              -97.10958886,
+              25.99721483
+            ],
+            [
+              -97.11029421,
+              25.98995802
+            ],
+            [
+              -97.112383,
+              25.98292213
+            ],
+            [
+              -97.11579152,
+              25.97632087
+            ],
+            [
+              -97.12041606,
+              25.97035475
+            ],
+            [
+              -97.12611601,
+              25.96520491
+            ],
+            [
+              -97.13271817,
+              25.96102774
+            ],
+            [
+              -97.14002204,
+              25.95795004
+            ],
+            [
+              -97.14780586,
+              25.95606524
+            ],
+            [
+              -97.15583333,
+              25.95543055
+            ],
+            [
+              -97.1638608,
+              25.95606524
+            ],
+            [
+              -97.17164462,
+              25.95795004
+            ],
+            [
+              -97.17894849,
+              25.96102774
+            ],
+            [
+              -97.18555065,
+              25.96520491
+            ],
+            [
+              -97.1912506,
+              25.97035475
+            ],
+            [
+              -97.19587514,
+              25.97632087
+            ],
+            [
+              -97.19928366,
+              25.98292213
+            ],
+            [
+              -97.20137245,
+              25.98995802
+            ],
+            [
+              -97.2020778,
+              25.99721483
+            ],
+            [
+              -97.20137804,
+              26.00447207
+            ],
+            [
+              -97.19929418,
+              26.01150923
+            ],
+            [
+              -97.19588931,
+              26.01811242
+            ],
+            [
+              -97.19126671,
+              26.02408092
+            ],
+            [
+              -97.18556677,
+              26.02923328
+            ],
+            [
+              -97.17896266,
+              26.03341282
+            ],
+            [
+              -97.17165513,
+              26.03649246
+            ],
+            [
+              -97.1638664,
+              26.03837852
+            ],
+            [
+              -97.15583333,
+              26.03901365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
+        "notam": "4/1525",
+        "dateIssued": "2024-12-27T13:33:00",
+        "dateEffective": "2025-01-01T00:00:00",
+        "dateExpire": "2025-07-01T00:00:00",
+        "upperVal": 10000,
         "lowerVal": 0,
         "facility": "ZHU",
         "type": "SECURITY"
