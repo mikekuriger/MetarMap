@@ -372,7 +372,7 @@
         ]
       },
       "properties": {
-        "description": "Mayport, FL, Friday, February 28, 2025 Local",
+        "description": "Mayport, FL, Friday, February 28, 2025 Local\r\n New",
         "notam": "5/4591",
         "dateIssued": "2025-02-19T23:35:00",
         "dateEffective": "2025-02-28T13:00:00",
@@ -617,7 +617,7 @@
         ]
       },
       "properties": {
-        "description": "Mayport, FL, Monday, February 24, 2025 through Thursday, February 27, 2025 Local",
+        "description": "Mayport, FL, Monday, February 24, 2025 through Thursday, February 27, 2025 Local\r\n New",
         "notam": "5/4590",
         "dateIssued": "2025-02-19T23:27:00",
         "dateEffective": "2025-02-24T13:00:00",
@@ -786,7 +786,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local",
+        "description": "New Orleans, LA, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local\r\n New",
         "notam": "5/4383",
         "dateIssued": "2025-02-19T20:07:00",
         "dateEffective": "2025-02-26T23:30:00",
@@ -955,7 +955,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local",
+        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local\r\n New",
         "notam": "5/4382",
         "dateIssued": "2025-02-19T20:06:00",
         "dateEffective": "2025-02-22T16:30:00",
@@ -1124,7 +1124,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local",
+        "description": "New Orleans, LA, Friday, February 21, 2025 through Friday, February 21, 2025 Local\r\n New",
         "notam": "5/4381",
         "dateIssued": "2025-02-19T20:02:00",
         "dateEffective": "2025-02-21T20:30:00",
@@ -1205,7 +1205,7 @@
         ]
       },
       "properties": {
-        "description": "Washington, DC",
+        "description": "Washington, DC\r\n New",
         "notam": "5/4379",
         "dateIssued": "2025-02-19T19:57:00",
         "dateEffective": null,
@@ -1374,7 +1374,7 @@
         ]
       },
       "properties": {
-        "description": "HIBBING, MN, Friday, February 21, 2025 UTC",
+        "description": "HIBBING, MN, Friday, February 21, 2025 UTC\r\n New",
         "notam": "5/4338",
         "dateIssued": "2025-02-19T19:02:00",
         "dateEffective": "2025-02-21T15:00:00",
@@ -1543,7 +1543,7 @@
         ]
       },
       "properties": {
-        "description": "Tucson, AZ, Thursday, February 27, 2025 through Sunday, March 02, 2025 UTC",
+        "description": "Tucson, AZ, Thursday, February 27, 2025 through Sunday, March 02, 2025 UTC\r\n New",
         "notam": "5/4207",
         "dateIssued": "2025-02-19T14:55:00",
         "dateEffective": "2025-02-27T15:30:00",
