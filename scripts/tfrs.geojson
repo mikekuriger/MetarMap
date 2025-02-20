@@ -1255,143 +1255,6 @@
         "coordinates": [
           [
             [
-              -91.34058268,
-              32.570087
-            ],
-            [
-              -91.34058268,
-              32.569913
-            ],
-            [
-              -91.3405124,
-              32.5697495
-            ],
-            [
-              -91.34044472,
-              32.5696812
-            ],
-            [
-              -91.34045158,
-              32.56967629
-            ],
-            [
-              -91.28045128,
-              32.50967628
-            ],
-            [
-              -91.27045106,
-              32.49967612
-            ],
-            [
-              -91.27044422,
-              32.49968103
-            ],
-            [
-              -91.27038002,
-              32.4996162
-            ],
-            [
-              -91.2702022,
-              32.4995292
-            ],
-            [
-              -91.27,
-              32.49949899
-            ],
-            [
-              -91.2697978,
-              32.4995292
-            ],
-            [
-              -91.26961998,
-              32.4996162
-            ],
-            [
-              -91.269488,
-              32.49974949
-            ],
-            [
-              -91.26941777,
-              32.499913
-            ],
-            [
-              -91.26941777,
-              32.500087
-            ],
-            [
-              -91.269488,
-              32.5002505
-            ],
-            [
-              -91.26955578,
-              32.50031896
-            ],
-            [
-              -91.26954893,
-              32.50032388
-            ],
-            [
-              -91.27954888,
-              32.51032388
-            ],
-            [
-              -91.33954842,
-              32.57032371
-            ],
-            [
-              -91.33955528,
-              32.5703188
-            ],
-            [
-              -91.33961968,
-              32.57038379
-            ],
-            [
-              -91.33979764,
-              32.57047079
-            ],
-            [
-              -91.34,
-              32.57050101
-            ],
-            [
-              -91.34020236,
-              32.57047079
-            ],
-            [
-              -91.34038032,
-              32.57038379
-            ],
-            [
-              -91.3405124,
-              32.5702505
-            ],
-            [
-              -91.34058268,
-              32.570087
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Enoka, LA, Wednesday, February 19, 2025 UTC\r\n New",
-        "notam": "5/4329",
-        "dateIssued": "2025-02-19T18:14:00",
-        "dateEffective": "2025-02-19T18:30:00",
-        "dateExpire": "2025-02-19T23:59:00",
-        "upperVal": 400,
-        "lowerVal": 0,
-        "facility": "ZME",
-        "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -110.88333333,
               32.24989472
             ],
@@ -1856,7 +1719,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -2025,7 +1888,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -2338,7 +2201,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -2507,7 +2370,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -2820,7 +2683,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -2989,7 +2852,7 @@
         ]
       },
       "properties": {
-        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local\r\n New",
+        "description": "Miami, FL, Wednesday, February 19, 2025 through Wednesday, February 19, 2025 Local",
         "notam": "5/4088",
         "dateIssued": "2025-02-19T01:33:00",
         "dateEffective": "2025-02-19T13:30:00",
@@ -3158,7 +3021,7 @@
         ]
       },
       "properties": {
-        "description": "Seaside Heights, NJ, Saturday, February 22, 2025 Local\r\n New",
+        "description": "Seaside Heights, NJ, Saturday, February 22, 2025 Local",
         "notam": "5/4068",
         "dateIssued": "2025-02-19T00:17:00",
         "dateEffective": "2025-02-22T13:00:00",
