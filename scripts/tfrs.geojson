@@ -8,47 +8,6 @@
         "coordinates": [
           [
             [
-              -149.11916667,
-              60.95722222
-            ],
-            [
-              -149.08222222,
-              60.97833333
-            ],
-            [
-              -149.04694444,
-              60.96111111
-            ],
-            [
-              -149.09472222,
-              60.94277778
-            ],
-            [
-              -149.11916667,
-              60.95722222
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "ANCHORAGE, AK, Friday, February 21, 2025 UTC",
-        "notam": "5/5129",
-        "dateIssued": "2025-02-20T23:21:00",
-        "dateEffective": "2025-02-21T07:15:00",
-        "dateExpire": "2025-02-21T09:15:00",
-        "upperVal": 6000,
-        "lowerVal": 0,
-        "facility": "ZAN",
-        "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -110.19333333,
               31.56805556
             ],
