@@ -328,7 +328,7 @@
         ]
       },
       "properties": {
-        "description": "11NM S OF FORT HUACHUCA, AZ, Friday, February 21, 2025 through Saturday, February 22, 2025 UTC\r\n New",
+        "description": "11NM S OF FORT HUACHUCA, AZ, Friday, February 21, 2025 through Saturday, February 22, 2025 UTC",
         "notam": "5/5574",
         "dateIssued": "2025-02-21T18:40:00",
         "dateEffective": "2025-02-21T18:30:00",
@@ -441,7 +441,7 @@
         ]
       },
       "properties": {
-        "description": "Cape Canaveral, FL, Monday, February 24, 2025 Local\r\n New",
+        "description": "Cape Canaveral, FL, Monday, February 24, 2025 Local",
         "notam": "5/5566",
         "dateIssued": "2025-02-21T18:17:00",
         "dateEffective": "2025-02-25T04:04:00",
@@ -554,7 +554,7 @@
         ]
       },
       "properties": {
-        "description": "Cape Canaveral, FL, Tuesday, February 25, 2025 Local\r\n New",
+        "description": "Cape Canaveral, FL, Tuesday, February 25, 2025 Local",
         "notam": "5/5565",
         "dateIssued": "2025-02-21T18:17:00",
         "dateEffective": "2025-02-26T03:37:00",
@@ -667,7 +667,7 @@
         ]
       },
       "properties": {
-        "description": "Cape Canaveral, FL, Sunday, February 23, 2025 Local\r\n New",
+        "description": "Cape Canaveral, FL, Sunday, February 23, 2025 Local",
         "notam": "5/5564",
         "dateIssued": "2025-02-21T18:13:00",
         "dateEffective": "2025-02-24T04:32:00",
@@ -836,7 +836,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Saturday, February 22, 2025 through Sunday, February 23, 2025 Local",
         "notam": "5/5560",
         "dateIssued": "2025-02-21T18:10:00",
         "dateEffective": "2025-02-22T16:30:00",
@@ -1005,7 +1005,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Sunday, February 23, 2025 through Sunday, February 23, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Sunday, February 23, 2025 through Sunday, February 23, 2025 Local",
         "notam": "5/5561",
         "dateIssued": "2025-02-21T17:59:00",
         "dateEffective": "2025-02-23T15:30:00",
@@ -3738,6 +3738,175 @@
         "upperVal": 1000,
         "lowerVal": 0,
         "facility": "ZHU",
+        "type": "SECURITY"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -74.6975,
+              40.67167756
+            ],
+            [
+              -74.69369645,
+              40.67142413
+            ],
+            [
+              -74.69000855,
+              40.67067154
+            ],
+            [
+              -74.68654843,
+              40.66944268
+            ],
+            [
+              -74.68342129,
+              40.6677749
+            ],
+            [
+              -74.68072216,
+              40.66571892
+            ],
+            [
+              -74.67853306,
+              40.66333723
+            ],
+            [
+              -74.67692047,
+              40.66070223
+            ],
+            [
+              -74.67593335,
+              40.65789402
+            ],
+            [
+              -74.67560159,
+              40.65499792
+            ],
+            [
+              -74.67593521,
+              40.65210195
+            ],
+            [
+              -74.67692398,
+              40.64929409
+            ],
+            [
+              -74.67853778,
+              40.64665964
+            ],
+            [
+              -74.68072753,
+              40.64427863
+            ],
+            [
+              -74.68342666,
+              40.64222336
+            ],
+            [
+              -74.68655316,
+              40.64055625
+            ],
+            [
+              -74.69001206,
+              40.63932793
+            ],
+            [
+              -74.69369831,
+              40.6385757
+            ],
+            [
+              -74.6975,
+              40.63832239
+            ],
+            [
+              -74.70130169,
+              40.6385757
+            ],
+            [
+              -74.70498794,
+              40.63932793
+            ],
+            [
+              -74.70844684,
+              40.64055625
+            ],
+            [
+              -74.71157334,
+              40.64222336
+            ],
+            [
+              -74.71427247,
+              40.64427863
+            ],
+            [
+              -74.71646222,
+              40.64665964
+            ],
+            [
+              -74.71807602,
+              40.64929409
+            ],
+            [
+              -74.71906479,
+              40.65210195
+            ],
+            [
+              -74.71939841,
+              40.65499792
+            ],
+            [
+              -74.71906665,
+              40.65789402
+            ],
+            [
+              -74.71807953,
+              40.66070223
+            ],
+            [
+              -74.71646694,
+              40.66333723
+            ],
+            [
+              -74.71427784,
+              40.66571892
+            ],
+            [
+              -74.71157871,
+              40.6677749
+            ],
+            [
+              -74.70845157,
+              40.66944268
+            ],
+            [
+              -74.70499145,
+              40.67067154
+            ],
+            [
+              -74.70130355,
+              40.67142413
+            ],
+            [
+              -74.6975,
+              40.67167756
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Bedminster, NJ, Friday, January 31, 2025 through Friday, February 28, 2025 Local",
+        "notam": "5/8662",
+        "dateIssued": "2025-01-30T21:41:00",
+        "dateEffective": "2025-01-31T21:00:00",
+        "dateExpire": "2025-02-28T21:00:00",
+        "upperVal": 1000,
+        "lowerVal": 0,
+        "facility": "ZNY",
         "type": "SECURITY"
       }
     },
