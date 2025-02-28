@@ -1,2 +1,1 @@
-# MetarMap
 MetarMap for Android

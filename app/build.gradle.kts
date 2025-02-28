@@ -19,8 +19,15 @@ val apiKey: String = if (localProperties.exists()) {
     throw FileNotFoundException("local.properties file not found.")
 }
 
-
 android {
+
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "app-${versionName}-${versionCode}.apk"
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -31,8 +38,8 @@ android {
         applicationId = "com.airportweather.map"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = rootProject.extra["appVersionCode"] as Int
+        versionName = rootProject.extra["appVersionName"] as String
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_KEY", "\"$apiKey\"")
     }

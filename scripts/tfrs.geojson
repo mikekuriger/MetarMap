@@ -8,6 +8,573 @@
         "coordinates": [
           [
             [
+              -80.78777778,
+              28.63472222
+            ],
+            [
+              -80.08333333,
+              28.84416667
+            ],
+            [
+              -80.0818396,
+              28.79628774
+            ],
+            [
+              -80.06628467,
+              28.75475844
+            ],
+            [
+              -80.05490697,
+              28.71219137
+            ],
+            [
+              -80.04778825,
+              28.6689115
+            ],
+            [
+              -80.04497751,
+              28.62524886
+            ],
+            [
+              -80.0464908,
+              28.58153599
+            ],
+            [
+              -80.05231128,
+              28.53810541
+            ],
+            [
+              -80.06238946,
+              28.49528707
+            ],
+            [
+              -80.0766438,
+              28.45340592
+            ],
+            [
+              -80.09496139,
+              28.41277939
+            ],
+            [
+              -80.11719904,
+              28.37371508
+            ],
+            [
+              -80.14318439,
+              28.33650841
+            ],
+            [
+              -80.17271736,
+              28.3014405
+            ],
+            [
+              -80.20557175,
+              28.26877601
+            ],
+            [
+              -80.24149695,
+              28.23876127
+            ],
+            [
+              -80.26666667,
+              28.225
+            ],
+            [
+              -80.50805556,
+              28.41694444
+            ],
+            [
+              -80.63305556,
+              28.41694444
+            ],
+            [
+              -80.69555556,
+              28.41694444
+            ],
+            [
+              -80.73027778,
+              28.5225
+            ],
+            [
+              -80.78777778,
+              28.63472222
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Cape Canaveral, FL, Thursday, February 27, 2025 through Thursday, February 27, 2025 Local",
+        "notam": "5/5709",
+        "dateIssued": "2025-02-22T20:31:00",
+        "dateEffective": "2025-02-27T23:46:00",
+        "dateExpire": "2025-02-28T00:57:00",
+        "upperVal": 18000,
+        "lowerVal": 0,
+        "facility": "ZMA",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.78777778,
+              28.63472222
+            ],
+            [
+              -80.08333333,
+              28.84416667
+            ],
+            [
+              -80.0818396,
+              28.79628774
+            ],
+            [
+              -80.06628467,
+              28.75475844
+            ],
+            [
+              -80.05490697,
+              28.71219137
+            ],
+            [
+              -80.04778825,
+              28.6689115
+            ],
+            [
+              -80.04497751,
+              28.62524886
+            ],
+            [
+              -80.0464908,
+              28.58153599
+            ],
+            [
+              -80.05231128,
+              28.53810541
+            ],
+            [
+              -80.06238946,
+              28.49528707
+            ],
+            [
+              -80.0766438,
+              28.45340592
+            ],
+            [
+              -80.09496139,
+              28.41277939
+            ],
+            [
+              -80.11719904,
+              28.37371508
+            ],
+            [
+              -80.14318439,
+              28.33650841
+            ],
+            [
+              -80.17271736,
+              28.3014405
+            ],
+            [
+              -80.20557175,
+              28.26877601
+            ],
+            [
+              -80.24149695,
+              28.23876127
+            ],
+            [
+              -80.26666667,
+              28.225
+            ],
+            [
+              -80.50805556,
+              28.41694444
+            ],
+            [
+              -80.63305556,
+              28.41694444
+            ],
+            [
+              -80.69555556,
+              28.41694444
+            ],
+            [
+              -80.73027778,
+              28.5225
+            ],
+            [
+              -80.78777778,
+              28.63472222
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Cape Canaveral, FL, Wednesday, February 26, 2025 through Wednesday, February 26, 2025 Local",
+        "notam": "5/5708",
+        "dateIssued": "2025-02-22T20:30:00",
+        "dateEffective": "2025-02-26T23:52:00",
+        "dateExpire": "2025-02-27T01:04:00",
+        "upperVal": 18000,
+        "lowerVal": 0,
+        "facility": "ZMA",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.78777778,
+              28.63472222
+            ],
+            [
+              -80.08333333,
+              28.84416667
+            ],
+            [
+              -80.0818396,
+              28.79628774
+            ],
+            [
+              -80.06628467,
+              28.75475844
+            ],
+            [
+              -80.05490697,
+              28.71219137
+            ],
+            [
+              -80.04778825,
+              28.6689115
+            ],
+            [
+              -80.04497751,
+              28.62524886
+            ],
+            [
+              -80.0464908,
+              28.58153599
+            ],
+            [
+              -80.05231128,
+              28.53810541
+            ],
+            [
+              -80.06238946,
+              28.49528707
+            ],
+            [
+              -80.0766438,
+              28.45340592
+            ],
+            [
+              -80.09496139,
+              28.41277939
+            ],
+            [
+              -80.11719904,
+              28.37371508
+            ],
+            [
+              -80.14318439,
+              28.33650841
+            ],
+            [
+              -80.17271736,
+              28.3014405
+            ],
+            [
+              -80.20557175,
+              28.26877601
+            ],
+            [
+              -80.24149695,
+              28.23876127
+            ],
+            [
+              -80.26666667,
+              28.225
+            ],
+            [
+              -80.50805556,
+              28.41694444
+            ],
+            [
+              -80.63305556,
+              28.41694444
+            ],
+            [
+              -80.69555556,
+              28.41694444
+            ],
+            [
+              -80.73027778,
+              28.5225
+            ],
+            [
+              -80.78777778,
+              28.63472222
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Cape Canaveral, FL, Friday, February 28, 2025 through Friday, February 28, 2025 Local",
+        "notam": "5/5707",
+        "dateIssued": "2025-02-22T20:29:00",
+        "dateEffective": "2025-02-28T23:40:00",
+        "dateExpire": "2025-03-01T00:51:00",
+        "upperVal": 18000,
+        "lowerVal": 0,
+        "facility": "ZMA",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Friday, February 28, 2025 Local",
+        "notam": "5/5706",
+        "dateIssued": "2025-02-22T19:52:00",
+        "dateEffective": "2025-02-28T14:30:00",
+        "dateExpire": "2025-02-28T23:30:00",
+        "upperVal": 99900,
+        "lowerVal": 0,
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Tuesday, February 25, 2025 Local",
+        "notam": "5/5703",
+        "dateIssued": "2025-02-22T19:52:00",
+        "dateEffective": "2025-02-25T14:30:00",
+        "dateExpire": "2025-02-25T23:30:00",
+        "upperVal": 99900,
+        "lowerVal": 0,
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Thursday, February 27, 2025 Local",
+        "notam": "5/5705",
+        "dateIssued": "2025-02-22T19:51:00",
+        "dateEffective": "2025-02-27T14:30:00",
+        "dateExpire": "2025-02-27T23:30:00",
+        "upperVal": 99900,
+        "lowerVal": 0,
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -105.13333333,
+              31.68333333
+            ],
+            [
+              -105.13333333,
+              31.36666667
+            ],
+            [
+              -105.0,
+              31.21666667
+            ],
+            [
+              -104.85,
+              31.16666667
+            ],
+            [
+              -104.3,
+              31.21666667
+            ],
+            [
+              -104.3,
+              31.5
+            ],
+            [
+              -104.4,
+              31.66666667
+            ],
+            [
+              -104.56666667,
+              31.73333333
+            ],
+            [
+              -105.13333333,
+              31.68333333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "description": "Van Horn, TX, Wednesday, February 26, 2025 Local",
+        "notam": "5/5704",
+        "dateIssued": "2025-02-22T19:50:00",
+        "dateEffective": "2025-02-26T14:30:00",
+        "dateExpire": "2025-02-26T23:30:00",
+        "upperVal": 99900,
+        "lowerVal": 0,
+        "facility": "ZAB",
+        "type": "SPACE OPERATIONS"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
               -90.07388889,
               29.99375222
             ],
@@ -159,7 +726,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Tuesday, February 25, 2025 through Tuesday, February 25, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Tuesday, February 25, 2025 through Tuesday, February 25, 2025 Local",
         "notam": "5/5702",
         "dateIssued": "2025-02-22T19:18:00",
         "dateEffective": "2025-02-25T22:30:00",
@@ -200,7 +767,7 @@
         ]
       },
       "properties": {
-        "description": "Kit Carson, CO, Tuesday, February 25, 2025 through Thursday, February 27, 2025 Local\r\n New",
+        "description": "Kit Carson, CO, Tuesday, February 25, 2025 through Thursday, February 27, 2025 Local",
         "notam": "5/5684",
         "dateIssued": "2025-02-22T14:55:00",
         "dateEffective": "2025-02-26T00:30:00",
@@ -369,7 +936,7 @@
         ]
       },
       "properties": {
-        "description": "Palm Beach Garden, FL, Thursday, February 27, 2025 through Sunday, March 02, 2025 Local\r\n New",
+        "description": "Palm Beach Garden, FL, Thursday, February 27, 2025 through Sunday, March 02, 2025 Local",
         "notam": "5/5683",
         "dateIssued": "2025-02-22T14:27:00",
         "dateEffective": "2025-02-24T11:00:00",
@@ -538,7 +1105,7 @@
         ]
       },
       "properties": {
-        "description": "Plum Grove, TX, Monday, February 24, 2025 through Monday, February 24, 2025 Local\r\n New",
+        "description": "Plum Grove, TX, Monday, February 24, 2025 through Monday, February 24, 2025 Local",
         "notam": "5/5682",
         "dateIssued": "2025-02-22T13:57:00",
         "dateEffective": "2025-02-24T11:00:00",
@@ -707,7 +1274,7 @@
         ]
       },
       "properties": {
-        "description": "New Orleans, LA, Thursday, February 27, 2025 through Wednesday, March 05, 2025 Local\r\n New",
+        "description": "New Orleans, LA, Thursday, February 27, 2025 through Wednesday, March 05, 2025 Local",
         "notam": "5/5660",
         "dateIssued": "2025-02-21T23:57:00",
         "dateEffective": "2025-02-27T20:00:00",
@@ -3208,67 +3775,6 @@
         "dateIssued": "2025-02-14T16:46:00",
         "dateEffective": "2025-02-26T06:30:00",
         "dateExpire": "2025-03-01T23:00:00",
-        "upperVal": 17999,
-        "lowerVal": 0,
-        "facility": "ZHN",
-        "type": "SECURITY"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -157.54138889,
-              21.58805556
-            ],
-            [
-              -157.79305556,
-              21.42111111
-            ],
-            [
-              -157.81833333,
-              21.42222222
-            ],
-            [
-              -157.84222222,
-              21.42888889
-            ],
-            [
-              -157.84972222,
-              21.45888889
-            ],
-            [
-              -157.84472222,
-              21.48472222
-            ],
-            [
-              -157.78888889,
-              21.53777778
-            ],
-            [
-              -157.80277778,
-              21.72611111
-            ],
-            [
-              -157.79333333,
-              21.83416667
-            ],
-            [
-              -157.54138889,
-              21.58805556
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Kaneohe Bay, HI, Friday, February 21, 2025 through Sunday, February 23, 2025 Local",
-        "notam": "5/3034",
-        "dateIssued": "2025-02-14T16:44:00",
-        "dateEffective": "2025-02-22T07:00:00",
-        "dateExpire": "2025-02-24T04:00:00",
         "upperVal": 17999,
         "lowerVal": 0,
         "facility": "ZHN",
