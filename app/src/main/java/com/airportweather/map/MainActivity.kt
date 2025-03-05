@@ -10,42 +10,12 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.Dash
-import com.google.android.gms.maps.model.Gap
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.PolygonOptions
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
-import java.util.zip.GZIPInputStream
-import kotlin.math.exp
-import kotlin.math.pow
-import kotlin.math.roundToInt
-import org.json.JSONArray
-import org.json.JSONObject
 import android.os.Bundle
+import android.os.Looper
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import android.util.Log
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -57,19 +27,58 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.Dash
+import com.google.android.gms.maps.model.Gap
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
-import kotlinx.coroutines.delay
-import kotlinx.serialization.*
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.util.concurrent.TimeUnit
+import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.maps.model.Tile
 import com.google.android.gms.maps.model.TileOverlay
 import com.google.android.gms.maps.model.TileOverlayOptions
 import com.google.android.gms.maps.model.TileProvider
-import java.util.concurrent.Executors
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
+import kotlin.math.exp
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.*
+import org.json.JSONArray
+import org.json.JSONObject
+
+import android.content.Intent
+import android.view.MenuItem
+import android.widget.ProgressBar
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.navigation.NavigationView
+import java.util.LinkedList
+import java.util.Queue
 
 
 @Serializable
@@ -546,11 +555,17 @@ fun metersToFeet(meters: Int): Int = (meters * 3.28084).roundToInt()
 @SuppressLint("DefaultLocale")
 fun celsiusToFahrenheit(celsius: Double): Double = String.format("%.1f", celsius * 9 / 5 + 32).toDouble()
 
-class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnNavigationItemSelectedListener {
 
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var navView: NavigationView
 
+    private val taskQueue: Queue<() -> Unit> = LinkedList()
+
+    private var isFollowingUser = true
     private var areTFRsVisible = true
     private val tfrPolygons = mutableListOf<Polygon>()
     private var areAirspacesVisible = true
@@ -560,10 +575,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
-    var currentLayerName: String = "FlightConditions"
-
+    private var currentLayerName: String = "FlightConditions"
     private var sectionalOverlay: TileOverlay? = null
     private var sectionalVisible = false
+    private var terminalOverlay: TileOverlay? = null
+    private var terminalVisible = false
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -592,18 +608,62 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+/*    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestLocationPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            LOCATION_PERMISSION_REQUEST_CODE
+        )
+    }*/
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // ✅ Initialize Navigation Drawer
+        drawerLayout = findViewById(R.id.drawer_layout)
+        navView = findViewById(R.id.nav_view)
+
+        val toggle = ActionBarDrawerToggle(
+            this, drawerLayout, R.string.navigation_drawer_open, R.string.navigation_drawer_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
+
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        navView.setNavigationItemSelectedListener(this)
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    val userLatLng = LatLng(location.latitude, location.longitude)
+                    Log.d("LocationUpdate", "User Location: $userLatLng")
+
+                    // ✅ Only follow the user if they haven't moved the map
+                    if (isFollowingUser) {
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+                    }
+                }
+            }
+        }
+
+        requestLocationUpdates()
+
+        //VERSION
         /*val versionText = findViewById<TextView>(R.id.versionText)
         versionText.text = getString(
             R.string.app_version,
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
         )*/
-
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // Initialize the map
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
@@ -650,6 +710,84 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+//    private fun queueStartupTasks() {
+//        taskQueue.add { showBottomProgressBar("✈️ Downloading TFR Data..."); loadAndDrawTFR() }
+//        taskQueue.add { showBottomProgressBar("🌦️ Downloading Weather Data..."); loadAndDrawMetar() }
+//        taskQueue.add { showBottomProgressBar("🗺️ Downloading Airspace Data..."); loadAndDrawAirspace(mMap, this) }
+//        taskQueue.add { showBottomProgressBar("✅ Initialization Complete"); hideBottomProgressBar() }
+//    }
+//
+//    private fun executeNextTask() {
+//        if (!::mMap.isInitialized) {
+//            Log.d("StartupQueue", "⏳ Waiting for mMap to be ready before running tasks...")
+//            return // ✅ Do nothing until `mMap` is initialized
+//        }
+//
+//        val nextTask = taskQueue.poll()
+//        if (nextTask != null) {
+//            Log.d("StartupQueue", "🚀 Running task: $nextTask")
+//            nextTask.invoke()
+//        } else {
+//            Log.d("StartupQueue", "✅ All startup tasks completed.")
+//            hideBottomProgressBar()
+//        }
+//    }
+
+
+    override fun onNavigationItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
+            //R.id.nav_settings -> startActivity(Intent(this, com.airportweather.map.SettingsActivity::class.java))
+        }
+        drawerLayout.closeDrawers() // ✅ Close drawer after selection
+        return true
+    }
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            drawerLayout.open()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    // ✅ Start Location Updates
+    @SuppressLint("MissingPermission")
+    private fun requestLocationUpdates() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+            return
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    val userLatLng = LatLng(location.latitude, location.longitude)
+                    Log.d("LocationUpdate", "User Location: $userLatLng")
+
+                    // ✅ Follow the user *only* if they haven't moved the map
+                    if (isFollowingUser) {
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+                    }
+                }
+            }
+        }, Looper.getMainLooper())
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun enableMyLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mMap.isMyLocationEnabled = true
+
+            // ✅ If user taps "My Location" button, resume following
+            mMap.setOnMyLocationButtonClickListener {
+                isFollowingUser = true
+                false  // ✅ Allows default behavior (centering the map)
+            }
+        }
+    }
+
     @SuppressLint("PotentialBehaviorOverride")
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
@@ -664,9 +802,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             saveMapPosition()
             updateVisibleMarkers(metarData, tafData)
         }
+
         checkLocationPermission()
+        enableMyLocation()
+
         moveToLastSavedLocationOrCurrent()
         showBottomProgressBar("🚨 Initializing all the things")
+        requestLocationUpdates()
+
+        // ✅ Stop following when the user manually moves the map
+        mMap.setOnCameraMoveListener {
+            isFollowingUser = false
+        }
+
 
 //        // display ZOOM level for debugging maps DEBUG
 //        val zoomLevelText: TextView = findViewById(R.id.zoomLevelText)
@@ -684,6 +832,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             toggleSectionalOverlay(mMap)
             updateButtonState(vfrSecButton, isSectionalVisible)
         }
+
+//        // ✅ Initialize the task queue
+//        queueStartupTasks()
+//
+//        // ✅ Start the first task
+//        executeNextTask()
 
         // **Load TFR GeoJSON**
         loadAndDrawTFR()
@@ -749,6 +903,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+
     private fun checkLocationPermission() {
         if (::mMap.isInitialized) {
             if (ActivityCompat.checkSelfPermission(
@@ -774,21 +929,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    private fun enableMyLocation() {
-        try {
-            if (ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                mMap.isMyLocationEnabled = true
-                //moveToCurrentLocation()
-                moveToLastSavedLocationOrCurrent()
-            }
-        } catch (e: SecurityException) {
-            e.printStackTrace()
-        }
-    }
+
     private fun moveToCurrentLocation() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
@@ -1173,21 +1314,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun loadAndDrawTFR() {
         lifecycleScope.launch {
             try {
-                // Step 1: Download TFRs
-                //showBottomProgressBar("🚨 Updating TFR data")
+                showBottomProgressBar("✈️ Loading TFR Data")
                 val tfrFile = getOrDownloadTfrs(filesDir)
-
-                // Step 2: Load the GeoJSON file
                 if (tfrFile != null) {
                     println("✅ Parsing tfr data...")
                     val tfrFeatures = parseTFRGeoJson(tfrFile)
                     drawTFRPolygons(mMap, tfrFeatures)
+                    //showBottomProgressBar("✈️ TFR Data Loaded")
                 } else {
-                    showBottomProgressBar("No TFR data available")
+                    showBottomProgressBar("❌ No TFR Data Available")
                     println("🚨 No TFR data available")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("MainActivity", "TFR download failed: ${e.message}")
+                showBottomProgressBar("❌ TFR Data Failed")
+            } finally {
+                //executeNextTask()  // ✅ Continue with next task
             }
         }
     }
@@ -1348,6 +1490,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                //showBottomProgressBar("🗺️ Loading Airspace Boundaries")
                 val inputStream = context.resources.openRawResource(R.raw.airspace)
                 val geoJsonString = inputStream.bufferedReader().use { it.readText() }
                 val geoJsonObject = JSONObject(geoJsonString)
@@ -1402,8 +1545,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
 
                 airspacePolygons.addAll(newPolygons) // Add polygons to global list
+                //executeNextTask()
+
             } catch (e: Exception) {
                 Log.e("GeoJSON", "Error loading boundaries: ${e.localizedMessage}")
+                showBottomProgressBar("❌ Airspace Boundaries Failed")
+                //executeNextTask()
             }
         }
     }
@@ -1429,6 +1576,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             try {
                 // ✅ Load cached METAR & TAF data before downloading new ones
+                showBottomProgressBar("🌦️ Loading Weather Data")
                 metarData = loadMetarDataFromCache(filesDir)
                 tafData = loadTafDataFromCache(filesDir)
 
@@ -1450,10 +1598,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             } catch (e: Exception) {
                 Log.e("METAR_UPDATE", "Error fetching METAR data", e)
-                Toast.makeText(this@MainActivity, "Error fetching METAR data: ${e.message}", Toast.LENGTH_LONG).show()
+                withContext(Dispatchers.Main) {
+                    showBottomProgressBar("❌ Weather Data Failed")
+                   // executeNextTask()  // ✅ Continue even if failed
+                }
             } finally {
                 withContext(Dispatchers.Main) {
                     hideBottomProgressBar()
+                    //showBottomProgressBar("🌦️ Weather Data Loaded")
+                    //executeNextTask()
                 }
             }
         }
@@ -1600,7 +1753,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
     // TILES (sectional charts)
-    private fun toggleSectionalOverlay(map: GoogleMap) {
+    /*private fun toggleSectionalOverlay(map: GoogleMap) {
+
         if (sectionalOverlay == null) {
             val tileProvider = SectionalTileProvider(this)
             val tileOverlayOptions = TileOverlayOptions()
@@ -1613,261 +1767,71 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         sectionalOverlay?.isVisible = sectionalVisible
         sectionalOverlay?.clearTileCache() // Force refresh
         Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
-    }
-}
-
-// local only (for testing - this file location is not the same as cache)
-/*class SectionalTileProvider(private val context: Context) : TileProvider {
-    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-        val filePath = "tiles/$zoom/$x/$y.png"
-//        val filePath = "tiles/$zoom/$x/$y.webp"
-
-        //Log.d("TileProvider", "Requested Tile: $filePath")
-
-        val tileLayers = mutableListOf<ByteArray>()
-
-        try {
-            val tileData = context.assets.open(filePath).use { it.readBytes() }
-            tileLayers.add(tileData)
-        } catch (e: Exception) {
-            Log.w("TileProvider", "Tile Not Found: $filePath")
-        }
-
-        return if (tileLayers.isNotEmpty()) {
-            Tile(512, 512, mergeTiles(tileLayers)) // Merge overlapping tiles
-        } else {
-            null
-        }
-    }
-
-    private fun mergeTiles(tiles: List<ByteArray>): ByteArray {
-        // Combine overlapping tiles into a single image
-        return tiles.last() // Simplified: Returns the last tile loaded
-    }
-}*/
-
-// local, and URL
-/*class SectionalTileProvider(private val context: Context) : TileProvider {
-    private val tileSize = 256
-    //private val baseUrl = "https://mikekuriger.github.io/metarmap/Terminal/60"
-    private val baseUrl = "https://raw.githubusercontent.com/mikekuriger/mikekuriger.github.io/refs/heads/stage/metarmap/Sectional/60"
-
-    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-
-        val localFilePath = File(context.filesDir, "tiles/$zoom/$x/$y.png")
-
-        return if (localFilePath.exists()) {
-            Log.d("TileProvider", "Loading from local cache: $localFilePath")
-            loadTileFromFile(localFilePath)
-        } else {
-            Log.d("TileProvider", "Tile not found locally, fetching from URL...")
-            loadTileFromURL(zoom, x, y, localFilePath)
-        }
-    }
-
-    private fun loadTileFromFile(file: File): Tile? {
-        return try {
-            val tileData = file.readBytes()
-            Tile(tileSize, tileSize, tileData)
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from file: ${e.message}")
-            null
-        }
-    }
-
-    private fun loadTileFromURL(zoom: Int, x: Int, y: Int, saveToFile: File): Tile? {
-        val tileUrl = "$baseUrl/$zoom/$x/$y.png"
-        return try {
-            val connection = URL(tileUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connect()
-
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val tileData = connection.inputStream.use { it.readBytes() }
-
-                // Cache the tile locally for offline use
-                saveToFile.parentFile?.mkdirs() // Ensure the directory exists
-                saveToFile.writeBytes(tileData)
-
-                Tile(tileSize, tileSize, tileData)
-            } else {
-                Log.e("TileProvider", "Tile not found at URL: $tileUrl")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from URL: ${e.message}")
-            null
-        }
-    }
-}*/
-
-// local, URL, precache
-/*class SectionalTileProvider(private val context: Context) : TileProvider {
-    private val tileSize = 512
-    //private val baseUrl = "https://mikekuriger.github.io/metarmap/Terminal/6_quantized"
-    private val baseUrl = "https://raw.githubusercontent.com/mikekuriger/mikekuriger.github.io/refs/heads/stage/metarmap/Sectional/6_quantized/"
-    private val executor = Executors.newFixedThreadPool(4) // Parallel downloading
-
-    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-        val localFilePath = File(context.filesDir, "tiles/$zoom/$x/$y.png")
-
-        // Load the requested tile
-        val tile = if (localFilePath.exists()) {
-            Log.d("TileProvider", "Loading from local cache: $localFilePath")
-            loadTileFromFile(localFilePath)
-        } else {
-            Log.d("TileProvider", "Tile not found locally, fetching from URL...")
-            loadTileFromURL(zoom, x, y, localFilePath)
-        }
-
-        // Prefetch surrounding tiles in a background thread
-        executor.execute { prefetchNeighboringTiles(zoom, x, y) }
-
-        return tile
-    }
-
-    private fun loadTileFromFile(file: File): Tile? {
-        return try {
-            val tileData = file.readBytes()
-            Tile(tileSize, tileSize, tileData)
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from file: ${e.message}")
-            null
-        }
-    }
-
-    private fun loadTileFromURL(zoom: Int, x: Int, y: Int, saveToFile: File): Tile? {
-        val tileUrl = "$baseUrl/$zoom/$x/$y.png"
-        return try {
-            val connection = URL(tileUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connect()
-
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val tileData = connection.inputStream.use { it.readBytes() }
-
-                // Cache the tile locally for offline use
-                saveToFile.parentFile?.mkdirs()
-                saveToFile.writeBytes(tileData)
-
-                Tile(tileSize, tileSize, tileData)
-            } else {
-                Log.e("TileProvider", "Tile not found at URL: $tileUrl")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from URL: ${e.message}")
-            null
-        }
-    }
-
-    // pre-fetch  (3x3)
-    private fun prefetchNeighboringTiles(zoom: Int, x: Int, y: Int) {
-        val offsets = listOf(-1, 0, 1) // Offsets for neighboring tiles (-1, 0, +1)
-
-        for (dx in offsets) {
-            for (dy in offsets) {
-                if (dx == 0 && dy == 0) continue // Skip the center tile (already requested)
-
-                val neighborX = x + dx
-                val neighborY = y + dy
-                val neighborFilePath = File(context.filesDir, "tiles/$zoom/$neighborX/$neighborY.png")
-
-                if (!neighborFilePath.exists()) {
-                    Log.d("TileProvider", "Prefetching: $zoom/$neighborX/$neighborY")
-                    loadTileFromURL(zoom, neighborX, neighborY, neighborFilePath)
-                }
-            }
-        }
-    }
-
-    // pre-fetch (5x5)
-   *//* private fun prefetchNeighboringTiles(zoom: Int, x: Int, y: Int) {
-        val neighborRadius = 2 // Increase this to fetch more surrounding tiles
-        val zoomLevelsToPrefetch = listOf(zoom - 1, zoom, zoom + 1) // Prefetch higher/lower zoom levels
-
-        for (prefetchZoom in zoomLevelsToPrefetch) {
-            for (dx in -neighborRadius..neighborRadius) {
-                for (dy in -neighborRadius..neighborRadius) {
-                    if (dx == 0 && dy == 0 && prefetchZoom == zoom) continue // Skip center tile if same zoom
-
-                    val neighborX = x + dx
-                    val neighborY = y + dy
-                    val neighborFilePath = File(context.filesDir, "tiles/$prefetchZoom/$neighborX/$neighborY.png")
-
-                    if (!neighborFilePath.exists()) {
-                        Log.d("TileProvider", "Prefetching: $prefetchZoom/$neighborX/$neighborY")
-                        loadTileFromURL(prefetchZoom, neighborX, neighborY, neighborFilePath)
-                    }
-                }
-            }
-        }
-    }*//*
-
-}*/
-
-// terminal first, then sectional
-class SectionalTileProvider(private val context: Context) : TileProvider {
-    private val tileSize = 256
-    //private val baseTerminalUrl = "https://raw.githubusercontent.com/mikekuriger/mikekuriger.github.io/refs/heads/stage/metarmap/Terminal/6_quantized"
-    //private val baseSectionalUrl = "https://raw.githubusercontent.com/mikekuriger/mikekuriger.github.io/refs/heads/stage/metarmap/Sectional/6_quantized"
-    private val baseTerminalUrl = "https://mrregiruk.netlify.app/metarmap/Terminal/6_quantized"
-    private val baseSectionalUrl = "https://mrregiruk.netlify.app/metarmap/Sectional/6_quantized"
-    private val baseWallsUrl = "https://raw.githubusercontent.com/mikekuriger/metarmap_US_VFR_Wall_Planning/refs/heads/main/6_quantized"
-
-/*    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-        val wallFile = File(context.filesDir, "tiles/Wall/$zoom/$x/$y.png")
-        val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
-        val sectionalFile = File(context.filesDir, "tiles/Sectional/$zoom/$x/$y.png")
-
-        // Try Wall first
-        if (wallFile.exists()) {
-            return loadTileFromFile(wallFile)
-        }
-
-        // Try Terminal first
-        if (terminalFile.exists()) {
-            return loadTileFromFile(terminalFile)
-        }
-
-        // If Terminal doesn't exist, try Sectional
-        if (sectionalFile.exists()) {
-            return loadTileFromFile(sectionalFile)
-        }
-
-        // If neither exists, attempt to download in priority order
-        return when {
-            checkTileExists(baseWallsUrl, zoom, x, y) -> loadTileFromURL(baseWallsUrl, zoom, x, y, wallFile)
-            checkTileExists(baseTerminalUrl, zoom, x, y) -> loadTileFromURL(baseTerminalUrl, zoom, x, y, terminalFile)
-            checkTileExists(baseSectionalUrl, zoom, x, y) -> loadTileFromURL(baseSectionalUrl, zoom, x, y, sectionalFile)
-            else -> null // No tile available
-        }
     }*/
 
+    private fun toggleSectionalOverlay(map: GoogleMap) {
+        if (sectionalOverlay == null) {
+            val sectionalTileProvider = SectionalTileProvider(this)
+            val tileOverlayOptions = TileOverlayOptions()
+                .tileProvider(sectionalTileProvider)
+                .transparency(0.0f)
+                .zIndex(-1.0f) // ✅ Sectional is the base layer
+            sectionalOverlay = map.addTileOverlay(tileOverlayOptions)
+        }
+
+        if (terminalOverlay == null) {
+            val terminalTileProvider = TerminalTileProvider(this)
+            val tileOverlayOptions = TileOverlayOptions()
+                .tileProvider(terminalTileProvider)
+                .transparency(0.0f)
+                .zIndex(-0.5f) // ✅ Terminal is over Sectional
+            terminalOverlay = map.addTileOverlay(tileOverlayOptions)
+        }
+
+        sectionalVisible = !sectionalVisible // Toggle Sectional visibility
+        terminalVisible = sectionalVisible  // Keep Terminal consistent
+
+        sectionalOverlay?.isVisible = sectionalVisible
+        terminalOverlay?.isVisible = terminalVisible
+
+        sectionalOverlay?.clearTileCache()
+        terminalOverlay?.clearTileCache() // ✅ Ensures smooth transition
+
+        Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
+    }
+}
+
+abstract class BaseTileProvider(
+    protected val context: Context,
+    protected val baseUrl: String,
+    private val localFolder: String
+) : TileProvider {
+    protected val tileSize = 256
+
     override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-        val wallFile = File(context.filesDir, "tiles/Wall/$zoom/$x/$y.png")
-        val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
-        val sectionalFile = File(context.filesDir, "tiles/Sectional/$zoom/$x/$y.png")
+        val localFile = File(context.filesDir, "tiles/$localFolder/$zoom/$x/$y.png")
 
         return when {
-            // ✅ Zoom 4-7 → Use Wall tiles only
-            zoom in 4..7 && wallFile.exists() -> loadTileFromFile(wallFile)
-
-            // ✅ Zoom 8-12 → Try Terminal first, then Sectional
-            zoom in 8..12 && terminalFile.exists() -> loadTileFromFile(terminalFile)
-            zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
-
-            // ✅ Download logic (priority-based)
-            zoom in 4..7 && checkTileExists(baseWallsUrl, zoom, x, y) -> loadTileFromURL(baseWallsUrl, zoom, x, y, wallFile)
-            zoom in 8..12 && checkTileExists(baseTerminalUrl, zoom, x, y) -> loadTileFromURL(baseTerminalUrl, zoom, x, y, terminalFile)
-            zoom in 8..12 && checkTileExists(baseSectionalUrl, zoom, x, y) -> loadTileFromURL(baseSectionalUrl, zoom, x, y, sectionalFile)
-
-            else -> null // No tile available
+            localFile.exists() -> loadTileFromFile(localFile)
+            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, localFile)
+            else -> null
         }
     }
 
+    // this is for the base tiles (wall tiles) included in the app
+    protected fun loadTileFromAssets(filePath: String): Tile? {
+        return try {
+            val inputStream = context.assets.open(filePath)
+            val tileData = inputStream.use { it.readBytes() }
+            Tile(256, 256, tileData)
+        } catch (e: Exception) {
+            Log.e("TileProvider", "Tile not found in assets: $filePath")
+            null
+        }
+    }
 
-    private fun loadTileFromFile(file: File): Tile? {
+    // this is for sectional tiles added by downloading
+    protected fun loadTileFromFile(file: File): Tile? {
         return try {
             val tileData = file.readBytes()
             Tile(tileSize, tileSize, tileData)
@@ -1877,7 +1841,7 @@ class SectionalTileProvider(private val context: Context) : TileProvider {
         }
     }
 
-    private fun loadTileFromURL(baseUrl: String, zoom: Int, x: Int, y: Int, saveToFile: File): Tile? {
+    protected fun loadTileFromURL(zoom: Int, x: Int, y: Int, saveToFile: File): Tile? {
         val tileUrl = "$baseUrl/$zoom/$x/$y.png"
         return try {
             val connection = URL(tileUrl).openConnection() as HttpURLConnection
@@ -1902,7 +1866,7 @@ class SectionalTileProvider(private val context: Context) : TileProvider {
         }
     }
 
-    private fun checkTileExists(baseUrl: String, zoom: Int, x: Int, y: Int): Boolean {
+    protected fun checkTileExists(baseUrl: String, zoom: Int, x: Int, y: Int): Boolean {
         val tileUrl = "$baseUrl/$zoom/$x/$y.png"
         return try {
             val connection = URL(tileUrl).openConnection() as HttpURLConnection
@@ -1915,73 +1879,41 @@ class SectionalTileProvider(private val context: Context) : TileProvider {
     }
 }
 
-/*class WallTileProvider(private val context: Context) : TileProvider {
-    private val tileSize = 256
-    private val baseWallsUrl = "https://raw.githubusercontent.com/mikekuriger/metarmap_US_VFR_Wall_Planning/refs/heads/main/6_quantized"
-
+// ✅ FIXED SectionalTileProvider
+class SectionalTileProvider(context: Context) : BaseTileProvider(
+    context,
+    baseUrl = "https://regiruk.netlify.app/Sectional/30",
+    localFolder = "Sectional"
+) {
     override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
-        val wallFile = File(context.filesDir, "tiles/Wall/$zoom/$x/$y.png")
+        val wallFilePath = "tiles/$zoom/$x/$y.png"
+        val sectionalFile = File(context.filesDir, "tiles/Sectional/$zoom/$x/$y.png")
 
-        // Try Cache
-        if (wallFile.exists()) {
-            return loadTileFromFile(wallFile)
-        }
-
-        // Download
         return when {
-            checkTileExists(baseWallsUrl, zoom, x, y) -> loadTileFromURL(baseWallsUrl, zoom, x, y, wallFile)
+            // ✅ Load Wall tiles first (zoom 4-7)
+            zoom in 4..7 -> loadTileFromAssets(wallFilePath)
+
+            // ✅ Load Sectional tiles (zoom 8-12)
+            zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
+            zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
+
             else -> null // No tile available
         }
     }
+}
 
-    private fun loadTileFromFile(file: File): Tile? {
-        return try {
-            val tileData = file.readBytes()
-            Tile(tileSize, tileSize, tileData)
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from file: ${e.message}")
-            null
+// ✅ TerminalTileProvider (No Changes Needed)
+class TerminalTileProvider(context: Context) : BaseTileProvider(
+    context,
+    baseUrl = "https://regiruk.netlify.app/Terminal",
+    localFolder = "Terminal"
+) {
+    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
+        val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
+        return when {
+            terminalFile.exists() -> loadTileFromFile(terminalFile)
+            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
+            else -> null // No tile available
         }
     }
-
-    private fun loadTileFromURL(baseUrl: String, zoom: Int, x: Int, y: Int, saveToFile: File): Tile? {
-        val tileUrl = "$baseUrl/$zoom/$x/$y.png"
-        return try {
-            val connection = URL(tileUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connect()
-
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val tileData = connection.inputStream.use { it.readBytes() }
-
-                // Cache the tile locally for offline use
-                saveToFile.parentFile?.mkdirs()
-                saveToFile.writeBytes(tileData)
-
-                Tile(tileSize, tileSize, tileData)
-            } else {
-                Log.e("TileProvider", "Tile not found at URL: $tileUrl")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("TileProvider", "Error loading tile from URL: ${e.message}")
-            null
-        }
-    }
-
-    private fun checkTileExists(baseUrl: String, zoom: Int, x: Int, y: Int): Boolean {
-        val tileUrl = "$baseUrl/$zoom/$x/$y.png"
-        return try {
-            val connection = URL(tileUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "HEAD" // Use HEAD to check if file exists without downloading
-            connection.connect()
-            connection.responseCode == HttpURLConnection.HTTP_OK
-        } catch (e: Exception) {
-            false
-        }
-    }
-}*/
-
-
-
-
+}

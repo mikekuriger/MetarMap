@@ -95,6 +95,6 @@ dependencies {
     implementation(libs.opencsv)
     implementation(libs.android.maps.utils)
     implementation(libs.kotlinx.serialization.json)
-
-
+    implementation(libs.androidx.drawerlayout)
+    implementation(libs.material.v190)
 }

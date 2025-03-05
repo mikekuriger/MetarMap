@@ -1,0 +1,61 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TableRow
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/sectional_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="3"
+            android:text="Sectional Name"
+            android:textSize="14sp"/>
+
+        <TextView
+            android:id="@+id/sectional_size"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:text="Size: 0 MB"
+            android:textSize="10sp"/>
+
+        <ImageView
+            android:id="@+id/download_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_weight="1"
+            android:visibility="gone"
+            android:src="@drawable/ic_download" />
+
+        <ImageView
+            android:id="@+id/downloaded_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_weight="1"
+            android:visibility="gone"
+            android:src="@drawable/ic_done" />
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="24dp"
+            android:layout_height="12dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:visibility="gone" />
+
+<!--        <TextView
+            android:id="@+id/progress_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:textSize="9sp" />-->
+
+    </TableRow>
+
+</LinearLayout>
