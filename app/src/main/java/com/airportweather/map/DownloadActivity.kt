@@ -1,38 +1,86 @@
 package com.airportweather.map
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
-import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
 import java.net.URL
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 
 class DownloadActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: SectionalAdapter
+    lateinit var adapter: SectionalAdapter
     private val sectionalList = mutableListOf<SectionalChart>()
 
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d("DownloadDebug", "📢 onReceive TRIGGERED!")
+            val fileName = intent?.getStringExtra("fileName") ?: return
+            val status = intent.getStringExtra("status") ?: "Downloading..."
+            val progress = intent.getIntExtra("progress", 0)
+
+            Log.d("DownloadDebug", "Received update -> fileName: $fileName, status: $status, progress: $progress")
+
+            // ✅ Find the matching chart in the list
+            val index = sectionalList.indexOfFirst { it.fileName == fileName }
+            if (index == -1) {
+                Log.e("DownloadDebug", "No match found for $fileName")
+                return
+            }
+
+            val chart = sectionalList[index]
+            chart.isDownloading = progress < 100
+            chart.progress = progress
+
+            // ✅ Update UI on the main thread
+            runOnUiThread {
+                adapter.notifyItemChanged(index)
+                Log.d("DownloadDebug", "notifyItemChanged triggered for index $index")
+            }
+        }
+    }
+
+    fun updateUI(fileName: String, status: String, progress: Int) {
+        val index = sectionalList.indexOfFirst { it.fileName == fileName }
+        if (index == -1) return  // No match found
+
+        val chart = sectionalList[index]
+        chart.isDownloading = progress < 100
+        chart.progress = progress
+
+        runOnUiThread {
+            adapter.notifyItemChanged(index)
+            Log.d("DownloadDebug", "✅ UI Updated -> $fileName, Progress: $progress%")
+        }
+    }
+
+    companion object {
+        var instance: DownloadActivity? = null
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_downloads)
@@ -45,17 +93,42 @@ class DownloadActivity : AppCompatActivity() {
         loadSectionalList()
     }
 
+    override fun onResume() {
+        super.onResume()
+        val filter = IntentFilter("DOWNLOAD_PROGRESS")
+        try {
+            //registerReceiver(downloadReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            LocalBroadcastManager.getInstance(this).registerReceiver(downloadReceiver, filter)
+
+            Log.d("DownloadDebug", "✅ DownloadReceiver registered in onResume()")
+        } catch (e: Exception) {
+            Log.e("DownloadDebug", "❌ Failed to register receiver: ${e.message}")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        //unregisterReceiver(downloadReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(downloadReceiver)
+        Log.d("DownloadDebug", "❌ DownloadReceiver unregistered in onPause()")
+    }
+
+
+    override fun onDestroy() {
+        super.onDestroy()
+        //unregisterReceiver(downloadReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(downloadReceiver)
+        Log.d("DownloadDebug", "DownloadReceiver unregistered")
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     fun loadSectionalList() {
-
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val sectionalJsonString =
-                    URL("https://regiruk.netlify.app/zips/sectionals.json").readText()
+                val sectionalJsonString = URL("https://regiruk.netlify.app/zips/sectionals.json").readText()
                 val sectionalArray = JSONArray(sectionalJsonString)
 
-                val terminalJsonString =
-                    URL("https://regiruk.netlify.app/zips2/terminals.json").readText()
+                val terminalJsonString = URL("https://regiruk.netlify.app/zips2/terminals.json").readText()
                 val terminalArray = JSONArray(terminalJsonString)
 
                 val sectionalMap = mutableMapOf<String, JSONObject>()
@@ -71,19 +144,18 @@ class DownloadActivity : AppCompatActivity() {
                     terminalMap[obj.getString("name")] = obj
                 }
 
-                val prefs = getSharedPreferences("installed_sectionals", MODE_PRIVATE)
-                val installedSet = prefs.getStringSet("sectionals", emptySet()) ?: emptySet()
+                val prefs = getSharedPreferences("download_status", MODE_PRIVATE)
+                val activeDownloads = prefs.getStringSet("activeDownloads", emptySet()) ?: emptySet()
+                val installedPrefs = getSharedPreferences("installed_sectionals", MODE_PRIVATE)
+                val installedSet = installedPrefs.getStringSet("sectionals", emptySet()) ?: emptySet()
 
                 val charts = mutableListOf<SectionalChart>()
 
-                // ✅ Process Sectionals, Adding Terminal Info if Available
                 for ((name, sectionalObj) in sectionalMap) {
                     val fileName = sectionalObj.getString("fileName")
-//                    val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloat()
                     val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
 
                     val terminalObj = terminalMap[name]
-//                    val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull() ?: 0f
                     val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt() ?: 0
                     val totalSize = sectionalSize + terminalSize
 
@@ -92,13 +164,15 @@ class DownloadActivity : AppCompatActivity() {
                         else -> "🟢 Sectional"
                     }
 
+                    val isDownloading = activeDownloads.contains(fileName)
+
                     val chart = SectionalChart(
                         name = name,
                         url = sectionalObj.getString("url"),
-                        fileSize = "${sectionalSize} MB",
-                        totalSize = "${totalSize} MB - $chartType",
+                        fileSize = "$sectionalSize MB",
+                        totalSize = "$totalSize MB - $chartType",
                         isInstalled = installedSet.contains(fileName),
-                        isDownloading = false,
+                        isDownloading = isDownloading,
                         fileName = fileName,
                         terminal = terminalObj?.let {
                             TerminalChart(
@@ -111,24 +185,24 @@ class DownloadActivity : AppCompatActivity() {
                             )
                         },
                         terminalFileName = terminalObj?.getString("fileName"),
-                        hasTerminal = terminalObj != null
+                        hasTerminal = terminalObj?.getString("fileName") != null
                     )
                     charts.add(chart)
                 }
 
-                // ✅ Add Terminal-Only Charts Correctly
                 for ((name, terminalObj) in terminalMap) {
-                    if (!sectionalMap.containsKey(name)) {  // ✅ Terminal-only charts
-                        val terminalSize =
-                            terminalObj.getString("size").replace(" MB", "").toFloat()
+                    if (!sectionalMap.containsKey(name)) {
+                        val terminalSize = terminalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
+                        val isDownloading = activeDownloads.contains(terminalObj.getString("fileName"))
+
 
                         val chart = SectionalChart(
                             name = name,
                             url = terminalObj.getString("url"),
-                            fileSize = "${terminalSize} MB",
-                            totalSize = "${terminalSize} MB - 🔵 VFR Aeronautical",
+                            fileSize = "$terminalSize MB",
+                            totalSize = "$terminalSize MB - 🔵 VFR Aeronautical",
                             isInstalled = installedSet.contains(terminalObj.getString("fileName")),
-                            isDownloading = false,
+                            isDownloading = isDownloading,
                             fileName = terminalObj.getString("fileName"),
                             terminal = TerminalChart(
                                 name = terminalObj.getString("name"),
@@ -144,6 +218,7 @@ class DownloadActivity : AppCompatActivity() {
                         charts.add(chart)
                     }
                 }
+
                 Log.d("Debug", "Installed set from SharedPreferences: $installedSet")
 
                 withContext(Dispatchers.Main) {
@@ -154,112 +229,7 @@ class DownloadActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("DownloadPage", "Error fetching sectionals: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@DownloadActivity,
-                        "Failed to load sectionals",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-    }
-
-    @SuppressLint("MutatingSharedPrefs")
-    private fun markSectionalAsInstalled(fileName: String) {
-        val prefs = getSharedPreferences("installed_sectionals", MODE_PRIVATE)
-
-        // ✅ Always create a NEW mutable set instead of modifying the reference
-        val installedSet = prefs.getStringSet("sectionals", emptySet())?.toMutableSet() ?: mutableSetOf()
-        installedSet.add(fileName)
-
-        prefs.edit().putStringSet("sectionals", installedSet).apply()
-
-        Log.d("INSTALL_MARK", "Updated installed list: $installedSet")
-    }
-
-
-    private fun getDownloadStorageDir(): File {
-        return getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
-    }
-    private fun getTileStorageDir(localFolder: String): File {
-        return File(filesDir, "tiles/$localFolder")
-    }
-    private fun unzipFile(zipFile: File, targetDirectory: File) {
-        Log.d(
-            "Unzip",
-            "Starting extraction of: ${zipFile.absolutePath} to ${targetDirectory.absolutePath}"
-        )
-
-        if (!targetDirectory.exists()) {
-            targetDirectory.mkdirs()
-            Log.d("Unzip", "Created directory: ${targetDirectory.absolutePath}")
-        }
-
-        try {
-            ZipInputStream(FileInputStream(zipFile)).use { zis ->
-                var entry: ZipEntry?
-                while (zis.nextEntry.also { entry = it } != null) {
-                    val extractedFile = File(targetDirectory, entry!!.name)
-                    //Log.d("Unzip", "Extracting: ${entry!!.name} -> ${extractedFile.absolutePath}")
-
-                    if (entry!!.isDirectory) {
-                        if (!extractedFile.exists()) {
-                            extractedFile.mkdirs()
-                            Log.d("Unzip", "Created directory: ${extractedFile.absolutePath}")
-                        }
-                    } else {
-                        // Ensure parent directories exist
-                        extractedFile.parentFile?.mkdirs()
-
-                        try {
-                            FileOutputStream(extractedFile).use { fos ->
-                                zis.copyTo(fos)
-                            }
-                            //Log.d("Unzip", "Successfully extracted: ${extractedFile.absolutePath}")
-                        } catch (e: Exception) {
-                            Log.e(
-                                "Unzip",
-                                "Failed to extract file: ${extractedFile.absolutePath}",
-                                e
-                            )
-                        }
-                    }
-                }
-            }
-            Log.d("Unzip", "Extraction complete!")
-        } catch (e: Exception) {
-            Log.e("Unzip", "Error during extraction", e)
-        }
-    }
-    private suspend fun downloadChart(
-        url: String,
-        file: File,
-        fileSizeBytes: Long,
-        progressBar: ProgressBar,
-        totalSizeBytes: Long,
-        totalBytesReadSoFar: Long
-    ) {
-        var totalBytesRead = totalBytesReadSoFar
-
-        Log.d("DownloadPage", "Downloading: $url")
-        Log.d("DownloadPage", "Saving to: ${file.absolutePath}")
-        Log.d("DownloadPage", "File Size: ${fileSizeBytes / 1048576} MB")
-
-        val urlConnection = URL(url).openConnection() as HttpURLConnection
-        urlConnection.connect()
-
-        urlConnection.inputStream.use { input ->
-            file.outputStream().use { output ->
-                val buffer = ByteArray(4096)
-                var bytesRead: Int
-
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    totalBytesRead += bytesRead
-
-                    // ✅ Progress carries over between sectional & terminal downloads
-                    val progress = ((totalBytesRead.toFloat() / totalSizeBytes) * 100).coerceIn(0f, 100f).toInt()
-                    withContext(Dispatchers.Main) { progressBar.progress = progress }
+                    Toast.makeText(this@DownloadActivity, "Failed to load sectionals", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -268,106 +238,41 @@ class DownloadActivity : AppCompatActivity() {
     @SuppressLint("NotifyDataSetChanged")
     fun downloadSectional(
         chart: SectionalChart,
+        context: Context,
         progressBar: ProgressBar,
         downloadIcon: ImageView,
         downloadingIcon: ImageView,
         statusText: TextView
     ) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val hasSectional = chart.url.isNotEmpty()
-                val hasTerminal = chart.terminal != null
+        val hasSectional = chart.url.isNotEmpty()
+        val hasTerminal = chart.terminal != null
 
-                Log.d("DownloadPage", "User selected: ${chart.name}")
-                Log.d("DownloadPage", "Has Sectional: $hasSectional | Has Terminal: $hasTerminal")
+        Log.d("DownloadPage", "User selected: ${chart.name}")
+        Log.d("DownloadPage", "Has Sectional: $hasSectional | Has Terminal: $hasTerminal")
 
-                withContext(Dispatchers.Main) {
-                    chart.isDownloading = true
-                    downloadIcon.visibility = View.GONE
-                    downloadingIcon.visibility = View.VISIBLE
-                    progressBar.visibility = View.VISIBLE
-                    progressBar.progress = 0
-                    statusText.visibility = View.VISIBLE
-//                    statusText.text = "Starting Download..."
-                }
+        // ✅ Update UI before starting download
+        progressBar.visibility = View.VISIBLE
+        progressBar.progress = 0
+        downloadIcon.visibility = View.GONE
+        downloadingIcon.visibility = View.VISIBLE
+        statusText.visibility = View.VISIBLE
+        statusText.text = "Preparing Download"
 
-                var totalBytesRead = 0L
-                var totalSizeBytes = 0L
+        // ✅ Start background download
+        val intent = Intent(context, DownloadService::class.java).apply {
+            putExtra(DownloadService.EXTRA_FILE_NAME, chart.fileName)
+            putExtra(DownloadService.EXTRA_DOWNLOAD_URL, chart.url)
+            putExtra(DownloadService.EXTRA_FILE_SIZE, chart.fileSize)
 
-                val sectionalSizeBytes = if (hasSectional) {
-                    chart.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
-                } else 0L
-
-                val terminalSizeBytes = if (hasTerminal) {
-                    chart.terminal!!.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
-                } else 0L
-
-                totalSizeBytes = sectionalSizeBytes + terminalSizeBytes
-
-                Log.d("DownloadPage", "Total size for ${chart.name}: ${totalSizeBytes / 1048576} MB")
-
-                if (totalSizeBytes <= 0L) {
-                    Log.e("DownloadPage", "Error: Could not determine file size for ${chart.name} from JSON")
-                    return@launch
-                }
-
-                // ✅ Download Sectional Chart (if available)
-                if (hasSectional) {
-                    withContext(Dispatchers.Main) { statusText.text = "Downloading Sectional" }
-                    Log.d("DownloadPage", "Starting download: Sectional ${chart.fileName}")
-
-                    val sectionalFile = File(getDownloadStorageDir(), chart.fileName)
-                    downloadChart(chart.url, sectionalFile, sectionalSizeBytes, progressBar, totalSizeBytes, totalBytesRead)
-
-                    totalBytesRead += sectionalSizeBytes  // ✅ Preserve progress for terminal download
-
-                    withContext(Dispatchers.Main) { statusText.text = "Installing Sectional" }
-                    unzipFile(sectionalFile, getTileStorageDir("Sectional"))
-                    sectionalFile.delete()
-                    markSectionalAsInstalled(chart.fileName)
-                }
-
-                // ✅ Download Terminal Chart (if available)
-                if (hasTerminal) {
-                    withContext(Dispatchers.Main) { statusText.text = "Downloading TAC" }
-                    Log.d("DownloadPage", "Starting download: Terminal ${chart.terminal!!.fileName}")
-
-                    val terminalFile = File(getDownloadStorageDir(), chart.terminal!!.fileName)
-                    downloadChart(chart.terminal!!.url, terminalFile, terminalSizeBytes, progressBar, totalSizeBytes, totalBytesRead)
-
-                    withContext(Dispatchers.Main) { statusText.text = "Installing TAC" }
-                    unzipFile(terminalFile, getTileStorageDir("Terminal"))
-                    terminalFile.delete()
-                    markSectionalAsInstalled(chart.terminal!!.fileName)
-                }
-
-                // ✅ Update UI after downloads complete
-                withContext(Dispatchers.Main) {
-                    chart.isInstalled = true
-                    chart.isDownloading = false
-                    downloadingIcon.visibility = View.GONE
-                    downloadIcon.visibility = View.GONE
-                    progressBar.visibility = View.GONE
-                    //statusText.text = "Download Complete!"
-                    //delay(1500)  // Keep message visible for 1.5 seconds
-                    statusText.visibility = View.GONE
-                    adapter.notifyItemChanged(sectionalList.indexOf(chart))
-                }
-
-                Log.d("DownloadPage", "Download complete for: ${chart.name}")
-
-            } catch (e: Exception) {
-                Log.e("DownloadPage", "Download failed: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    chart.isDownloading = false
-                    downloadingIcon.visibility = View.GONE
-                    downloadIcon.visibility = View.VISIBLE
-                    progressBar.visibility = View.GONE
-                    statusText.text = "Download Failed"
-                    adapter.notifyDataSetChanged()
-                    Toast.makeText(this@DownloadActivity, "Download failed", Toast.LENGTH_SHORT).show()
-                }
+            if (chart.terminal != null) {
+                putExtra(DownloadService.EXTRA_TERMINAL_FILE_NAME, chart.terminal.fileName)
+                putExtra(DownloadService.EXTRA_TERMINAL_DOWNLOAD_URL, chart.terminal.url)
+                putExtra(DownloadService.EXTRA_TERMINAL_FILE_SIZE, chart.terminal.fileSize)
             }
         }
+
+        Log.d("DownloadDebug", "Starting DownloadService for ${chart.fileName}")
+
+        context.startForegroundService(intent)
     }
 }

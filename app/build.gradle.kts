@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         applicationId = "com.airportweather.map"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = rootProject.extra["appVersionCode"] as Int
         versionName = rootProject.extra["appVersionName"] as String

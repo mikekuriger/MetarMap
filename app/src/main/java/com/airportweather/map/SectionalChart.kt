@@ -10,7 +10,8 @@ data class SectionalChart(
     val fileName: String,
     val terminal: TerminalChart?,
     val terminalFileName: String?,
-    val hasTerminal: Boolean
+    val hasTerminal: Boolean,
+    var progress: Int = 0
 )
 
 data class TerminalChart(
@@ -19,5 +20,5 @@ data class TerminalChart(
     val fileSize: String,
     var isInstalled: Boolean,
     var isDownloading: Boolean = false,
-    val fileName: String
+    val fileName: String,
 )
