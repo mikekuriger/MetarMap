@@ -1813,7 +1813,7 @@ abstract class BaseTileProvider(
 
         return when {
             localFile.exists() -> loadTileFromFile(localFile)
-            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, localFile)
+            //MRK checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, localFile)
             else -> null
         }
     }
@@ -1879,7 +1879,6 @@ abstract class BaseTileProvider(
     }
 }
 
-// ✅ FIXED SectionalTileProvider
 class SectionalTileProvider(context: Context) : BaseTileProvider(
     context,
     baseUrl = "https://regiruk.netlify.app/Sectional/30",
@@ -1895,14 +1894,13 @@ class SectionalTileProvider(context: Context) : BaseTileProvider(
 
             // ✅ Load Sectional tiles (zoom 8-12)
             zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
-            zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
+            //MRK zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
 
             else -> null // No tile available
         }
     }
 }
 
-// ✅ TerminalTileProvider (No Changes Needed)
 class TerminalTileProvider(context: Context) : BaseTileProvider(
     context,
     baseUrl = "https://regiruk.netlify.app/Terminal",
@@ -1912,7 +1910,7 @@ class TerminalTileProvider(context: Context) : BaseTileProvider(
         val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
         return when {
             terminalFile.exists() -> loadTileFromFile(terminalFile)
-            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
+            //MRK checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
             else -> null // No tile available
         }
     }

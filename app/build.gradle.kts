@@ -97,4 +97,5 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.drawerlayout)
     implementation(libs.material.v190)
+    implementation(libs.androidx.cardview)
 }
