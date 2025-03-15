@@ -793,7 +793,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
             } else {
                 //googleMap.setMapStyle(null)
-                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_pastel))
+                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_apple))
             }
         } catch (e: Resources.NotFoundException) {
             Log.e("MapStyle", "Can't find style. Error: ", e)
