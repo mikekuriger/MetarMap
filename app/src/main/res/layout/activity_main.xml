@@ -7,7 +7,8 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".MainActivity"
+    android:background="@android:color/darker_gray">
 
     <!-- Main content layout -->
     <FrameLayout
@@ -22,18 +23,44 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-<!--        <TextView
-            android:id="@+id/zoomLevelText"
+        <!-- Custom Center-Map Button -->
+        <ImageButton
+            android:id="@+id/custom_center_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Zoom: 0"
-            android:textSize="18sp"
-            android:background="#AA000000"
-            android:textColor="#FFFFFF"
-            android:padding="8dp"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentRight="true"
-            android:layout_margin="16dp"/>-->
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="50dp"
+            android:padding="0dp"
+            android:background="@color/semi_transparent"
+            android:src="@drawable/ic_follow"
+            android:contentDescription="center_map" />
+
+        <ImageButton
+            android:id="@+id/layers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="80dp"
+            android:padding="0dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_layers"
+            android:contentDescription="layers" />
+
+        <ImageButton
+            android:id="@+id/flightPlan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="110dp"
+            android:padding="0dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_plane"
+            android:contentDescription="flight plan" />
+
+
 
         <!-- Version number -->
 <!--        <TextView
@@ -104,11 +131,11 @@
                 android:layout_marginEnd="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
-                android:background="#80000000"
+                android:background="@drawable/rounded_button"
                 android:text="@string/toggle_airspace"
                 android:textColor="@android:color/white"
                 android:textSize="10sp"
-                
+
                 tools:ignore="TouchTargetSizeCheck" />
 
             <!-- Button 2 -->
@@ -123,7 +150,7 @@
                 android:layout_marginRight="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
-                android:background="#80000000"
+                android:background="@drawable/rounded_button"
                 android:text="@string/toggle_tfr"
                 android:textColor="@android:color/white"
                 android:textSize="10sp"
@@ -140,11 +167,10 @@
                 android:layout_marginEnd="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
+                android:background="@drawable/rounded_button"
                 android:text="@string/toggle_weather"
                 android:textColor="@android:color/white"
                 android:textSize="10sp"
-
-                android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
 
             <!-- Button 4 -->
@@ -157,10 +183,10 @@
                 android:layout_marginEnd="1dp"
                 android:layout_marginBottom="4dp"
                 android:layout_weight="1"
+                android:background="@drawable/rounded_button"
                 android:text="@string/toggle_vfrsec"
-                android:textColor="@android:color/black"
+                android:textColor="@android:color/darker_gray"
                 android:textSize="10sp"
-                android:background="#80000000"
                 tools:ignore="TouchTargetSizeCheck" />
 
             <Spinner
@@ -173,7 +199,7 @@
                 android:layout_marginBottom="4dp"
                 android:textColor="@android:color/holo_red_light"
                 android:textSize="10sp"
-                android:background="#80000000"
+                android:background="@drawable/rounded_button"
                 android:entries="@array/layer_options"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />

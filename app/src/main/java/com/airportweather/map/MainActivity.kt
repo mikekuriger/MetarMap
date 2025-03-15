@@ -24,7 +24,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -69,17 +68,19 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
 import org.json.JSONArray
 import org.json.JSONObject
-
 import android.content.Intent
+import android.content.res.Configuration
+import android.content.res.Resources
+import android.graphics.drawable.ColorDrawable
+import android.text.SpannableStringBuilder
+import android.view.Gravity
 import android.view.MenuItem
-import android.widget.ProgressBar
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.ImageButton
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.material.navigation.NavigationView
-import java.util.LinkedList
-import java.util.Queue
-
+import com.google.maps.android.ui.IconGenerator
 
 @Serializable
 data class METAR(
@@ -563,9 +564,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
 
-    private val taskQueue: Queue<() -> Unit> = LinkedList()
-
-    private var isFollowingUser = true
+    private var isFollowingUser = false
     private var areTFRsVisible = true
     private val tfrPolygons = mutableListOf<Polygon>()
     private var areAirspacesVisible = true
@@ -580,6 +579,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var sectionalVisible = false
     private var terminalOverlay: TileOverlay? = null
     private var terminalVisible = false
+    private var justCentered = false
+    private var lastKnownUserLocation: LatLng? = null
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -608,20 +609,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-/*    private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestLocationPermission() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-            LOCATION_PERMISSION_REQUEST_CODE
-        )
-    }*/
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -641,10 +628,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        // enables the map to re-center when user moves his location (traveling)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
                     val userLatLng = LatLng(location.latitude, location.longitude)
+                    lastKnownUserLocation = userLatLng
                     Log.d("LocationUpdate", "User Location: $userLatLng")
 
                     // ✅ Only follow the user if they haven't moved the map
@@ -657,7 +646,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         requestLocationUpdates()
 
-        //VERSION
+        // Follow Button
+        val followButton = findViewById<ImageButton>(R.id.custom_center_button)
+        followButton.setOnClickListener {
+            isFollowingUser = !isFollowingUser // Toggle the follow mode
+            val newColor = if (isFollowingUser) Color.BLACK else Color.RED
+            followButton.setColorFilter(newColor)
+            if (isFollowingUser) {
+                try {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        if (location != null) {
+                            val currentLatLng = LatLng(location.latitude, location.longitude)
+                            mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLatLng))
+                        }
+                    }
+                    Log.d("MapMove", "Following, Custom Button - Following = $isFollowingUser")
+                } catch (e: SecurityException) {
+                    e.printStackTrace()
+                }
+                } else {
+                Log.d("MapMove", "NOT Following, Custom Button - Following = $isFollowingUser")
+            }
+        }
+
+        //Display VERSION
         /*val versionText = findViewById<TextView>(R.id.versionText)
         versionText.text = getString(
             R.string.app_version,
@@ -709,31 +721,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
-
-//    private fun queueStartupTasks() {
-//        taskQueue.add { showBottomProgressBar("✈️ Downloading TFR Data..."); loadAndDrawTFR() }
-//        taskQueue.add { showBottomProgressBar("🌦️ Downloading Weather Data..."); loadAndDrawMetar() }
-//        taskQueue.add { showBottomProgressBar("🗺️ Downloading Airspace Data..."); loadAndDrawAirspace(mMap, this) }
-//        taskQueue.add { showBottomProgressBar("✅ Initialization Complete"); hideBottomProgressBar() }
-//    }
-//
-//    private fun executeNextTask() {
-//        if (!::mMap.isInitialized) {
-//            Log.d("StartupQueue", "⏳ Waiting for mMap to be ready before running tasks...")
-//            return // ✅ Do nothing until `mMap` is initialized
-//        }
-//
-//        val nextTask = taskQueue.poll()
-//        if (nextTask != null) {
-//            Log.d("StartupQueue", "🚀 Running task: $nextTask")
-//            nextTask.invoke()
-//        } else {
-//            Log.d("StartupQueue", "✅ All startup tasks completed.")
-//            hideBottomProgressBar()
-//        }
-//    }
-
-
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
@@ -751,8 +738,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // ✅ Start Location Updates
-    @SuppressLint("MissingPermission")
     private fun requestLocationUpdates() {
+        Log.d("LocationUpdate", "requestLocationUpdates was triggered")
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -779,22 +766,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun enableMyLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             mMap.isMyLocationEnabled = true
-
-            // ✅ If user taps "My Location" button, resume following
-            mMap.setOnMyLocationButtonClickListener {
-                isFollowingUser = true
-                false  // ✅ Allows default behavior (centering the map)
-            }
         }
     }
 
     @SuppressLint("PotentialBehaviorOverride")
     override fun onMapReady(googleMap: GoogleMap) {
+
         mMap = googleMap
         mMap.mapType = GoogleMap.MAP_TYPE_NORMAL // Options: NORMAL, SATELLITE, TERRAIN, HYBRID
         mMap.isTrafficEnabled = false
         mMap.uiSettings.isTiltGesturesEnabled = false
         mMap.uiSettings.isRotateGesturesEnabled = false
+        mMap.uiSettings.isMyLocationButtonEnabled = false
         mMap.setMinZoomPreference(5.0f) // Set minimum zoom out level
         mMap.setMaxZoomPreference(15.0f) // Set maximum zoom in level
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
@@ -803,17 +786,47 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             updateVisibleMarkers(metarData, tafData)
         }
 
+        try {
+            // ✅ Apply the custom dark mode style
+            val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
+            } else {
+                //googleMap.setMapStyle(null)
+                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_pastel))
+            }
+        } catch (e: Resources.NotFoundException) {
+            Log.e("MapStyle", "Can't find style. Error: ", e)
+        }
+
         checkLocationPermission()
         enableMyLocation()
 
+        // Center Map / Zoom Button (will likely hide it)
+//        mMap.setOnMyLocationButtonClickListener {
+//            isFollowingUser = true
+//            val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
+//            customCenterButton.setColorFilter(Color.GREEN)
+//            Log.e("MapDebug", "Center button was clicked, following #1")
+//            false
+//        }
+
+        mMap.setOnCameraMoveStartedListener { reason ->
+            // Only disable follow if the move was triggered by a gesture.
+            if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
+                isFollowingUser = false
+                val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
+                customCenterButton.setColorFilter(Color.RED)
+                Log.d("MapDebug", "User manually moved the map. Disabling follow #1")
+            } else {
+                //Log.d("MapDebug", "Camera moved due to animation or developer call; still following.")
+            }
+        }
+
+
         moveToLastSavedLocationOrCurrent()
         showBottomProgressBar("🚨 Initializing all the things")
-        requestLocationUpdates()
-
-        // ✅ Stop following when the user manually moves the map
-        mMap.setOnCameraMoveListener {
-            isFollowingUser = false
-        }
+        //requestLocationUpdates()
 
 
 //        // display ZOOM level for debugging maps DEBUG
@@ -903,7 +916,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-
     private fun checkLocationPermission() {
         if (::mMap.isInitialized) {
             if (ActivityCompat.checkSelfPermission(
@@ -938,6 +950,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 10f))
                 }
             }
+            Log.d("MapMove", "Moving to current position, Following = $isFollowingUser")
         } catch (e: SecurityException) {
             e.printStackTrace()
         }
@@ -1094,23 +1107,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 val taf = tafs.find { it.stationId == metar.stationId }
                 val currentLayer = MapLayer.fromName(currentLayerName)
                 val marker = when (currentLayer) {
-                    MapLayer.FlightConditions -> createFlightConditionMarker(
-                        metar,
-                        taf,
-                        location
-                    )
+                    MapLayer.FlightConditions -> createFlightConditionMarker(metar, taf, location)
                     MapLayer.Wind -> createMetarDotForWindLayer(metar, location)
                     MapLayer.Temperature -> createTemperatureMarker(metar, location)
                     MapLayer.Altimeter -> createAltimeterMarker(metar, location)
                     MapLayer.Ceiling -> createCeilingMarker(metar, location)
                     MapLayer.Clouds -> createCloudMarker(metar, location)
                 }
+
+                // Add the marker from the `when` clause if it's not null
                 marker?.let { metarMarkers.add(it) }
+
+                // Add the wind dot for all layers except FlightConditions
+                if (currentLayer != MapLayer.FlightConditions) {
+                    createMetarDotForWindLayer(metar, location)?.let { metarMarkers.add(it) }
+                }
 
                 // ✅ Add wind barb only when "Wind Barbs" layer is selected
                 if (currentLayer == MapLayer.Wind) {
-                    val windMarker = createWindMarker(metar, taf, location)
-                    windMarker?.let { metarMarkers.add(it) }
+                    createWindMarker(metar, taf, location)?.let { metarMarkers.add(it) }
                 }
             }
         }
@@ -1155,7 +1170,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val windSpeed = metar.windSpeedKt ?: 0
         val windDir = metar.windDirDegrees
         if (windSpeed <= 4) return null
-        //if (windDir!! >= 100) return null
 
         val barbBitmap = createWindBarbBitmap(windSpeed, windDir)
         return mMap.addMarker(
@@ -1185,21 +1199,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
     private fun createMetarDotForWindLayer(metar: METAR, location: LatLng): Marker? {
         val style = MarkerStyle(
-            size = 60,
+            size = 50,
             fillColor = getFlightCategoryColor(metar.flightCategory),
             borderColor = Color.WHITE, // ✅ White border to "skip" the TAF border effect
             borderWidth = 13
         )
         return createDotMarker(metar, null, location, style) // No TAF border
     }
-    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
+/*    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
                 it >= 27 -> Color.RED
                 it <= 5 -> Color.BLUE
                 else -> Color.WHITE
             }
-            val bgColor = Color.BLACK
+            val bgColor = Color.argb(125, 0, 0, 0)
             val bitmap = createTextBitmap("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
             //val bitmap = createTextBitmap("${it}°C", tempColor)
             return mMap.addMarker(MarkerOptions()
@@ -1207,6 +1221,37 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
                 .visible(areMetarsVisible)
                 .anchor(0.5f, 0.5f))
+        }
+        return null
+    }*/
+
+    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
+        metar.tempC?.let {
+            val tempColor = when {
+                it >= 27 -> Color.RED
+                it <= 5 -> Color.BLUE
+                else -> Color.WHITE
+            }
+
+            // Create an IconGenerator instance
+            val iconGenerator = IconGenerator(this)
+            // Customize background, padding, and text style
+            iconGenerator.setStyle(IconGenerator.STYLE_BLUE)
+            iconGenerator.setContentPadding(20, 10, 20, 10)
+            // Optionally set a custom text appearance here
+
+            // Generate the bitmap with your desired text
+            val text = "${celsiusToFahrenheit(it)}°F"
+            val bitmap = iconGenerator.makeIcon(text)
+
+            // Optionally, if you need to scale the bitmap, you can do so:
+            // val scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
+
+            return mMap.addMarker(MarkerOptions()
+                .position(location)
+                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                .visible(areMetarsVisible)
+                .anchor(.5f, 1.2f))
         }
         return null
     }
@@ -1218,7 +1263,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 .position(location)
                 .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
                 .visible(areMetarsVisible)
-                .anchor(0.5f, 0.5f))
+                .anchor(0.5f, 1.3f))
         }
         return null
     }
@@ -1230,7 +1275,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 .position(location)
                 .icon(bitmap?.let { it1 -> BitmapDescriptorFactory.fromBitmap(it1) })
                 .visible(areMetarsVisible)
-                .anchor(0.5f, 0.5f))
+                .anchor(0.5f, 1.3f))
         }
     }
     private fun createCeilingMarker(metar: METAR, location: LatLng): Marker? {
@@ -1241,7 +1286,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 .position(location)
                 .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
                 .visible(areMetarsVisible)
-                .anchor(0.5f, 0.5f))
+                .anchor(0.5f, 1.3f))
         }
         return null
     }
@@ -1303,11 +1348,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun updateButtonState(button: Button, isActive: Boolean) {
         // Change button color based on state
         if (isActive) {
-            button.setBackgroundColor(Color.parseColor("#90000000")) // Active state
+            //button.setBackgroundResource(R.drawable.rounded_button) // Active state
             button.setTextColor(Color.WHITE)
         } else {
-            button.setBackgroundColor(Color.parseColor("#90000000")) // Inactive state
-            button.setTextColor(Color.BLACK)
+            //button.setBackgroundResource(R.drawable.rounded_button) // Inactive state
+            button.setTextColor(Color.GRAY)
         }
     }
     // TFR
@@ -1411,13 +1456,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             else -> altitude // ✅ Keep text altitudes unchanged (e.g., "FL600")
         }
     }
-    private fun showTfrPopup(context: Context, tfr: TFRProperties) {
+    //light
+    /*private fun showTfrPopup(context: Context, tfr: TFRProperties) {
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
         val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
         val currentDate = Date()
 
-        // ✅ Ensure `dateEffective` and `dateExpire` are used for date parsing
+        // ✅ Ensure dateEffective and dateExpire are used for date parsing
         val startDateString = if (tfr.dateEffective.isEmpty() || tfr.dateEffective == "null") {
             tfr.dateIssued
         } else {
@@ -1426,7 +1472,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val startDate = try { dateFormat.parse(startDateString) } catch (e: Exception) { null }
         val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
 
-        // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
+        // ✅ Ensure altitudeMin and altitudeMax are treated correctly
         val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"
 
         // ✅ Check if the TFR is active
@@ -1467,6 +1513,92 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .setMessage(tfrBody)
             .setPositiveButton("OK", null)
             .show()
+    }*/
+    //dark
+    @SuppressLint("SetTextI18n")
+    private fun showTfrPopup(context: Context, tfr: TFRProperties) {
+
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
+        val currentDate = Date()
+
+        // ✅ Ensure `dateEffective` and `dateExpire` are used for date parsing
+        val startDateString = if (tfr.dateEffective.isEmpty() || tfr.dateEffective == "null") {
+            tfr.dateIssued
+        } else {
+            tfr.dateEffective
+        }
+        val startDate = try { dateFormat.parse(startDateString) } catch (e: Exception) { null }
+        val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
+
+        // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
+        val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"
+
+        // ✅ Check if the TFR is active
+        val status = if (endDate == null || (startDate != null && currentDate in startDate..endDate)) {
+            "Active"
+        } else {
+            "Inactive"
+        }
+
+        // **Set Custom Colors**
+        val activeColor = ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Red for Active
+        val inactiveColor = ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Green for Inactive
+        val altitudeColor = ContextCompat.getColor(context, android.R.color.holo_blue_dark) // Blue for altitude
+        val defaultTextColor = Color.LTGRAY  // ✅ Light gray for regular text
+
+        // **Create Spannable Title with Custom Colors**
+        val tfrHead = SpannableString("$status, $altitudeInfo")
+
+        // Apply color to status
+        tfrHead.setSpan(
+            ForegroundColorSpan(if (status == "Active") activeColor else inactiveColor),
+            0, status.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // Apply color to altitude info
+        tfrHead.setSpan(
+            ForegroundColorSpan(altitudeColor),
+            status.length + 2, tfrHead.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // **Custom Message TextView for better control**
+        val messageTextView = TextView(context).apply {
+            text = """
+            ${tfr.facility} ${tfr.notam} ${tfr.type}
+            Effective: ${startDate?.let { outputFormat.format(it) } ?: "Unknown"}
+            Description: ${tfr.description}
+        """.trimIndent()
+            textSize = 14f  // ✅ Smaller text for better readability
+            setPadding(60, 20, 40, 20)
+            setTextColor(defaultTextColor)  // ✅ Light gray text for dark mode
+        }
+
+        // **Custom Layout for Dark Background**
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)  // ✅ Black with transparency
+            addView(messageTextView)
+        }
+
+        // **Create and show AlertDialog**
+        val alertDialog = AlertDialog.Builder(context)
+            .setCustomTitle(TextView(context).apply {
+                text = tfrHead
+                textSize = 18f
+                setTypeface(null, Typeface.BOLD)
+                setPadding(60, 30, 40, 10)
+                setTextColor(Color.WHITE)  // ✅ Title is always white
+                gravity = Gravity.START
+            })
+            .setView(layout)  // ✅ Custom layout with dark background
+            .setPositiveButton("OK", null)
+            .create()
+
+        // **Ensure dark background for the entire dialog**
+        alertDialog.window?.setBackgroundDrawable(ColorDrawable(Color.argb(200, 0, 0, 0)))
+
+        alertDialog.show()
     }
     private fun showTfrSelectionDialog(context: Context, tfrList: List<TFRProperties>) {
         val tfrTitles = tfrList.map { "${it.notam} - ${it.type}" }.toTypedArray()
@@ -1621,22 +1753,129 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         newTafs.forEach { taf -> tafMap[taf.stationId] = taf } // Update with new data
         return tafMap.values.toList()
     }
-    private fun showMetarDialog(metar: METAR, taf: TAF?) {
+    //light
+    /*private fun showMetarDialog(metar: METAR, taf: TAF?) {
         val messageTextView = TextView(this).apply {
             text = formatAirportDetails(metar)
             textSize = 15f  // ✅ Adjust the text size (Default is ~16sp, so 12sp is smaller)
-            setPadding(40, 20, 40, 20)  // ✅ Add padding for better readability
+            setPadding(80, 20, 40, 20)  // ✅ Add padding for better readability
         }
         AlertDialog.Builder(this)
             .setTitle(
                 metar.stationId + " - " + metar.flightCategory +
                         (if (taf != null && taf.flightCategory != metar.flightCategory) " (TAF = ${taf.flightCategory})" else "")
             )
-            //.setMessage(formatAirportDetails(metar))
             .setView(messageTextView)
             .setPositiveButton("OK", null) // ✅ Closes dialog
             .show()
+    }*/
+    //dark
+    private fun showMetarDialog(metar: METAR, taf: TAF?) {
+        // Custom Title TextView (Colored Flight Category)
+        val titleTextView = TextView(this).apply {
+            val titleText = SpannableStringBuilder()
+
+            // Airport Identifier (Yellow)
+            val stationIdStart = titleText.length
+            titleText.append(metar.stationId)
+            titleText.append(" - ")
+            titleText.setSpan(
+                ForegroundColorSpan(Color.WHITE),
+                stationIdStart,
+                titleText.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            // Flight Condition (Custom Color based on METAR)
+            val flightCategoryStart = titleText.length
+            titleText.append(metar.flightCategory)
+            val metarColor = when (metar.flightCategory) {
+                "VFR" -> Color.GREEN
+                "MVFR" -> Color.argb(255, 50, 80, 255)
+                "IFR" -> Color.RED
+                "LIFR" -> Color.MAGENTA
+                else -> Color.WHITE
+            }
+
+            titleText.setSpan(
+                ForegroundColorSpan(metarColor),
+                flightCategoryStart,
+                titleText.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            // If TAF exists and differs, add the "Becoming" text and TAF condition
+            if (taf != null && taf.flightCategory != metar.flightCategory) {
+                // "Becoming" text (Yellow)
+                val becomingStart = titleText.length
+                titleText.append(" → ")
+                titleText.setSpan(
+                    ForegroundColorSpan(Color.WHITE),
+                    becomingStart,
+                    titleText.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+
+                // TAF Flight Condition (Custom Color based on TAF)
+                val tafStart = titleText.length
+                titleText.append(taf.flightCategory)
+                val tafColor = when (taf.flightCategory) {
+                    "VFR" -> Color.GREEN
+                    "MVFR" -> Color.argb(255, 50, 80, 255)
+                    "IFR" -> Color.RED
+                    "LIFR" -> Color.MAGENTA
+                    else -> Color.WHITE
+                }
+                titleText.setSpan(
+                    ForegroundColorSpan(tafColor),
+                    tafStart,
+                    titleText.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+
+            text = titleText
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(80, 40, 40, 10)
+            gravity = Gravity.START // ✅ Align title to the left
+        }
+
+        // ✅ Custom Message TextView (Smaller Text)
+        val messageTextView = TextView(this).apply {
+            text = formatAirportDetails(metar)  // ✅ Use your existing function
+            textSize = 13f  // ✅ Set smaller text
+            setPadding(80, 10, 40, 20)
+            setTextColor(Color.LTGRAY)  // ✅ Set text color to light gray
+        }
+
+        // ✅ Create a wrapper layout with a semi-transparent (colored) background
+        val bgColor = when (metar.flightCategory) {
+            "VFR" -> Color.argb(200, 0, 40, 0)
+            "MVFR" -> Color.argb(200, 0, 0, 40)
+            "IFR" -> Color.argb(200, 40, 0, 0)
+            "LIFR" -> Color.argb(200, 40, 0, 40)
+            else -> Color.WHITE
+        }
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)  // ✅ Black with transparency
+            addView(titleTextView)
+            addView(messageTextView)
+        }
+
+        // ✅ Create and show AlertDialog
+        val alertDialog = AlertDialog.Builder(this)
+            .setView(layout)  // ✅ Use custom layout
+            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+            .create()
+
+        alertDialog.window?.setBackgroundDrawable(ColorDrawable(bgColor))
+
+        alertDialog.show()
     }
+
     private fun toggleMetarVisibility() {
         areMetarsVisible = !areMetarsVisible
         metarMarkers.forEach { marker ->
@@ -1753,22 +1992,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
     // TILES (sectional charts)
-    /*private fun toggleSectionalOverlay(map: GoogleMap) {
-
-        if (sectionalOverlay == null) {
-            val tileProvider = SectionalTileProvider(this)
-            val tileOverlayOptions = TileOverlayOptions()
-                .tileProvider(tileProvider)
-                .transparency(0.0f)
-                .zIndex(-1.0f)
-            sectionalOverlay = map.addTileOverlay(tileOverlayOptions)
-        }
-        sectionalVisible = !sectionalVisible
-        sectionalOverlay?.isVisible = sectionalVisible
-        sectionalOverlay?.clearTileCache() // Force refresh
-        Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
-    }*/
-
     private fun toggleSectionalOverlay(map: GoogleMap) {
         if (sectionalOverlay == null) {
             val sectionalTileProvider = SectionalTileProvider(this)
@@ -1894,7 +2117,7 @@ class SectionalTileProvider(context: Context) : BaseTileProvider(
 
             // ✅ Load Sectional tiles (zoom 8-12)
             zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
-            //MRK zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
+            zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
 
             else -> null // No tile available
         }
@@ -1910,7 +2133,7 @@ class TerminalTileProvider(context: Context) : BaseTileProvider(
         val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
         return when {
             terminalFile.exists() -> loadTileFromFile(terminalFile)
-            //MRK checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
+            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
             else -> null // No tile available
         }
     }
