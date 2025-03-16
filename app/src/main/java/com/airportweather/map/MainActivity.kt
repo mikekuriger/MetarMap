@@ -72,15 +72,27 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
 import android.widget.ImageButton
+import android.widget.ImageView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.drawerlayout.widget.DrawerLayout
+import com.airportweather.map.databinding.ActivityMainBinding
+//import com.airportweather.map.databinding.FlightInfoLayoutBinding
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.maps.android.ui.IconGenerator
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @Serializable
 data class METAR(
@@ -503,6 +515,7 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
 
     return tfrFeatures
 }
+
 // Other functions...
 fun getCurrentTimeLocalFormat(): String {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault())
@@ -579,8 +592,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var sectionalVisible = false
     private var terminalOverlay: TileOverlay? = null
     private var terminalVisible = false
-    private var justCentered = false
     private var lastKnownUserLocation: LatLng? = null
+    private lateinit var binding: ActivityMainBinding
+    //sensors
+    private lateinit var sensorManager: SensorManager
+    private var rotationMatrix = FloatArray(9)
+    private var orientationValues = FloatArray(3)
+    private var gravity = FloatArray(3)
+    private var geomagnetic = FloatArray(3)
+    private var currentHeading = 0.0
+    private var lastTimestamp: Long = 0
+    private val ALPHA = 0.1f
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -611,7 +633,44 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        //setContentView(R.layout.activity_main)
+
+        // ✅ Initialize Sensor Manager
+//        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+        // ✅ Register the sensor listener
+//        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+//        val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+        //val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+//        if (accelerometer != null && magnetometer != null) {
+//            sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+//            sensorManager.registerListener(sensorEventListener, magnetometer, SensorManager.SENSOR_DELAY_GAME)
+//        }
+
+//        if (gyroscope != null) {
+//            sensorManager.registerListener(gyroListener, gyroscope, SensorManager.SENSOR_DELAY_GAME)
+//        }
+
+        // ✅ Initialize View Binding
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // ✅ Toggle Flight Info Visibility
+        binding.flightPlan.setOnClickListener {
+            Log.d("FlightToggle", "Flight Plan button clicked")  // ✅ Log click event
+
+            val isVisible = binding.flightInfoLayout.visibility == View.VISIBLE
+            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
+
+            binding.flightInfoLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
+
+            binding.flightInfoLayout.bringToFront()
+            binding.flightInfoLayout.requestLayout()
+
+            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
+        }
+
 
         // ✅ Initialize Navigation Drawer
         drawerLayout = findViewById(R.id.drawer_layout)
@@ -721,6 +780,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
+    // end of onCreate
+
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
@@ -740,7 +801,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // ✅ Start Location Updates
     private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
@@ -757,10 +818,119 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     if (isFollowingUser) {
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
                     }
+
+                    // ✅ GPS-Based Movement (Track)
+                    val track = location.bearing.toDouble()
+                    val groundSpeedmps = location.speed.toDouble()
+                    val groundSpeed = groundSpeedmps * 1.94384  // Convert to knots
+                    val altitude = location.altitude * 3.28084  // ✅ Convert to feet
+
+                    // fake waypoint for testing
+                    val wpLocation = LatLng(34.1819, -118.3079)
+                    val wpName = "KBUR"
+
+                    // ✅ Desired Bearing (Calculate bearing to next waypoint)
+                    val bearingWp = calculateBearing(userLatLng, wpLocation)
+                    val distanceWp = calculateDistance(userLatLng, wpLocation)
+                    val etaMinutes = calculateETA(distanceWp, groundSpeed)
+                    val eta = formatETA(etaMinutes, groundSpeed)  // ✅ Converts to H:M if over 60 min
+
+                    // ✅ Update Flight Info UI
+                    updateFlightInfo(wpName, track, bearingWp, distanceWp, groundSpeed, altitude, eta)
+
                 }
             }
         }, Looper.getMainLooper())
     }
+
+
+    // calculate crosswind direction/speed
+    /*fun calculateWind(heading: Double, track: Double, groundSpeed: Double): Pair<Double, Double> {
+        // ✅ Compute drift angle (difference between heading and track)
+        val driftAngle = (track - heading + 360) % 360
+
+        // ✅ Estimate wind speed using drift angle
+        val windSpeed = abs(groundSpeed * sin(Math.toRadians(driftAngle)))
+
+        // ✅ Compute wind correction angle
+        val windCorrection = Math.toDegrees(atan2(windSpeed, groundSpeed))
+
+        // ✅ Calculate wind direction
+        val windDirection = (heading + windCorrection + 360) % 360  // Normalize
+
+        return Pair(windDirection, windSpeed)
+    }*/
+
+    // calculate bearing and distance to next waypoint (fake burbank)
+    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng): Double {
+        val lat1 = Math.toRadians(currentLocation.latitude)
+        val lon1 = Math.toRadians(currentLocation.longitude)
+        val lat2 = Math.toRadians(nextWaypoint.latitude)
+        val lon2 = Math.toRadians(nextWaypoint.longitude)
+        val deltaLon = lon2 - lon1
+        val y = sin(deltaLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
+        val bearing = Math.toDegrees(atan2(y, x))
+        return (bearing + 360) % 360  // Normalize to 0-360°
+    }
+
+    fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
+        val R = 3440.065  // Earth radius in nautical miles
+        val lat1 = Math.toRadians(currentLocation.latitude)
+        val lon1 = Math.toRadians(currentLocation.longitude)
+        val lat2 = Math.toRadians(nextWaypoint.latitude)
+        val lon2 = Math.toRadians(nextWaypoint.longitude)
+        val dLat = lat2 - lat1
+        val dLon = lon2 - lon1
+        val a = sin(dLat / 2).pow(2) + cos(lat1) * cos(lat2) * sin(dLon / 2).pow(2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c  // ✅ Distance in nautical miles (NM)
+    }
+
+    fun calculateETA(distanceNM: Double, groundSpeedKnots: Double): Double {
+        return if (groundSpeedKnots > 0) {
+            (distanceNM / groundSpeedKnots) * 60  // ✅ Convert hours to minutes
+        } else {
+            Double.POSITIVE_INFINITY  // 🚨 Avoid divide-by-zero error
+        }
+    }
+
+    fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
+        return if (groundSpeedKnots < 30) {
+            "--:--"  // 🚨 No ETA if speed is too low
+        } else if (etaMinutes >= 60) {
+            val hours = (etaMinutes / 60).toInt()
+            val minutes = (etaMinutes % 60).toInt()
+            String.format("%d:%02d", hours, minutes)  // ✅ Example: 1:05 (1 hour, 5 min)
+        } else {
+            String.format("%.1f min", etaMinutes)  // ✅ Example: "12.5 min"
+        }
+    }
+
+
+
+    // Flight Data
+    fun updateFlightInfo(wpName: String, track: Double, bearing: Double, distance: Double, groundSpeed: Double, altitude: Double, eta: String) {
+        //binding.headingText.text = "HDG: ${heading.roundToInt()}°"
+        binding.nextWaypointName.text = wpName
+        binding.trackText.text = "TRK: ${track.roundToInt()}°"
+        binding.bearingText.text = "BRG: ${bearing.roundToInt()}°"
+        binding.distanceText.text = "DIS: ${distance.roundToInt()}nm"
+        binding.gpsSpeed.text = "SPD: ${groundSpeed.roundToInt()}kt"
+        binding.altitudeText.text = "ALT: ${altitude.roundToInt()}"
+        binding.etaText.text = "ETA: ${eta}"
+        //binding.windArrow.rotation = windDirection.toFloat()
+        //binding.windSpeed.text = "${windDirection.roundToInt()}kt"
+    }
+
+    /*fun updateFlightInfo(heading: Double, track: Double, bearing: Double, groundSpeed: Double, windDirection: Double, windSpeed: Double) {
+        binding.headingText.text = "HDG: ${heading.roundToInt()}°"
+        binding.trackText.text = "TRK: ${track.roundToInt()}°"
+        binding.bearingText.text = "BRG: ${bearing.roundToInt()}°"
+        binding.gpsSpeed.text = "SPD: ${groundSpeed.roundToInt()}kt"
+        binding.windArrow.rotation = windDirection.toFloat()
+        binding.windSpeed.text = "${windDirection.roundToInt()}kt"
+    }*/
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
@@ -1206,6 +1376,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         )
         return createDotMarker(metar, null, location, style) // No TAF border
     }
+
 /*    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {

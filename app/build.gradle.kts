@@ -30,7 +30,9 @@ android {
 
     buildFeatures {
         buildConfig = true
+        viewBinding = true
     }
+
     namespace = "com.airportweather.map"
     compileSdk = 35
 

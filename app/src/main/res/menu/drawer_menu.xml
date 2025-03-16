@@ -3,10 +3,10 @@
     <item
         android:id="@+id/nav_downloads"
         android:icon="@android:drawable/ic_menu_save"
-        android:title="Downloads" />
+        android:title="Download Sectional Charts" />
 
-<!--    <item-->
-<!--        android:id="@+id/nav_settings"-->
-<!--        android:icon="@android:drawable/ic_menu_preferences"-->
-<!--        android:title="Settings" />-->
+    <item
+        android:id="@+id/nav_settings"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Settings" />
 </menu>

@@ -16,7 +16,136 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Google Map Fragment -->
+        <!-- Flight Info Panel  -->
+        <LinearLayout
+            android:id="@+id/flightInfoLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:background="#AA000000"
+            android:visibility="visible"
+            android:gravity="center_vertical">
+
+            <!-- ✅ First Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Next waypoint -->
+                <TextView
+                    android:id="@+id/next_waypoint_name"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="Next"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+                <!-- Desired Bearing -->
+                <TextView
+                    android:id="@+id/distance_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="DIS: ---nm"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+                <!-- Disgtance to next -->
+                <TextView
+                    android:id="@+id/bearing_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="BRG: ---°"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+                <!-- Vertical Speed -->
+                <TextView
+                    android:id="@+id/vs_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="VS: ---fpm"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+            </LinearLayout>
+
+            <!-- ✅ Second Row (New Data) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">  <!-- Add spacing between rows -->
+
+                <!-- Altitude -->
+                <TextView
+                    android:id="@+id/altitude_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="ALT: ---ft"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+                <!-- Ground Speed -->
+                <TextView
+                    android:id="@+id/gps_speed"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="SPD: ---kt"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+                <!-- Track -->
+                <TextView
+                    android:id="@+id/track_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="TRK: ---°"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+
+                <!-- ETA to next waypoint -->
+                <TextView
+                    android:id="@+id/eta_text"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="ETA: --:--"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="12dp"/>
+
+<!--                &lt;!&ndash; Wind Direction Indicator &ndash;&gt;-->
+<!--                <ImageView-->
+<!--                    android:id="@+id/wind_arrow"-->
+<!--                    android:layout_weight="1"-->
+<!--                    android:layout_width="24dp"-->
+<!--                    android:layout_height="24dp"-->
+<!--                    android:src="@drawable/ic_wind_arrow"-->
+<!--                    android:rotation="0"-->
+<!--                    android:contentDescription="Wind Direction"-->
+<!--                    android:paddingEnd="8dp"/>-->
+            </LinearLayout>
+        </LinearLayout>
+
 
         <!-- Custom Center-Map Button -->
         <androidx.fragment.app.FragmentContainerView
