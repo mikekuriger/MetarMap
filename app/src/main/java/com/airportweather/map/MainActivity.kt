@@ -572,6 +572,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private lateinit var locationCallback: LocationCallback
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
+    private lateinit var binding: ActivityMainBinding
 
     private var isFollowingUser = false
     private var areTFRsVisible = true
@@ -589,7 +590,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var terminalOverlay: TileOverlay? = null
     private var terminalVisible = false
     private var lastKnownUserLocation: LatLng? = null
-    private lateinit var binding: ActivityMainBinding
     private val airportMap = mutableMapOf<String, LatLng>()
     private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
 
@@ -664,11 +664,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         drawerLayout = findViewById(R.id.drawer_layout)
         navView = findViewById(R.id.nav_view)
 
-        val toggle = ActionBarDrawerToggle(
-            this, drawerLayout, R.string.navigation_drawer_open, R.string.navigation_drawer_close
-        )
-        drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
+//11:57:05.071 ActionBarDrawerToggle    W  DrawerToggle may not show up because NavigationIcon is not visible. You may need to call actionbar.setDisplayHomeAsUpEnabled(true);
+//        val toggle = ActionBarDrawerToggle(
+//            this, drawerLayout, R.string.navigation_drawer_open, R.string.navigation_drawer_close
+//        )
+//        drawerLayout.addDrawerListener(toggle)
+//        toggle.syncState()
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         navView.setNavigationItemSelectedListener(this)
@@ -691,6 +692,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
 
+        // #1
+        Log.d("LocationUpdate", "Function triggered in onCreate")
         requestLocationUpdates()
 
         // Follow Button
@@ -792,7 +795,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // ✅ Start Location Updates
     private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
@@ -811,44 +814,50 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     }
 
                     // ✅ GPS-Based Movement (Track)
-                    val track = location.bearing.toDouble()
                     val groundSpeedmps = location.speed.toDouble()
                     val groundSpeed = groundSpeedmps * 1.94384  // Convert to knots
+                    val plannedAirSpeed = 95
                     val altitude = location.altitude * 3.28084  // ✅ Convert to feet
 
                     // fake waypoint for testing
                     //val wpLocation = LatLng(34.1819, -118.3079)
                     //val wpName = "KBUR"
 
-                    //val latLngList = mutableListOf<LatLng>()
+                    // waypoints 1 from intent
                     val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+                    //val waypoints = listOf("KBUR", "KSMO")
                     val latLngList = waypoints.mapNotNull { airportMap[it] }
-//
-                    var wpName: String
-                    var wp2Name: String
+
+                    val wpName: String
+                    val wp2Name: String
+                    val wpLocation: LatLng
 
                     if (waypoints.size > 1) {
                         wpName = waypoints[0]  // ✅ First waypoint
                         wp2Name = waypoints[1] // ✅ Second waypoint
                     } else {
-                        wpName = "me"                 // ✅ Default if no waypoints
+                        wpName = "direct"                 // ✅ Default if no waypoints
                         wp2Name = waypoints.getOrNull(0) ?: "----"  // ✅ First WP if available, else default
                     }
 
                     val currentLeg = "$wpName → $wp2Name"
-                    //val wpLocation = latLngList.getOrNull(0) ?: userLatLng
-                    val wpLocation = latLngList.getOrNull(1) ?: latLngList.getOrNull(0) ?: userLatLng
+                    if (latLngList.size > 1) {
+                        wpLocation = latLngList[1]
+                    } else {
+                        wpLocation = latLngList[0]
+                    }
+
                     Log.d("LocationUpdate", "wpName: $wpName")
                     Log.d("LocationUpdate", "wpLocation: $wpLocation")
 
                     // ✅ Desired Bearing (Calculate bearing to next waypoint)
                     val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
                     val distanceWp = calculateDistance(userLatLng, wpLocation)
-                    val etaMinutes = calculateETA(distanceWp, groundSpeed)
+                    val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
                     val eta = formatETA(etaMinutes, groundSpeed)  // ✅ Converts to H:M if over 60 min
 
-                    // ✅ Update Flight Info UI
-                    updateFlightInfo(currentLeg, track, bearingWp, distanceWp, groundSpeed, altitude, eta, waypoints)
+                    // ✅ Update Flight Info UI #1
+                    updateFlightInfo(wpLocation, currentLeg, bearingWp, distanceWp, groundSpeed, plannedAirSpeed, altitude, eta, waypoints)
 
                 }
             }
@@ -856,7 +865,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // calculate bearing and distance to next waypoint (fake burbank)
-    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, icao: String): Double {
+    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
         val lat1 = Math.toRadians(currentLocation.latitude)
         val lon1 = Math.toRadians(currentLocation.longitude)
         val lat2 = Math.toRadians(nextWaypoint.latitude)
@@ -866,7 +875,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
         var bearing = Math.toDegrees(atan2(y, x))
         // ✅ Add magnetic variation (default to 0 if missing)
-        val magVar = airportMagVarMap[icao] ?: 0.0
+        val magVar = airportMagVarMap[airportId] ?: 0.0
         bearing -= magVar
         return (bearing + 360) % 360  // Normalize to 0-360°
     }
@@ -882,15 +891,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c  // ✅ Distance in nautical miles (NM)
     }
-    fun calculateETA(distanceNM: Double, groundSpeedKnots: Double): Double {
-        return if (groundSpeedKnots > 0) {
-            (distanceNM / groundSpeedKnots) * 60  // ✅ Convert hours to minutes
+    fun calculateETA(distanceNM: Double, groundSpeedKnots: Double, plannedAirSpeed: Int): Double {
+        Log.d("ETA", "distanceNM: $distanceNM, groundSpeedKnots: $groundSpeedKnots, plannedAirSpeed: $plannedAirSpeed")
+        if (groundSpeedKnots > 20) {
+            return (distanceNM / groundSpeedKnots) * 60
         } else {
-            Double.POSITIVE_INFINITY  // 🚨 Avoid divide-by-zero error
+            return (distanceNM / plannedAirSpeed) * 60
+            //Double.POSITIVE_INFINITY  // 🚨 Avoid divide-by-zero error
         }
     }
     fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
-        return if (groundSpeedKnots < 20) {
+        return if (etaMinutes >= 60) {
+            val hours = (etaMinutes / 60).toInt()
+            val minutes = (etaMinutes % 60).toInt()
+            String.format("%d:%02d", hours, minutes)  // ✅ Example: 1:05 (1 hour, 5 min)
+        } else {
+            val minutes = (etaMinutes).toInt()
+            String.format("%d", minutes)  // ✅ Example: "12.5 min"
+        }
+    }
+/*    fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
+        return if (groundSpeedKnots < 10) {
             "--:--"  // 🚨 No ETA if speed is too low
         } else if (etaMinutes >= 60) {
             val hours = (etaMinutes / 60).toInt()
@@ -899,7 +920,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         } else {
             String.format("%.1f min", etaMinutes)  // ✅ Example: "12.5 min"
         }
-    }
+    }*/
     fun calculateTotalDistance(waypoints: List<String>): Double {
         var totalDistance = 0.0
 
@@ -913,6 +934,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         return totalDistance
     }
+
     fun calculateTotalETA(totalDistance: Double, groundSpeedKnots: Double): String {
         if (groundSpeedKnots <= 0) return "--:--" // Prevent divide by zero
 
@@ -924,7 +946,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // Flight Plan Data
-    fun updateFlightInfo(currentLeg: String, track: Double, bearing: Double, distance: Double, groundSpeed: Double, altitude: Double, eta: String, waypoints: List<String>) {
+    fun updateFlightInfo(wpLocation: LatLng, currentLeg: String, bearing: Double, distance: Double, groundSpeed: Double, plannedAirSpeed: Int, altitude: Double, eta: String, waypoints: List<String>) {
 
         // ✅ Update next waypoint
         // if the trip hasn't started yet, use the first waypoint
@@ -932,11 +954,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // to detwrmine if the waypoint has been passed, check the distance to it.
         // we pass the airport, switch to the next waypoint.  we can pass laterally within a few NM.
 
-        Log.e("wayPoints", waypoints.toString())
-
+        Log.i("updateFlightInfo", "wpLocation: $wpLocation")
+        Log.i("updateFlightInfo", "wayPoints: $waypoints")
+        Log.i("updateFlightInfo", "groundSpeed: $groundSpeed")
+        Log.i("updateFlightInfo", "plannedAirSpeed: $plannedAirSpeed")
+        Log.i("updateFlightInfo", "altitude: $altitude")
+        Log.i("updateFlightInfo", "eta: $eta")
+        Log.i("updateFlightInfo", "bearing: $bearing")
+        Log.i("updateFlightInfo", "distance: $distance")
         //binding.nextWaypointName.text = wpName
+        //binding.trackText.text = "${track.roundToInt()}°"
+
         binding.currentLeg.text = currentLeg
-        binding.trackText.text = "${track.roundToInt()}°"
         binding.bearingText.text = "${bearing.roundToInt()}°"
         binding.distanceText.text = "${distance.roundToInt()}nm"
         binding.gpsSpeed.text = "${groundSpeed.roundToInt()}kt"
@@ -952,7 +981,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         binding.dtdText.text = "${totalDistance.roundToInt()}nm"
 
         // ✅ Calculate total ETA
-        val etaMinutes = calculateETA(totalDistance, groundSpeed)
+        val etaMinutes = calculateETA(totalDistance, groundSpeed, plannedAirSpeed)
         val totalETA = formatETA(etaMinutes, groundSpeed)
         //val totalETA = calculateTotalETA(totalDistance, groundSpeed)
         binding.etaDestText.text = totalETA
@@ -1013,7 +1042,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         moveToLastSavedLocationOrCurrent()
         showBottomProgressBar("🚨 Initializing all the things")
-        //requestLocationUpdates()
+
+        // #2
+        Log.d("LocationUpdate", "Function triggered in onMapReady")
+        requestLocationUpdates()
 
 
 //        // display ZOOM level for debugging maps DEBUG
@@ -2229,12 +2261,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 }
             }
 
-            // ✅ Draw magenta line between waypoints
+            // ✅ Draw magenta line between waypoints NAV LINES
             if (latLngList.size > 1) {
                 val polylineOptions = PolylineOptions()
                     .addAll(latLngList)
                     .color(Color.argb(255, 255, 16, 240))  // PINK
                     .width(10f)
+                    .zIndex(2f)  //markers are re-drawn which makes them appear on top :-(
                 mMap.addPolyline(polylineOptions)
             }
 
@@ -2265,7 +2298,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 val tokens = line.split(",") // ✅ Split CSV by commas
 
                 if (tokens.size > 30) { // ✅ Ensure enough fields exist
-                    val icao = tokens[4].trim('"').uppercase() // ✅ ICAO code (ARPT_ID)
+                    val airportId = tokens[4].trim('"').uppercase() // ✅ ICAO code (ARPT_ID)
                     val lat = tokens[19].toDoubleOrNull() ?: return@forEach // ✅ Latitude (LAT_DECIMAL)
                     val lon = tokens[24].toDoubleOrNull() ?: return@forEach // ✅ Longitude (LONG_DECIMAL)
                     val magVar = tokens[28].toDoubleOrNull() ?: 0.0 // ✅ Magnetic Variation (MAG_VARN)
@@ -2274,8 +2307,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     // ✅ Convert Magnetic Variation: East = Positive, West = Negative
                     val correctedMagVar = if (magHemis == "W") -magVar else magVar
 
-                    airportMap[icao] = LatLng(lat, lon) // ✅ Store LatLng
-                    airportMagVarMap[icao] = correctedMagVar  // ✅ Store Magnetic Variation
+                    airportMap[airportId] = LatLng(lat, lon) // ✅ Store LatLng
+                    airportMagVarMap[airportId] = correctedMagVar  // ✅ Store Magnetic Variation
                 }
             }
         }
