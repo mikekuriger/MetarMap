@@ -72,23 +72,19 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
 import android.widget.ImageButton
-import android.widget.ImageView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.drawerlayout.widget.DrawerLayout
 import com.airportweather.map.databinding.ActivityMainBinding
-//import com.airportweather.map.databinding.FlightInfoLayoutBinding
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.maps.android.ui.IconGenerator
-import kotlin.math.abs
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -594,15 +590,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var terminalVisible = false
     private var lastKnownUserLocation: LatLng? = null
     private lateinit var binding: ActivityMainBinding
-    //sensors
-    private lateinit var sensorManager: SensorManager
-    private var rotationMatrix = FloatArray(9)
-    private var orientationValues = FloatArray(3)
-    private var gravity = FloatArray(3)
-    private var geomagnetic = FloatArray(3)
-    private var currentHeading = 0.0
-    private var lastTimestamp: Long = 0
-    private val ALPHA = 0.1f
+    private val airportMap = mutableMapOf<String, LatLng>()
+    private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -633,28 +622,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //setContentView(R.layout.activity_main)
-
-        // ✅ Initialize Sensor Manager
-//        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
-        // ✅ Register the sensor listener
-//        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-//        val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-        //val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-
-//        if (accelerometer != null && magnetometer != null) {
-//            sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
-//            sensorManager.registerListener(sensorEventListener, magnetometer, SensorManager.SENSOR_DELAY_GAME)
-//        }
-
-//        if (gyroscope != null) {
-//            sensorManager.registerListener(gyroListener, gyroscope, SensorManager.SENSOR_DELAY_GAME)
-//        }
 
         // ✅ Initialize View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ Load airports from CSV
+        loadAirportsFromCSV()
 
         // ✅ Toggle Flight Info Visibility
         binding.flightPlan.setOnClickListener {
@@ -671,6 +645,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
         }
 
+        // ✅ Toggle Flight Dest visibility (testing)
+//        binding.layers.setOnClickListener {
+//            Log.d("FlightToggle", "Layer button clicked")  // ✅ Log click event
+//
+//            val isVisible = binding.flightInfoLayout2.visibility == View.VISIBLE
+//            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
+//
+//            binding.flightInfoLayout2.visibility = if (isVisible) View.GONE else View.VISIBLE
+//
+//            binding.flightInfoLayout2.bringToFront()
+//            binding.flightInfoLayout2.requestLayout()
+//
+//            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout2.visibility}")  // ✅ Log visibility after toggle
+//        }
 
         // ✅ Initialize Navigation Drawer
         drawerLayout = findViewById(R.id.drawer_layout)
@@ -778,18 +766,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+
         }
     }
     // end of onCreate
 
+    // ✅ Navigation Drawer
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
-            //R.id.nav_settings -> startActivity(Intent(this, com.airportweather.map.SettingsActivity::class.java))
+            R.id.nav_flightplanning -> startActivity(Intent(this, FlightPlanActivity::class.java))
         }
         drawerLayout.closeDrawers() // ✅ Close drawer after selection
         return true
     }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
             drawerLayout.open()
@@ -826,43 +817,46 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     val altitude = location.altitude * 3.28084  // ✅ Convert to feet
 
                     // fake waypoint for testing
-                    val wpLocation = LatLng(34.1819, -118.3079)
-                    val wpName = "KBUR"
+                    //val wpLocation = LatLng(34.1819, -118.3079)
+                    //val wpName = "KBUR"
+
+                    //val latLngList = mutableListOf<LatLng>()
+                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+                    val latLngList = waypoints.mapNotNull { airportMap[it] }
+//
+                    var wpName: String
+                    var wp2Name: String
+
+                    if (waypoints.size > 1) {
+                        wpName = waypoints[0]  // ✅ First waypoint
+                        wp2Name = waypoints[1] // ✅ Second waypoint
+                    } else {
+                        wpName = "me"                 // ✅ Default if no waypoints
+                        wp2Name = waypoints.getOrNull(0) ?: "----"  // ✅ First WP if available, else default
+                    }
+
+                    val currentLeg = "$wpName → $wp2Name"
+                    //val wpLocation = latLngList.getOrNull(0) ?: userLatLng
+                    val wpLocation = latLngList.getOrNull(1) ?: latLngList.getOrNull(0) ?: userLatLng
+                    Log.d("LocationUpdate", "wpName: $wpName")
+                    Log.d("LocationUpdate", "wpLocation: $wpLocation")
 
                     // ✅ Desired Bearing (Calculate bearing to next waypoint)
-                    val bearingWp = calculateBearing(userLatLng, wpLocation)
+                    val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
                     val distanceWp = calculateDistance(userLatLng, wpLocation)
                     val etaMinutes = calculateETA(distanceWp, groundSpeed)
                     val eta = formatETA(etaMinutes, groundSpeed)  // ✅ Converts to H:M if over 60 min
 
                     // ✅ Update Flight Info UI
-                    updateFlightInfo(wpName, track, bearingWp, distanceWp, groundSpeed, altitude, eta)
+                    updateFlightInfo(currentLeg, track, bearingWp, distanceWp, groundSpeed, altitude, eta, waypoints)
 
                 }
             }
         }, Looper.getMainLooper())
     }
 
-
-    // calculate crosswind direction/speed
-    /*fun calculateWind(heading: Double, track: Double, groundSpeed: Double): Pair<Double, Double> {
-        // ✅ Compute drift angle (difference between heading and track)
-        val driftAngle = (track - heading + 360) % 360
-
-        // ✅ Estimate wind speed using drift angle
-        val windSpeed = abs(groundSpeed * sin(Math.toRadians(driftAngle)))
-
-        // ✅ Compute wind correction angle
-        val windCorrection = Math.toDegrees(atan2(windSpeed, groundSpeed))
-
-        // ✅ Calculate wind direction
-        val windDirection = (heading + windCorrection + 360) % 360  // Normalize
-
-        return Pair(windDirection, windSpeed)
-    }*/
-
     // calculate bearing and distance to next waypoint (fake burbank)
-    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng): Double {
+    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, icao: String): Double {
         val lat1 = Math.toRadians(currentLocation.latitude)
         val lon1 = Math.toRadians(currentLocation.longitude)
         val lat2 = Math.toRadians(nextWaypoint.latitude)
@@ -870,10 +864,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val deltaLon = lon2 - lon1
         val y = sin(deltaLon) * cos(lat2)
         val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
-        val bearing = Math.toDegrees(atan2(y, x))
+        var bearing = Math.toDegrees(atan2(y, x))
+        // ✅ Add magnetic variation (default to 0 if missing)
+        val magVar = airportMagVarMap[icao] ?: 0.0
+        bearing -= magVar
         return (bearing + 360) % 360  // Normalize to 0-360°
     }
-
     fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
         val R = 3440.065  // Earth radius in nautical miles
         val lat1 = Math.toRadians(currentLocation.latitude)
@@ -886,7 +882,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c  // ✅ Distance in nautical miles (NM)
     }
-
     fun calculateETA(distanceNM: Double, groundSpeedKnots: Double): Double {
         return if (groundSpeedKnots > 0) {
             (distanceNM / groundSpeedKnots) * 60  // ✅ Convert hours to minutes
@@ -894,9 +889,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Double.POSITIVE_INFINITY  // 🚨 Avoid divide-by-zero error
         }
     }
-
     fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
-        return if (groundSpeedKnots < 30) {
+        return if (groundSpeedKnots < 20) {
             "--:--"  // 🚨 No ETA if speed is too low
         } else if (etaMinutes >= 60) {
             val hours = (etaMinutes / 60).toInt()
@@ -906,31 +900,63 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             String.format("%.1f min", etaMinutes)  // ✅ Example: "12.5 min"
         }
     }
+    fun calculateTotalDistance(waypoints: List<String>): Double {
+        var totalDistance = 0.0
 
+        for (i in 0 until waypoints.size - 1) {
+            val from = airportMap[waypoints[i].uppercase()]
+            val to = airportMap[waypoints[i + 1].uppercase()]
 
+            if (from != null && to != null) {
+                totalDistance += calculateDistance(from, to)
+            }
+        }
+        return totalDistance
+    }
+    fun calculateTotalETA(totalDistance: Double, groundSpeedKnots: Double): String {
+        if (groundSpeedKnots <= 0) return "--:--" // Prevent divide by zero
 
-    // Flight Data
-    fun updateFlightInfo(wpName: String, track: Double, bearing: Double, distance: Double, groundSpeed: Double, altitude: Double, eta: String) {
-        //binding.headingText.text = "HDG: ${heading.roundToInt()}°"
-        binding.nextWaypointName.text = wpName
-        binding.trackText.text = "TRK: ${track.roundToInt()}°"
-        binding.bearingText.text = "BRG: ${bearing.roundToInt()}°"
-        binding.distanceText.text = "DIS: ${distance.roundToInt()}nm"
-        binding.gpsSpeed.text = "SPD: ${groundSpeed.roundToInt()}kt"
-        binding.altitudeText.text = "ALT: ${altitude.roundToInt()}"
-        binding.etaText.text = "ETA: ${eta}"
-        //binding.windArrow.rotation = windDirection.toFloat()
-        //binding.windSpeed.text = "${windDirection.roundToInt()}kt"
+        val etaMinutes = (totalDistance / groundSpeedKnots) * 60
+        val hours = etaMinutes.toInt() / 60
+        val minutes = etaMinutes.toInt() % 60
+
+        return String.format("%02d:%02d", hours, minutes)
     }
 
-    /*fun updateFlightInfo(heading: Double, track: Double, bearing: Double, groundSpeed: Double, windDirection: Double, windSpeed: Double) {
-        binding.headingText.text = "HDG: ${heading.roundToInt()}°"
-        binding.trackText.text = "TRK: ${track.roundToInt()}°"
-        binding.bearingText.text = "BRG: ${bearing.roundToInt()}°"
-        binding.gpsSpeed.text = "SPD: ${groundSpeed.roundToInt()}kt"
-        binding.windArrow.rotation = windDirection.toFloat()
-        binding.windSpeed.text = "${windDirection.roundToInt()}kt"
-    }*/
+    // Flight Plan Data
+    fun updateFlightInfo(currentLeg: String, track: Double, bearing: Double, distance: Double, groundSpeed: Double, altitude: Double, eta: String, waypoints: List<String>) {
+
+        // ✅ Update next waypoint
+        // if the trip hasn't started yet, use the first waypoint
+        // if we have passed the first waypoint, use the next one
+        // to detwrmine if the waypoint has been passed, check the distance to it.
+        // we pass the airport, switch to the next waypoint.  we can pass laterally within a few NM.
+
+        Log.e("wayPoints", waypoints.toString())
+
+        //binding.nextWaypointName.text = wpName
+        binding.currentLeg.text = currentLeg
+        binding.trackText.text = "${track.roundToInt()}°"
+        binding.bearingText.text = "${bearing.roundToInt()}°"
+        binding.distanceText.text = "${distance.roundToInt()}nm"
+        binding.gpsSpeed.text = "${groundSpeed.roundToInt()}kt"
+        binding.altitudeText.text = "${altitude.roundToInt()}"
+        binding.etaText.text = "${eta}"
+
+        // ✅ Update destination airport ID
+        val destination = waypoints.lastOrNull() ?: "----"
+        binding.destText.text = destination
+
+        // ✅ Calculate total distance (DTD)
+        val totalDistance = calculateTotalDistance(waypoints)
+        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
+
+        // ✅ Calculate total ETA
+        val etaMinutes = calculateETA(totalDistance, groundSpeed)
+        val totalETA = formatETA(etaMinutes, groundSpeed)
+        //val totalETA = calculateTotalETA(totalDistance, groundSpeed)
+        binding.etaDestText.text = totalETA
+    }
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
@@ -972,15 +998,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         checkLocationPermission()
         enableMyLocation()
 
-        // Center Map / Zoom Button (will likely hide it)
-//        mMap.setOnMyLocationButtonClickListener {
-//            isFollowingUser = true
-//            val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
-//            customCenterButton.setColorFilter(Color.GREEN)
-//            Log.e("MapDebug", "Center button was clicked, following #1")
-//            false
-//        }
-
         mMap.setOnCameraMoveStartedListener { reason ->
             // Only disable follow if the move was triggered by a gesture.
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
@@ -1015,12 +1032,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             toggleSectionalOverlay(mMap)
             updateButtonState(vfrSecButton, isSectionalVisible)
         }
-
-//        // ✅ Initialize the task queue
-//        queueStartupTasks()
-//
-//        // ✅ Start the first task
-//        executeNextTask()
 
         // **Load TFR GeoJSON**
         loadAndDrawTFR()
@@ -1084,6 +1095,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
             true
         }
+
+        // ✅ Handle flight plan waypoints
+        val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+        updateMapWithWaypoints(waypoints)
     }
 
     private fun checkLocationPermission() {
@@ -2193,6 +2208,95 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
     }
+    //Flight plan markers
+    @SuppressLint("MissingPermission")
+    private fun updateMapWithWaypoints(waypoints: List<String>) {
+        //mMap.clear()
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            val latLngList = mutableListOf<LatLng>()
+
+            // ✅ If we got the user's location, and only one airport use it as the starting point
+            if (waypoints.size == 1 && location != null) {
+                val userLatLng = LatLng(location.latitude, location.longitude)
+                latLngList.add(userLatLng)
+            }
+
+            // ✅ Add all waypoints from the flight plan
+            for (waypoint in waypoints) {
+                val latLng = airportMap[waypoint.uppercase()]
+                if (latLng != null) {
+                    latLngList.add(latLng)
+                }
+            }
+
+            // ✅ Draw magenta line between waypoints
+            if (latLngList.size > 1) {
+                val polylineOptions = PolylineOptions()
+                    .addAll(latLngList)
+                    .color(Color.argb(255, 255, 16, 240))  // PINK
+                    .width(10f)
+                mMap.addPolyline(polylineOptions)
+            }
+
+            // ✅ Center the map on the user's last known location (or first waypoint if no location available)
+            val focusPoint = lastKnownUserLocation ?: latLngList.firstOrNull()
+            focusPoint?.let { mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 10f)) }
+
+            // ✅ Simplified Flight Plan Visibility Toggle
+            val hasMultipleWaypoints = waypoints.size > 1
+            binding.flightInfoLayout.visibility = View.VISIBLE
+            binding.flightInfoLayout2.visibility =
+                if (hasMultipleWaypoints) View.VISIBLE else View.GONE
+
+            binding.flightInfoLayout.bringToFront()
+            binding.flightInfoLayout.requestLayout()
+            Log.d("AUTOTOGGLE", "Current visibility: ${binding.flightInfoLayout.visibility}")
+            Log.d("AUTOTOGGLE", "Current visibility2: ${binding.flightInfoLayout2.visibility}")
+        }
+    }
+
+    // Load Airports
+    private fun loadAirportsFromCSV() {
+        val inputStream = resources.openRawResource(R.raw.airports2) // ✅ Use new CSV file
+        val reader = BufferedReader(InputStreamReader(inputStream))
+
+        reader.useLines { lines ->
+            lines.forEach { line ->
+                val tokens = line.split(",") // ✅ Split CSV by commas
+
+                if (tokens.size > 30) { // ✅ Ensure enough fields exist
+                    val icao = tokens[4].trim('"').uppercase() // ✅ ICAO code (ARPT_ID)
+                    val lat = tokens[19].toDoubleOrNull() ?: return@forEach // ✅ Latitude (LAT_DECIMAL)
+                    val lon = tokens[24].toDoubleOrNull() ?: return@forEach // ✅ Longitude (LONG_DECIMAL)
+                    val magVar = tokens[28].toDoubleOrNull() ?: 0.0 // ✅ Magnetic Variation (MAG_VARN)
+                    val magHemis = tokens[29].trim('"') // ✅ "E" (East) or "W" (West)
+
+                    // ✅ Convert Magnetic Variation: East = Positive, West = Negative
+                    val correctedMagVar = if (magHemis == "W") -magVar else magVar
+
+                    airportMap[icao] = LatLng(lat, lon) // ✅ Store LatLng
+                    airportMagVarMap[icao] = correctedMagVar  // ✅ Store Magnetic Variation
+                }
+            }
+        }
+    }
+
+    /*private fun loadAirportsFromCSV() {
+        val inputStream = resources.openRawResource(R.raw.airports)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+
+        reader.useLines { lines ->
+            lines.forEach { line ->
+                val tokens = line.split(",") // CSV split
+                if (tokens.size > 5) {
+                    val id = tokens[1].trim('"') // Airport code (e.g., KBUR)
+                    val lat = tokens[4].toDoubleOrNull() ?: return@forEach
+                    val lng = tokens[5].toDoubleOrNull() ?: return@forEach
+                    airportMap[id] = LatLng(lat, lng) // Store in map
+                }
+            }
+        }
+    }*/
 }
 
 abstract class BaseTileProvider(

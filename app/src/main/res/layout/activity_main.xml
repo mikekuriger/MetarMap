@@ -16,137 +16,664 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Flight Info Panel  -->
+        <!-- Flight info layout -->
+        <LinearLayout
+            android:id="@+id/flight_info_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- 🔹 First Parent (Top Section: 4 Columns, 4 Rows) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="#000000">
+
+                <LinearLayout
+                    android:layout_weight="4"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- ✅ First Label Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:background="#33ffffff">
+                        <TextView
+                            android:text="Current Leg"
+                            android:textSize="8sp"
+                            android:layout_weight="2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="DTN"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="Bearing"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView android:text="ETA"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                    </LinearLayout>
+
+                    <!-- ✅ First Data Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/current_leg"
+                            android:text="KWHP → KSMO"
+                            android:textSize="16sp"
+                            android:layout_weight="2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/distance_text"
+                            android:text="---nm"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/bearing_text"
+                            android:text="---°"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/eta_text"
+                            android:text="--:--"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                    </LinearLayout>
+
+                    <!-- ✅ Second Label Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:background="#33ffffff">
+                        <TextView
+                            android:text="Alt"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="VS"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="GS"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="Track"
+                            android:textSize="8sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:text="Final Destination"
+                            android:textSize="8sp"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:background="#33ffffff"
+                            android:textColor="@android:color/white"/>
+<!--                        <TextView-->
+<!--                            android:text="VS"-->
+<!--                            android:textSize="8sp"-->
+<!--                            android:layout_weight="1"-->
+<!--                            android:layout_width="0dp"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:gravity="center"-->
+<!--                            android:textColor="@android:color/white"/>-->
+                    </LinearLayout>
+
+                    <!-- ✅ Second Data Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/altitude_text"
+                            android:text="---ft"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/vs_text"
+                            android:text="---"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/gps_speed"
+                            android:text="---kt"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+                        <TextView
+                            android:id="@+id/track_text"
+                            android:text="---°"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/darker_gray"/>
+<!--                        <TextView-->
+<!--                            android:id="@+id/vs_text"-->
+<!--                            android:text="-&#45;&#45;"-->
+<!--                            android:textSize="16sp"-->
+<!--                            android:layout_weight="1"-->
+<!--                            android:layout_width="0dp"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:gravity="center"-->
+<!--                            android:textColor="@android:color/white"/>-->
+                        <TextView
+                            android:id="@+id/dest_text"
+                            android:text="----"
+                            android:textSize="16sp"
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"/>
+
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 🔹 Second Parent (Below right section, 4 new rows) -->
+            <LinearLayout
+                android:id="@+id/flight_info_layout2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <!-- Empty Space for Alignment -->
+                <View android:layout_weight="4"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"/>
+
+                <!-- Below 4th Column -->
+                <LinearLayout
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#000000">
+
+                    <!-- ✅ First Label (ETA Dest) -->
+                    <TextView
+                        android:text="ETA Dest"
+                        android:textSize="8sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:background="#33ffffff"
+                        android:textColor="@android:color/white"/>
+
+                    <!-- ✅ First Data (ETA Dest Value) -->
+                    <TextView
+                        android:id="@+id/eta_dest_text"
+                        android:text="--:--"
+                        android:textSize="16sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textColor="@android:color/white"/>
+
+                    <!-- ✅ Second Label (Distance Dest) -->
+                    <TextView
+                        android:text="DTD"
+                        android:textSize="8sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:background="#33ffffff"
+                        android:textColor="@android:color/white"/>
+
+                    <!-- ✅ Second Data (VS Value) -->
+                    <TextView
+                        android:id="@+id/dtd_text"
+                        android:text="---nm"
+                        android:textSize="16sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textColor="@android:color/white"/>
+
+                    <!-- ✅ Extra 4 Label/Data Rows -->
+<!--                    <TextView-->
+<!--                        android:text="Final Destination"-->
+<!--                        android:textSize="8sp"-->
+<!--                        android:layout_width="match_parent"-->
+<!--                        android:layout_height="wrap_content"-->
+<!--                        android:gravity="center"-->
+<!--                        android:background="#33ffffff"-->
+<!--                        android:textColor="@android:color/white"/>-->
+<!--                    <TextView-->
+<!--                        android:id="@+id/dest_text"-->
+<!--                        android:text="&#45;&#45;&#45;&#45;"-->
+<!--                        android:textSize="16sp"-->
+<!--                        android:layout_width="match_parent"-->
+<!--                        android:layout_height="wrap_content"-->
+<!--                        android:gravity="center"-->
+<!--                        android:textColor="@android:color/white"/>-->
+
+                    <TextView
+                        android:text="New Label 2"
+                        android:visibility="gone"
+                        android:textSize="8sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:background="#33ffffff"
+                        android:textColor="@android:color/white"/>
+                    <TextView
+                        android:id="@+id/new_data_2"
+                        android:visibility="gone"
+                        android:text="Value 2"
+                        android:textSize="16sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:textColor="@android:color/white"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+
+        <!--&lt;!&ndash; Flight Info Panel &ndash;&gt;
         <LinearLayout
             android:id="@+id/flightInfoLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp"
-            android:background="#AA000000"
-            android:visibility="visible"
-            android:gravity="center_vertical">
+            android:background="#FF000000"
+            android:visibility="gone"
+            android:gravity="center">
 
-            <!-- ✅ First Row -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <!-- Next waypoint -->
-                <TextView
-                    android:id="@+id/next_waypoint_name"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="Next"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
-
-                <!-- Desired Bearing -->
-                <TextView
-                    android:id="@+id/distance_text"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="DIS: ---nm"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
-
-                <!-- Disgtance to next -->
-                <TextView
-                    android:id="@+id/bearing_text"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="BRG: ---°"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
-
-                <!-- Vertical Speed -->
-                <TextView
-                    android:id="@+id/vs_text"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="VS: ---fpm"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
-
-            </LinearLayout>
-
-            <!-- ✅ Second Row (New Data) -->
+            &lt;!&ndash; 🔹 Top Label Row &ndash;&gt;
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginTop="4dp">  <!-- Add spacing between rows -->
+                android:background="#33ffffff" >
 
-                <!-- Altitude -->
                 <TextView
-                    android:id="@+id/altitude_text"
+                    android:text="Next WP"
+                    android:textSize="8sp"
                     android:layout_weight="1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="ALT: ---ft"
+                    android:gravity="center"
                     android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
+                    android:textStyle="normal" />
 
-                <!-- Ground Speed -->
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
                 <TextView
-                    android:id="@+id/gps_speed"
+                    android:text="DTN"
+                    android:textSize="8sp"
                     android:layout_weight="1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="SPD: ---kt"
+                    android:gravity="center"
                     android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
+                    android:textStyle="normal"/>
 
-                <!-- Track -->
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
                 <TextView
-                    android:id="@+id/track_text"
+                    android:text="Bearing"
+                    android:textSize="8sp"
                     android:layout_weight="1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="TRK: ---°"
+                    android:gravity="center"
                     android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
+                    android:textStyle="normal"/>
 
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
 
-                <!-- ETA to next waypoint -->
+                <TextView
+                    android:text="ETA"
+                    android:textSize="8sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            &lt;!&ndash; ✅ First Data Row &ndash;&gt;
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#00FFFFFF" >
+
+                <TextView
+                    android:id="@+id/next_waypoint_name"
+                    android:text="KWHP"
+                    android:textSize="18sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:id="@+id/distance_text"
+                    android:text="-&#45;&#45;nm"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:id="@+id/bearing_text"
+                    android:text="-&#45;&#45;°"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal"/>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
                 <TextView
                     android:id="@+id/eta_text"
+                    android:text="&#45;&#45;:&#45;&#45;"
+                    android:textSize="16sp"
                     android:layout_weight="1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="ETA: --:--"
+                    android:gravity="center"
                     android:textColor="@android:color/white"
-                    android:textSize="14sp"
-                    android:paddingEnd="12dp"/>
+                    android:textStyle="normal" />
+            </LinearLayout>
 
-<!--                &lt;!&ndash; Wind Direction Indicator &ndash;&gt;-->
-<!--                <ImageView-->
-<!--                    android:id="@+id/wind_arrow"-->
-<!--                    android:layout_weight="1"-->
-<!--                    android:layout_width="24dp"-->
-<!--                    android:layout_height="24dp"-->
-<!--                    android:src="@drawable/ic_wind_arrow"-->
-<!--                    android:rotation="0"-->
-<!--                    android:contentDescription="Wind Direction"-->
-<!--                    android:paddingEnd="8dp"/>-->
+            &lt;!&ndash; 🔹 Second Label Row &ndash;&gt;
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#33ffffff" >
+
+                <TextView
+                    android:text="Alt"
+                    android:textSize="8sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:text="GS"
+                    android:textSize="8sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:text="Track"
+                    android:textSize="8sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:text="VS"
+                    android:textSize="8sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal" />
+            </LinearLayout>
+
+            &lt;!&ndash; ✅ Second Data Row &ndash;&gt;
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#00FFFFFF" >
+
+                <TextView
+                    android:id="@+id/altitude_text"
+                    android:text="-&#45;&#45;ft"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal"/>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:id="@+id/gps_speed"
+                    android:text="-&#45;&#45;kt"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal"/>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:id="@+id/track_text"
+                    android:text="-&#45;&#45;°"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal"/>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/darker_gray"/>
+
+                <TextView
+                    android:id="@+id/vs_text"
+                    android:text="650"
+                    android:textSize="16sp"
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:textStyle="normal"/>
             </LinearLayout>
         </LinearLayout>
-
-
+-->
+        <!-- Side Buttons -->
         <!-- Custom Center-Map Button -->
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/map"
@@ -156,10 +683,10 @@
 
         <ImageButton
             android:id="@+id/custom_center_button"
-            android:layout_width="35dp"
-            android:layout_height="35dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="4dp"
             android:layout_marginBottom="50dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
@@ -168,11 +695,11 @@
 
         <ImageButton
             android:id="@+id/layers"
-            android:layout_width="35dp"
-            android:layout_height="35dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="10dp"
-            android:layout_marginBottom="92dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="95dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_layers"
@@ -180,17 +707,15 @@
 
         <ImageButton
             android:id="@+id/flightPlan"
-            android:layout_width="35dp"
-            android:layout_height="35dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="10dp"
-            android:layout_marginBottom="134dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="140dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_plane"
             android:contentDescription="flight plan" />
-
-
 
         <!-- Version number -->
 <!--        <TextView
