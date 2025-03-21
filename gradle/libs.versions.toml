@@ -4,6 +4,7 @@ androidMapsUtils = "2.2.5"
 appcompat = "1.7.0"
 cardview = "1.0.0"
 converterGson = "2.9.0"
+coreSplashscreen = "1.0.1"
 drawerlayout = "1.2.0"
 kotlin = "2.0.0"
 coreKtx = "1.10.1"
@@ -27,6 +28,7 @@ android-maps-utils = { module = "com.google.maps.android:android-maps-utils", ve
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 androidx-drawerlayout = { module = "androidx.drawerlayout:drawerlayout", version.ref = "drawerlayout" }
 androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleRuntimeKtx" }

@@ -22,7 +22,7 @@
         <activity
             android:name=".StartupActivity"
             android:exported="true"
-            android:theme="@style/Theme.MetarMap">
+            android:theme="@style/Theme.MetarMap.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
