@@ -72,6 +72,8 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
+import android.location.Location
+import android.os.Handler
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
@@ -158,6 +160,29 @@ data class MarkerStyle(
     val showWindBarb: Boolean = false,
     val textOverlay: String? = null
 )
+data class FlightPlan(
+    val wpLocation: LatLng,
+    val currentLeg: String,
+    val bearing: Double,
+    val distance: Double,
+    val groundSpeed: Double,
+    val plannedAirSpeed: Int,
+    val altitude: Double,
+    val eta: String,
+    val waypoints: List<String>
+)
+data class FlightData(
+    val wpLocation: LatLng,
+    val currentLeg: String,
+    val bearing: Double,
+    val distance: Double,
+    val groundSpeed: Double,
+    val plannedAirSpeed: Int,
+    val altitude: Double,
+    val eta: String,
+    val waypoints: List<String>
+)
+
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
@@ -592,9 +617,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var lastKnownUserLocation: LatLng? = null
     private val airportMap = mutableMapOf<String, LatLng>()
     private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
+    private val activeSpeed = 10
+    private val plannedAirSpeed = 95 // make editable in the UI
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
+        // const val ACTIVE_SPEED = 10
     }
 
     sealed class MapLayer {
@@ -707,7 +735,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                         if (location != null) {
                             val currentLatLng = LatLng(location.latitude, location.longitude)
-                            mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLatLng))
+
+                            // 🔍 Check current zoom level
+                            if (::mMap.isInitialized) {
+                                val currentZoom = mMap.cameraPosition.zoom
+                                val targetZoom =
+                                    if (currentZoom < 6f) 9f else currentZoom  // Threshold decision
+                                mMap.animateCamera(
+                                    CameraUpdateFactory.newLatLngZoom(
+                                        currentLatLng,
+                                        targetZoom
+                                    )
+                                )
+                            }
                         }
                     }
                     Log.d("MapMove", "Following, Custom Button - Following = $isFollowingUser")
@@ -783,7 +823,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         drawerLayout.closeDrawers() // ✅ Close drawer after selection
         return true
     }
-
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
             drawerLayout.open()
@@ -793,7 +832,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // ✅ Start Location Updates
-    private fun requestLocationUpdates() {
+    // refactoring 3/20/25
+    /*private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
 
@@ -862,6 +902,89 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 }
             }
         }, Looper.getMainLooper())
+    }*/
+    private fun requestLocationUpdates() {
+        Log.d("LocationUpdate", "requestLocationUpdates was triggered")
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+            return
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    val userLatLng = LatLng(location.latitude, location.longitude)
+                    Log.d("LocationUpdate", "User Location: $userLatLng")
+
+                    if (isFollowingUser) {
+                        mMap.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                userLatLng,
+                                mMap.cameraPosition.zoom
+                            )
+                        )
+                    }
+
+                    // 🔹 Fetch waypoints from intent #1
+                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+                    if (waypoints.isEmpty()) {
+                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
+                        return
+                    } else {
+                        val flightData = calculateFlightData(location, waypoints)
+                        // 🔹 Send processed data to UI function
+                        updateFlightInfo(flightData)
+                    }
+                }
+            }
+        }, Looper.getMainLooper())
+    }
+
+    // Handles All Calculations for flight planning
+    private fun calculateFlightData(location: Location, waypoints: List<String>): FlightData {
+        val userLatLng = LatLng(location.latitude, location.longitude)
+        val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
+        val altitude = location.altitude * 3.28084  // Convert to feet
+
+        val latLngList = waypoints.mapNotNull { airportMap[it] }
+
+        // if only one waypoint, use direct to
+        val wpName: String
+        val wp2Name: String
+        if (waypoints.size > 1) {
+            wpName = waypoints[0]  // ✅ First waypoint
+            wp2Name = waypoints[1] // ✅ Second waypoint
+        } else {
+            wpName = "direct"
+            wp2Name = waypoints.getOrNull(0) ?: "----"
+        }
+
+        //val wpLocation = latLngList.getOrNull(1) ?: latLngList.getOrNull(0) ?: userLatLng
+        val wpLocation: LatLng
+        if (latLngList.size > 1) {
+            wpLocation = latLngList[1]
+        } else {
+            wpLocation = latLngList[0]
+        }
+
+        val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
+        val distanceWp = calculateDistance(userLatLng, wpLocation)
+        val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
+        val eta = formatETA(etaMinutes, groundSpeed)
+
+        return FlightData(
+            wpLocation = wpLocation,
+            currentLeg = "$wpName → $wp2Name",
+            bearing = bearingWp,
+            distance = distanceWp,
+            groundSpeed = groundSpeed,
+            plannedAirSpeed = plannedAirSpeed,
+            altitude = altitude,
+            eta = eta,
+            waypoints = waypoints
+        )
     }
 
     // calculate bearing and distance to next waypoint (fake burbank)
@@ -875,7 +998,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
         var bearing = Math.toDegrees(atan2(y, x))
         // ✅ Add magnetic variation (default to 0 if missing)
+        // east is least, west is best
         val magVar = airportMagVarMap[airportId] ?: 0.0
+        // if going east, add mag var
+        //if going west, subtract mag var
         bearing -= magVar
         return (bearing + 360) % 360  // Normalize to 0-360°
     }
@@ -893,7 +1019,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
     fun calculateETA(distanceNM: Double, groundSpeedKnots: Double, plannedAirSpeed: Int): Double {
         Log.d("ETA", "distanceNM: $distanceNM, groundSpeedKnots: $groundSpeedKnots, plannedAirSpeed: $plannedAirSpeed")
-        if (groundSpeedKnots > 20) {
+        if (groundSpeedKnots > activeSpeed) {
             return (distanceNM / groundSpeedKnots) * 60
         } else {
             return (distanceNM / plannedAirSpeed) * 60
@@ -946,7 +1072,44 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // Flight Plan Data
-    fun updateFlightInfo(wpLocation: LatLng, currentLeg: String, bearing: Double, distance: Double, groundSpeed: Double, plannedAirSpeed: Int, altitude: Double, eta: String, waypoints: List<String>) {
+    fun updateFlightInfo(data: FlightData) {
+        Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
+        Log.i("updateFlightInfo", "wayPoints: ${data.waypoints}")
+        Log.i("updateFlightInfo", "groundSpeed: ${data.groundSpeed}")
+        Log.i("updateFlightInfo", "plannedAirSpeed: ${data.plannedAirSpeed}")
+        Log.i("updateFlightInfo", "altitude: ${data.altitude}")
+        Log.i("updateFlightInfo", "eta: ${data.eta}")
+        Log.i("updateFlightInfo", "bearing: ${data.bearing}")
+        Log.i("updateFlightInfo", "distance: ${data.distance}")
+
+        //planning mode
+        val isPlanningMode = data.groundSpeed < activeSpeed
+        val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE  // Blue for planned airspeed, white for actual flight
+        val etaDestColor = if (isPlanningMode) Color.CYAN else Color.WHITE
+
+        binding.currentLeg.text = data.currentLeg
+        binding.bearingText.text = "${data.bearing.roundToInt()}°"
+        binding.distanceText.text = "${data.distance.roundToInt()}nm"
+        binding.gpsSpeed.text = "${data.groundSpeed.roundToInt()}kt"
+        binding.altitudeText.text = "${data.altitude.roundToInt()}"
+        binding.etaText.text = data.eta
+        binding.etaText.setTextColor(etaColor)
+
+        val destination = data.waypoints.lastOrNull() ?: "----"
+        binding.destText.text = destination
+        binding.etaDestText.setTextColor(etaDestColor)
+
+        val totalDistance = calculateTotalDistance(data.waypoints)
+        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
+
+        val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
+        val totalETA = formatETA(etaMinutes, data.groundSpeed)
+        binding.etaDestText.text = totalETA
+    }
+
+
+    //refactoring 3/20/25
+    /*fun updateFlightInfo(wpLocation: LatLng, currentLeg: String, bearing: Double, distance: Double, groundSpeed: Double, plannedAirSpeed: Int, altitude: Double, eta: String, waypoints: List<String>) {
 
         // ✅ Update next waypoint
         // if the trip hasn't started yet, use the first waypoint
@@ -985,13 +1148,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val totalETA = formatETA(etaMinutes, groundSpeed)
         //val totalETA = calculateTotalETA(totalDistance, groundSpeed)
         binding.etaDestText.text = totalETA
-    }
+    }*/
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.isMyLocationEnabled = true
-        }
+        mMap.isMyLocationEnabled = true
     }
 
     @SuppressLint("PotentialBehaviorOverride")
@@ -1006,13 +1167,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         mMap.setMinZoomPreference(5.0f) // Set minimum zoom out level
         mMap.setMaxZoomPreference(15.0f) // Set maximum zoom in level
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
-        mMap.setOnCameraIdleListener {
-            saveMapPosition()
-            updateVisibleMarkers(metarData, tafData)
+
+        // Handle Permissions
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+            mMap.isMyLocationEnabled = true
         }
 
+
+        showBottomProgressBar("🚨 Initializing all the things")
+
+        // ✅ Apply the custom dark mode style
         try {
-            // ✅ Apply the custom dark mode style
             val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
             if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
                 googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
@@ -1024,8 +1190,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Log.e("MapStyle", "Can't find style. Error: ", e)
         }
 
-        checkLocationPermission()
-        enableMyLocation()
+        // Set listener for camera movement
+        mMap.setOnCameraIdleListener {  //1
+            saveMapPosition()
+            updateVisibleMarkers(metarData, tafData)
+            // Optionally show zoom for debug
+            //val zoom = mMap.cameraPosition.zoom
+            //Log.d("ZoomDebug", "Current Zoom Level: $zoom")
+            // findViewById<TextView>(R.id.zoomLevelText)?.text = "Zoom: ${zoom.toInt()}"
+        }
 
         mMap.setOnCameraMoveStartedListener { reason ->
             // Only disable follow if the move was triggered by a gesture.
@@ -1034,68 +1207,153 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
                 customCenterButton.setColorFilter(Color.RED)
                 Log.d("MapDebug", "User manually moved the map. Disabling follow #1")
-            } else {
-                //Log.d("MapDebug", "Camera moved due to animation or developer call; still following.")
             }
         }
 
+        //requestLocationUpdates()
+        //refreshMarkers()
 
-        moveToLastSavedLocationOrCurrent()
-        showBottomProgressBar("🚨 Initializing all the things")
+        val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
+        val firstLaunch = prefs.getBoolean("first_launch", true)
 
-        // #2
-        Log.d("LocationUpdate", "Function triggered in onMapReady")
-        requestLocationUpdates()
-
-
-//        // display ZOOM level for debugging maps DEBUG
-//        val zoomLevelText: TextView = findViewById(R.id.zoomLevelText)
-//        mMap.setOnCameraIdleListener {
-//            val zoom = mMap.cameraPosition.zoom
-//            zoomLevelText.text = "Zoom: ${zoom.toInt()}" // Show zoom level as an integer
-//            Log.d("ZoomDebug", "Current Zoom Level: $zoom") // ✅ Debugging log
-//        }
-
-        // Initialize the tile overlay toggle
-        val vfrSecButton = findViewById<Button>(R.id.toggle_vfrsec_button)
-        var isSectionalVisible = false
-        vfrSecButton.setOnClickListener {
-            isSectionalVisible = !isSectionalVisible
-            toggleSectionalOverlay(mMap)
-            updateButtonState(vfrSecButton, isSectionalVisible)
+        if (firstLaunch) {
+            prefs.edit().putBoolean("first_launch", false).apply()
+            val burbank = LatLng(34.1819, -118.3079)
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(burbank, 9f))
+            //showFirstLaunchDialog()
+        } else {
+            moveToLastSavedLocationOrCurrent()
         }
 
+        //moveToLastSavedLocationOrCurrent()
+
         // **Load TFR GeoJSON**
-        loadAndDrawTFR()
+        var enableTfr = 1
+        if (enableTfr == 1) {
+            loadAndDrawTFR()
+            // Initialize the tfr toggle button
+            val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
+            var isTFRVisible = true
+            tfrButton.setOnClickListener {
+                isTFRVisible = !isTFRVisible
+                toggleTFRVisibility()
+                updateButtonState(tfrButton, isTFRVisible)
+            }
+
+            // Handle when user clicks on a TFR
+            mMap.setOnPolygonClickListener { polygon ->
+                val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+
+                if (tfrList != null) {
+                    if (tfrList.size == 1) {
+                        // ✅ Show single TFR pop-up
+                        showTfrPopup(this, tfrList[0])
+                    } else {
+                        // ✅ Show list selection if multiple TFRs exist
+                        showTfrSelectionDialog(this, tfrList)
+                    }
+                }
+            }
+        }
 
         // **Load Airspace Boundaries**
-        loadAndDrawAirspace(mMap, this)
+        var enableAirspace = 1
+        if (enableAirspace == 1) {
+            loadAndDrawAirspace(mMap, this)
+
+            // Initialize the airspace toggle button
+            val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
+            var isAirspaceVisible = true
+            airspaceButton.setOnClickListener {
+                isAirspaceVisible = !isAirspaceVisible
+                toggleAirspace()
+                updateButtonState(airspaceButton, isAirspaceVisible)
+            }
+        }
+
+        // Sectionals
+        var enableSectional = 1
+        if (enableSectional == 1) {
+            // Initialize the tile overlay toggle
+            var isSectionalVisible: Boolean
+            val vfrSecButton = findViewById<Button>(R.id.toggle_vfrsec_button)
+            if (firstLaunch) {
+                isSectionalVisible = true
+                toggleSectionalOverlay(mMap)
+            } else {
+                isSectionalVisible = false
+            }
+            vfrSecButton.setOnClickListener {
+                isSectionalVisible = !isSectionalVisible
+                toggleSectionalOverlay(mMap)
+                updateButtonState(vfrSecButton, isSectionalVisible)
+            }
+        }
+
+        // Flight Plan
+        var enableFlightPlan = 1
+        if (enableFlightPlan == 1) {
+            // ✅ Handle flight plan waypoints
+            //intent #2
+            intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
+                if (waypoints.isNotEmpty()) {
+                    updateMapWithWaypoints(waypoints)
+                }
+            }
+        }
 
         // **Load Metars**
-        loadAndDrawMetar()
+        var enableMetar = 1
+        if (enableMetar == 1) {
+            loadAndDrawMetar()
+            // ** refresh weather data
+            startAutoRefresh(15)
 
-        // ** refresh weather data
-        startAutoRefresh(15)
+            // Initialize the metar toggle button
+            val metarButton = findViewById<Button>(R.id.toggle_metar_button)
+            var isMetarVisible = true
+            metarButton.setOnClickListener {
+                isMetarVisible = !isMetarVisible
+                toggleMetarVisibility()
+                updateButtonState(metarButton, isMetarVisible)
+            }
 
-        // Initialize the airspace toggle button
+            // Handle when user clicks on a metar marker
+            mMap.setOnMarkerClickListener { marker ->
+                val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
+                if (data != null) {
+                    showMetarDialog(data.metar, data.taf)
+                }
+                true
+            }
+        }
+
+        if (::mMap.isInitialized) {
+            checkLocationPermission()
+        }
+
+        hideBottomProgressBar()
+
+
+        /*// Initialize the airspace toggle button
         val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
         var isAirspaceVisible = true
         airspaceButton.setOnClickListener {
             isAirspaceVisible = !isAirspaceVisible
             toggleAirspace()
             updateButtonState(airspaceButton, isAirspaceVisible)
-        }
+        }*/
 
-        // Initialize the tfr toggle button
+        /*// Initialize the tfr toggle button
         val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
         var isTFRVisible = true
         tfrButton.setOnClickListener {
             isTFRVisible = !isTFRVisible
             toggleTFRVisibility()
             updateButtonState(tfrButton, isTFRVisible)
-        }
+        }*/
 
-        // Handle when user clicks on a TFR
+        /*// Handle when user clicks on a TFR
         mMap.setOnPolygonClickListener { polygon ->
             val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
 
@@ -1108,9 +1366,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     showTfrSelectionDialog(this, tfrList)
                 }
             }
-        }
+        }*/
 
-        // Initialize the metar toggle button
+        /*// Initialize the metar toggle button
         val metarButton = findViewById<Button>(R.id.toggle_metar_button)
         var isMetarVisible = true
         metarButton.setOnClickListener {
@@ -1126,36 +1384,38 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 showMetarDialog(data.metar, data.taf)
             }
             true
-        }
+        }*/
 
-        // ✅ Handle flight plan waypoints
-        val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-        updateMapWithWaypoints(waypoints)
     }
 
     private fun checkLocationPermission() {
-        if (::mMap.isInitialized) {
-            if (ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    LOCATION_PERMISSION_REQUEST_CODE
-                )
-            } else {
-                enableMyLocation()
-            }
+        if (!::mMap.isInitialized) return
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            enableMyLocation()
         }
     }
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                enableMyLocation()
-            }
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
+            checkLocationPermission()
         }
     }
 
@@ -1547,12 +1807,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
         val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
         val progressMessage = findViewById<TextView>(R.id.progress_message_bottom)
-
         if (progressBar == null || progressMessage == null) {
             Log.e("ProgressBar", "Progress bar or message view not found!")
             return
         }
-
         progressMessage.text = message
         progressBar.visibility = View.VISIBLE
         progressOverlay.visibility = View.VISIBLE
@@ -1577,22 +1835,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun loadAndDrawTFR() {
         lifecycleScope.launch {
             try {
-                showBottomProgressBar("✈️ Loading TFR Data")
+                //showBottomProgressBar("✈️ Loading TFR Data")
                 val tfrFile = getOrDownloadTfrs(filesDir)
                 if (tfrFile != null) {
                     println("✅ Parsing tfr data...")
                     val tfrFeatures = parseTFRGeoJson(tfrFile)
                     drawTFRPolygons(mMap, tfrFeatures)
-                    //showBottomProgressBar("✈️ TFR Data Loaded")
                 } else {
-                    showBottomProgressBar("❌ No TFR Data Available")
+                    //showBottomProgressBar("❌ No TFR Data Available")
                     println("🚨 No TFR data available")
                 }
             } catch (e: Exception) {
                 Log.e("MainActivity", "TFR download failed: ${e.message}")
-                showBottomProgressBar("❌ TFR Data Failed")
+                //showBottomProgressBar("❌ TFR Data Failed")
             } finally {
-                //executeNextTask()  // ✅ Continue with next task
+                //hideBottomProgressBar()
             }
         }
     }
@@ -1899,7 +2156,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
             } catch (e: Exception) {
                 Log.e("GeoJSON", "Error loading boundaries: ${e.localizedMessage}")
-                showBottomProgressBar("❌ Airspace Boundaries Failed")
+                //showBottomProgressBar("❌ Airspace Boundaries Failed")
                 //executeNextTask()
             }
         }
@@ -1955,8 +2212,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             } finally {
                 withContext(Dispatchers.Main) {
                     hideBottomProgressBar()
-                    //showBottomProgressBar("🌦️ Weather Data Loaded")
-                    //executeNextTask()
                 }
             }
         }
@@ -2265,14 +2520,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             if (latLngList.size > 1) {
                 val polylineOptions = PolylineOptions()
                     .addAll(latLngList)
-                    .color(Color.argb(255, 255, 16, 240))  // PINK
-                    .width(10f)
+                    //.color(Color.argb(255, 255, 16, 240))  // PINK for Current Leg
+                    .color(Color.argb(255, 16, 16, 240))  // BLUE for planning
+                    .width(20f)
                     .zIndex(2f)  //markers are re-drawn which makes them appear on top :-(
                 mMap.addPolyline(polylineOptions)
             }
 
             // ✅ Center the map on the user's last known location (or first waypoint if no location available)
-            val focusPoint = lastKnownUserLocation ?: latLngList.firstOrNull()
+            val currentLatLng = LatLng(location.latitude, location.longitude)
+            val focusPoint = currentLatLng ?: latLngList.firstOrNull()
+            //val focusPoint = lastKnownUserLocation ?: latLngList.firstOrNull()
+
             focusPoint?.let { mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 10f)) }
 
             // ✅ Simplified Flight Plan Visibility Toggle
@@ -2299,8 +2558,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
                 if (tokens.size > 30) { // ✅ Ensure enough fields exist
                     val airportId = tokens[4].trim('"').uppercase() // ✅ ICAO code (ARPT_ID)
+                    val city = tokens[6].trim('"') // ✅ City (CITY)
+                    val airportName = tokens[12].trim('"') // ✅ Airport Name (ARPT_NAME)
                     val lat = tokens[19].toDoubleOrNull() ?: return@forEach // ✅ Latitude (LAT_DECIMAL)
                     val lon = tokens[24].toDoubleOrNull() ?: return@forEach // ✅ Longitude (LONG_DECIMAL)
+                    val elev = tokens[25].toDoubleOrNull() ?: 0.0 // ✅ Elevation (ELEV_FT)
                     val magVar = tokens[28].toDoubleOrNull() ?: 0.0 // ✅ Magnetic Variation (MAG_VARN)
                     val magHemis = tokens[29].trim('"') // ✅ "E" (East) or "W" (West)
 

@@ -13,6 +13,7 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import java.io.BufferedReader
@@ -42,7 +43,7 @@ class FlightPlanActivity : AppCompatActivity() {
         setupAutoComplete()
 
         // ✅ Example: Change text programmatically
-        binding.flightPlanText.text = "Flight Plan"
+        //binding.flightPlanText.text = "Flight Plan"
 
         // ✅ Listen for text input in flightPlanEdit
         binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
@@ -75,6 +76,15 @@ class FlightPlanActivity : AppCompatActivity() {
             saveFlightPlan(binding.flightPlanEdit.text.toString())
             sendWaypointsToMap(waypoints)
         }
+
+        // ✅ When "Clear Flight Plan" button is clicked, remove waypoints
+        binding.clearFlightPlanButton.setOnClickListener {
+            binding.flightPlanEdit.text.clear()  // ✅ Clears input field
+
+            // ✅ Remove from SharedPreferences (if stored)
+            val sharedPrefs = getSharedPreferences("FLIGHT_PREFS", MODE_PRIVATE)
+            sharedPrefs.edit().remove("WAYPOINTS").apply()
+        }
     }
 
 
@@ -86,16 +96,16 @@ class FlightPlanActivity : AppCompatActivity() {
         }
 
         //val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, airportCodes)
-        val adapter = ArrayAdapter(this, R.layout.item_autocomplete, R.id.autocompleteText, airportCodes)
+        //val adapter = ArrayAdapter(this, R.layout.item_autocomplete, R.id.autocompleteText, airportCodes)
 
 
-        // ✅ Attach adapter to AutoCompleteTextView
-        binding.flightPlanEdit.setAdapter(adapter)
-        binding.flightPlanEdit.threshold = 1 // Start suggesting after 1 character
-
-        binding.flightPlanEdit.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) binding.flightPlanEdit.showDropDown() // ✅ Show dropdown on focus
-        }
+//        // ✅ Attach adapter to AutoCompleteTextView
+//        binding.flightPlanEdit.setAdapter(adapter)
+//        binding.flightPlanEdit.threshold = 1 // Start suggesting after 1 character
+//
+//        binding.flightPlanEdit.setOnFocusChangeListener { _, hasFocus ->
+//            if (hasFocus) binding.flightPlanEdit.showDropDown() // ✅ Show dropdown on focus
+//        }
     }
 
     private fun loadAirportsFromCSV(): MutableList<String> {
