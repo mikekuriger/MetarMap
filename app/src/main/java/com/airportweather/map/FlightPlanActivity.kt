@@ -2,18 +2,12 @@ package com.airportweather.map
 
 import android.content.Intent
 import android.content.SharedPreferences
-import android.graphics.Color
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.text.Editable
-import android.text.Spannable
-import android.text.SpannableStringBuilder
 import android.text.TextWatcher
-import android.text.style.ForegroundColorSpan
 import android.util.Log
-import android.widget.ArrayAdapter
-import android.widget.Toast
+import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import java.io.BufferedReader
@@ -35,12 +29,9 @@ class FlightPlanActivity : AppCompatActivity() {
         // ✅ Initialize SharedPreferences
         sharedPreferences = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
 
-        // ✅ Load the saved flight plan when opening the page
+        // ✅ Load the "current" flight plan when opening the page
         loadFlightPlan()
-
         loadAirportsFromCSV()
-
-        setupAutoComplete()
 
         // ✅ Example: Change text programmatically
         //binding.flightPlanText.text = "Flight Plan"
@@ -65,47 +56,73 @@ class FlightPlanActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
+        // BUTTONS
 
-        // ✅ When "Plot Flight Plan" button is clicked, send waypoints to MainActivity
-        binding.plotFlightPlanButton.setOnClickListener {
+        // ✅ When "Load Flight Plan" button is clicked, load saved flight plan
+        binding.loadFlightPlanButton.setOnClickListener {
+            val allPlans = loadAllFlightPlans()
+            val planNames = allPlans.map { it.first }.toTypedArray()
+
+            AlertDialog.Builder(this)
+                .setTitle("Load Flight Plan")
+                .setItems(planNames) { _, which ->
+                    val planText = allPlans[which].second
+                    binding.flightPlanEdit.setText(planText)
+                }
+                .show()
+        }
+
+        // ✅ When "Save Flight Plan" button is clicked, save current flight plan
+        binding.saveFlightPlanButton.setOnClickListener {
+            val currentPlan = binding.flightPlanEdit.text.toString().trim()
+            if (currentPlan.isEmpty()) return@setOnClickListener
+
+            // Show input dialog
+            val input = EditText(this)
+            input.hint = "Enter flight plan name"
+
+            AlertDialog.Builder(this)
+                .setTitle("Save Flight Plan")
+                .setView(input)
+                .setPositiveButton("Save") { _, _ ->
+                    val name = input.text.toString().trim()
+                    if (name.isNotEmpty()) {
+                        saveNamedFlightPlan(name, currentPlan)
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        // ✅ When "Delete Flight Plan" button is clicked, delete saved flight plan
+        binding.deleteFlightPlanButton.setOnClickListener {
+            //deleteNamedFlightPlan(flightplanName)
+        }
+
+        // ✅ When "Activate Flight Plan" button is clicked, send waypoints to MainActivity
+        binding.activateFlightPlanButton.setOnClickListener {
             val waypoints = binding.flightPlanEdit.text.toString().trim().split("\\s+".toRegex())
             if (waypoints.isEmpty()) return@setOnClickListener
 
             // ✅ Validate, Save, Submit
-            //validateWaypoints(binding.flightPlanEdit.text.toString())
+            //validateWaypoints(flightplan)
             saveFlightPlan(binding.flightPlanEdit.text.toString())
             sendWaypointsToMap(waypoints)
         }
 
         // ✅ When "Clear Flight Plan" button is clicked, remove waypoints
         binding.clearFlightPlanButton.setOnClickListener {
-            binding.flightPlanEdit.text.clear()  // ✅ Clears input field
+            binding.flightPlanEdit.text.clear()
 
-            // ✅ Remove from SharedPreferences (if stored)
-            val sharedPrefs = getSharedPreferences("FLIGHT_PREFS", MODE_PRIVATE)
-            sharedPrefs.edit().remove("WAYPOINTS").apply()
+            // Remove saved flight plan
+            sharedPreferences.edit().remove("SAVED_FLIGHT_PLAN").apply()
+
+            // Remove waypoints sent to map
+            sharedPreferences.edit().remove("WAYPOINTS").apply()
+
+            // Send empty list to MainActivity
+            sendWaypointsToMap(emptyList())
         }
-    }
-
-
-    private fun setupAutoComplete() {
-        val airportCodes = loadAirportsFromCSV() // Load ICAO codes into a list
-        if (airportCodes.isEmpty()) {
-            Log.e("DEBUG", "Airport list is empty! AutoComplete will not work.")
-            return
-        }
-
-        //val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, airportCodes)
-        //val adapter = ArrayAdapter(this, R.layout.item_autocomplete, R.id.autocompleteText, airportCodes)
-
-
-//        // ✅ Attach adapter to AutoCompleteTextView
-//        binding.flightPlanEdit.setAdapter(adapter)
-//        binding.flightPlanEdit.threshold = 1 // Start suggesting after 1 character
-//
-//        binding.flightPlanEdit.setOnFocusChangeListener { _, hasFocus ->
-//            if (hasFocus) binding.flightPlanEdit.showDropDown() // ✅ Show dropdown on focus
-//        }
     }
 
     private fun loadAirportsFromCSV(): MutableList<String> {
@@ -127,24 +144,46 @@ class FlightPlanActivity : AppCompatActivity() {
         return airportCodes
     }
 
+    // current flight plan
+    private fun loadFlightPlan() {
+        val currentFlightPlan = sharedPreferences.getString("SAVED_FLIGHT_PLAN", "")
+        binding.flightPlanEdit.setText(currentFlightPlan)
+    }
 
-    /*private fun loadAirportsFromCSV(): MutableList<String> {
-        val airportCodes: MutableList<String> = mutableListOf()
-        val inputStream = resources.openRawResource(R.raw.airports)
-        val reader = BufferedReader(InputStreamReader(inputStream))
+    private fun saveFlightPlan(flightPlan: String) {
+        sharedPreferences.edit().putString("SAVED_FLIGHT_PLAN", flightPlan).apply()
+    }
 
-        reader.useLines { lines ->
-            lines.forEach { line ->
-                val tokens = line.split(",")
-                if (tokens.size > 5) {
-                    val id = tokens[1].trim('"').uppercase() // Convert to uppercase (standard ICAO)
-                    airportMap[id] = true
-                }
-            }
-        }
-        return airportCodes
-    }*/
+    // saved flight plans
+    fun deleteNamedFlightPlan(name: String) {
+        val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
+        val plans = prefs.getStringSet("SAVED_FLIGHT_PLANS", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        plans.removeIf { it.startsWith("$name|") }
+        prefs.edit().putStringSet("SAVED_FLIGHT_PLANS", plans).apply()
+    }
 
+    fun saveNamedFlightPlan(name: String, flightPlan: String) {
+        val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
+        val allPlans = prefs.getStringSet("SAVED_FLIGHT_PLANS", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        allPlans.removeIf { it.startsWith("$name|") }
+        allPlans.add("$name|$flightPlan")
+        prefs.edit().putStringSet("SAVED_FLIGHT_PLANS", allPlans).apply()
+    }
+
+    fun loadAllFlightPlans(): List<Pair<String, String>> {
+        val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
+        return prefs.getStringSet("SAVED_FLIGHT_PLANS", emptySet())?.mapNotNull {
+            val parts = it.split("|", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else null
+        } ?: emptyList()
+    }
+
+    // push to map
+    private fun sendWaypointsToMap(waypoints: List<String>) {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
+        startActivity(intent)
+    }
 
     private fun validateWaypoints(input: String) {
         val waypoints = input.trim().split("\\s+".toRegex())
@@ -157,23 +196,9 @@ class FlightPlanActivity : AppCompatActivity() {
             binding.flightPlanEdit.setTextColor(android.graphics.Color.BLACK)
         }
 
-         // ✅ Update UI for next and final waypoint
+        // ✅ Update UI for next and final waypoint
         //binding.nextWaypointName.text = waypoints.firstOrNull()?.uppercase() ?: "N/A"
         //binding.destText.text = waypoints.lastOrNull()?.uppercase() ?: "N/A"
     }
 
-    private fun saveFlightPlan(flightPlan: String) {
-        sharedPreferences.edit().putString("SAVED_FLIGHT_PLAN", flightPlan).apply()
-    }
-
-    private fun loadFlightPlan() {
-        val savedFlightPlan = sharedPreferences.getString("SAVED_FLIGHT_PLAN", "")
-        binding.flightPlanEdit.setText(savedFlightPlan)
-    }
-
-    private fun sendWaypointsToMap(waypoints: List<String>) {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
-        startActivity(intent)
-    }
 }

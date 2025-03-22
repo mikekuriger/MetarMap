@@ -972,7 +972,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
         val distanceWp = calculateDistance(userLatLng, wpLocation)
         val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
-        val eta = formatETA(etaMinutes, groundSpeed)
+        val eta = formatETA(etaMinutes)
 
         return FlightData(
             wpLocation = wpLocation,
@@ -1026,7 +1026,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             //Double.POSITIVE_INFINITY  // 🚨 Avoid divide-by-zero error
         }
     }
-    fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
+    fun formatETA(etaMinutes: Double): String {
         return if (etaMinutes >= 60) {
             val hours = (etaMinutes / 60).toInt()
             val minutes = (etaMinutes % 60).toInt()
@@ -1103,7 +1103,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         binding.dtdText.text = "${totalDistance.roundToInt()}nm"
 
         val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
-        val totalETA = formatETA(etaMinutes, data.groundSpeed)
+        val totalETA = formatETA(etaMinutes)
         binding.etaDestText.text = totalETA
     }
 
