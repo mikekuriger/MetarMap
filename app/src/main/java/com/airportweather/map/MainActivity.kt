@@ -997,11 +997,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val y = sin(deltaLon) * cos(lat2)
         val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
         var bearing = Math.toDegrees(atan2(y, x))
-        // ✅ Add magnetic variation (default to 0 if missing)
-        // east is least, west is best
+        // ✅ Add/Subtract magnetic variation (default to 0 if missing)
         val magVar = airportMagVarMap[airportId] ?: 0.0
-        // if going east, add mag var
-        //if going west, subtract mag var
         bearing -= magVar
         return (bearing + 360) % 360  // Normalize to 0-360°
     }
@@ -1106,49 +1103,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val totalETA = formatETA(etaMinutes)
         binding.etaDestText.text = totalETA
     }
-
-
-    //refactoring 3/20/25
-    /*fun updateFlightInfo(wpLocation: LatLng, currentLeg: String, bearing: Double, distance: Double, groundSpeed: Double, plannedAirSpeed: Int, altitude: Double, eta: String, waypoints: List<String>) {
-
-        // ✅ Update next waypoint
-        // if the trip hasn't started yet, use the first waypoint
-        // if we have passed the first waypoint, use the next one
-        // to detwrmine if the waypoint has been passed, check the distance to it.
-        // we pass the airport, switch to the next waypoint.  we can pass laterally within a few NM.
-
-        Log.i("updateFlightInfo", "wpLocation: $wpLocation")
-        Log.i("updateFlightInfo", "wayPoints: $waypoints")
-        Log.i("updateFlightInfo", "groundSpeed: $groundSpeed")
-        Log.i("updateFlightInfo", "plannedAirSpeed: $plannedAirSpeed")
-        Log.i("updateFlightInfo", "altitude: $altitude")
-        Log.i("updateFlightInfo", "eta: $eta")
-        Log.i("updateFlightInfo", "bearing: $bearing")
-        Log.i("updateFlightInfo", "distance: $distance")
-        //binding.nextWaypointName.text = wpName
-        //binding.trackText.text = "${track.roundToInt()}°"
-
-        binding.currentLeg.text = currentLeg
-        binding.bearingText.text = "${bearing.roundToInt()}°"
-        binding.distanceText.text = "${distance.roundToInt()}nm"
-        binding.gpsSpeed.text = "${groundSpeed.roundToInt()}kt"
-        binding.altitudeText.text = "${altitude.roundToInt()}"
-        binding.etaText.text = "${eta}"
-
-        // ✅ Update destination airport ID
-        val destination = waypoints.lastOrNull() ?: "----"
-        binding.destText.text = destination
-
-        // ✅ Calculate total distance (DTD)
-        val totalDistance = calculateTotalDistance(waypoints)
-        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
-
-        // ✅ Calculate total ETA
-        val etaMinutes = calculateETA(totalDistance, groundSpeed, plannedAirSpeed)
-        val totalETA = formatETA(etaMinutes, groundSpeed)
-        //val totalETA = calculateTotalETA(totalDistance, groundSpeed)
-        binding.etaDestText.text = totalETA
-    }*/
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
