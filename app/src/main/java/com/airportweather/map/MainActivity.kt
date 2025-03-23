@@ -73,12 +73,10 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
-import android.os.Handler
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
 import android.widget.ImageButton
-import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.drawerlayout.widget.DrawerLayout
 import com.airportweather.map.databinding.ActivityMainBinding
 import com.google.android.gms.maps.model.MapStyleOptions
@@ -87,6 +85,7 @@ import com.google.android.material.navigation.NavigationView
 import com.google.maps.android.ui.IconGenerator
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -174,6 +173,7 @@ data class FlightPlan(
 data class FlightData(
     val wpLocation: LatLng,
     val currentLeg: String,
+    val track: Double,
     val bearing: Double,
     val distance: Double,
     val groundSpeed: Double,
@@ -854,6 +854,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     }
 
                     // ✅ GPS-Based Movement (Track)
+                    val track = location.bearing.toDouble()
                     val groundSpeedmps = location.speed.toDouble()
                     val groundSpeed = groundSpeedmps * 1.94384  // Convert to knots
                     val plannedAirSpeed = 95
@@ -897,7 +898,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     val eta = formatETA(etaMinutes, groundSpeed)  // ✅ Converts to H:M if over 60 min
 
                     // ✅ Update Flight Info UI #1
-                    updateFlightInfo(wpLocation, currentLeg, bearingWp, distanceWp, groundSpeed, plannedAirSpeed, altitude, eta, waypoints)
+                    updateFlightInfo(wpLocation, currentLeg, track, bearingWp, distanceWp, groundSpeed, plannedAirSpeed, altitude, eta, waypoints)
 
                 }
             }
@@ -905,7 +906,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }*/
     private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 500).build()
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
@@ -947,7 +948,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
         val altitude = location.altitude * 3.28084  // Convert to feet
-
+        val track = location.bearing.toDouble()
         val latLngList = waypoints.mapNotNull { airportMap[it] }
 
         // if only one waypoint, use direct to
@@ -977,6 +978,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return FlightData(
             wpLocation = wpLocation,
             currentLeg = "$wpName → $wp2Name",
+            track = track,
             bearing = bearingWp,
             distance = distanceWp,
             groundSpeed = groundSpeed,
@@ -1069,9 +1071,47 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     // Flight Plan Data
+//    fun updateFlightInfo(data: FlightData) {
+//        Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
+//        Log.i("updateFlightInfo", "wayPoints: ${data.waypoints}")
+//        Log.i("updateFlightInfo", "track: ${data.track}")
+//        Log.i("updateFlightInfo", "groundSpeed: ${data.groundSpeed}")
+//        Log.i("updateFlightInfo", "plannedAirSpeed: ${data.plannedAirSpeed}")
+//        Log.i("updateFlightInfo", "altitude: ${data.altitude}")
+//        Log.i("updateFlightInfo", "eta: ${data.eta}")
+//        Log.i("updateFlightInfo", "bearing: ${data.bearing}")
+//        Log.i("updateFlightInfo", "distance: ${data.distance}")
+//
+//        //planning mode
+//        val isPlanningMode = data.groundSpeed < activeSpeed
+//        val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE  // Blue for planned airspeed, white for actual flight
+//        val etaDestColor = if (isPlanningMode) Color.CYAN else Color.WHITE
+//
+//        binding.currentLeg.text = data.currentLeg
+//        binding.trackText.text = "${data.track.roundToInt()}°"
+//        binding.bearingText.text = "${data.bearing.roundToInt()}°"
+//        binding.distanceText.text = "${data.distance.roundToInt()}nm"
+//        binding.gpsSpeed.text = "${data.groundSpeed.roundToInt()}kt"
+//        binding.altitudeText.text = "${data.altitude.roundToInt()}"
+//        binding.etaText.text = data.eta
+//        binding.etaText.setTextColor(etaColor)
+//
+//        val destination = data.waypoints.lastOrNull() ?: "----"
+//        binding.destText.text = destination
+//        binding.etaDestText.setTextColor(etaDestColor)
+//
+//        val totalDistance = calculateTotalDistance(data.waypoints)
+//        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
+//
+//        val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
+//        val totalETA = formatETA(etaMinutes)
+//        binding.etaDestText.text = totalETA
+//    }
+
     fun updateFlightInfo(data: FlightData) {
         Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
         Log.i("updateFlightInfo", "wayPoints: ${data.waypoints}")
+        Log.i("updateFlightInfo", "track: ${data.track}")
         Log.i("updateFlightInfo", "groundSpeed: ${data.groundSpeed}")
         Log.i("updateFlightInfo", "plannedAirSpeed: ${data.plannedAirSpeed}")
         Log.i("updateFlightInfo", "altitude: ${data.altitude}")
@@ -1079,18 +1119,34 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.i("updateFlightInfo", "bearing: ${data.bearing}")
         Log.i("updateFlightInfo", "distance: ${data.distance}")
 
-        //planning mode
         val isPlanningMode = data.groundSpeed < activeSpeed
-        val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE  // Blue for planned airspeed, white for actual flight
+        val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE
         val etaDestColor = if (isPlanningMode) Color.CYAN else Color.WHITE
 
         binding.currentLeg.text = data.currentLeg
+        //binding.trackText.text = "${data.track.roundToInt()}°"
         binding.bearingText.text = "${data.bearing.roundToInt()}°"
         binding.distanceText.text = "${data.distance.roundToInt()}nm"
         binding.gpsSpeed.text = "${data.groundSpeed.roundToInt()}kt"
         binding.altitudeText.text = "${data.altitude.roundToInt()}"
         binding.etaText.text = data.eta
         binding.etaText.setTextColor(etaColor)
+
+        if (data.groundSpeed < 10) {
+            binding.trackText.text = "---"
+            binding.trackText.setTextColor(Color.WHITE)
+
+        } else {
+            // 🔥 Set trackText color based on deviation from bearing
+            val delta = abs((data.track - data.bearing + 540) % 360 - 180) // Normalize 0–180
+            val trackColor = when {
+                delta > 15 -> Color.RED
+                delta > 5 -> Color.YELLOW
+                else -> Color.WHITE
+            }
+            binding.trackText.setTextColor(trackColor)
+            binding.trackText.text = "${data.track.roundToInt()}°"
+        }
 
         val destination = data.waypoints.lastOrNull() ?: "----"
         binding.destText.text = destination
@@ -1102,7 +1158,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
         val totalETA = formatETA(etaMinutes)
         binding.etaDestText.text = totalETA
+
+        // 🔥 Set trackText color based on deviation from bearing
+        val delta = abs((data.track - data.bearing + 540) % 360 - 180) // Normalize 0–180
+        val trackColor = when {
+            delta > 15 -> Color.RED
+            delta > 5 -> Color.YELLOW
+            else -> Color.WHITE
+        }
+        binding.trackText.setTextColor(trackColor)
     }
+
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
