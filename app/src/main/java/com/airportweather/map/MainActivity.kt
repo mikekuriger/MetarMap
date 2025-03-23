@@ -2,6 +2,7 @@ package com.airportweather.map
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -83,6 +84,7 @@ import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.maps.android.ui.IconGenerator
+import okhttp3.OkHttpClient
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import kotlin.math.abs
@@ -657,6 +659,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // ✅ Load airports from CSV
         loadAirportsFromCSV()
+
+        // ✅ Download databases if needed
+        syncDatabaseFiles(this)
 
         // ✅ Toggle Flight Info Visibility
         binding.flightPlan.setOnClickListener {
@@ -2559,7 +2564,101 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-    // Load Airports
+    // Download airport databases
+    private fun syncDatabaseFiles(context: Context) {
+        showBottomProgressBar("🚨 Updating databases...")
+        val localDir = context.filesDir
+        val prefs = context.getSharedPreferences("db_versions", Context.MODE_PRIVATE)
+
+        val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+
+        Thread {
+            try {
+                val connection = URL(manifestUrl).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connect()
+
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    Log.e("DBSync", "Failed to fetch manifest")
+                    return@Thread
+                }
+
+                val manifestJson = connection.inputStream.bufferedReader().readText()
+                val manifest = JSONObject(manifestJson)
+
+                val dbKeys = listOf("faa_airports", "faa_fixes", "faa_frequencies")
+
+                dbKeys.forEach { key ->
+                    val dbInfo = manifest.getJSONObject(key)
+                    val version = dbInfo.getString("version")
+                    val url = dbInfo.getString("url")
+                    val fileName = url.substringAfterLast("/")
+                    val localFile = File(localDir, fileName)
+
+                    val storedVersion = prefs.getString("${key}_version", null)
+
+                    if (!localFile.exists() || storedVersion != version) {
+                        Log.d("DBSync", "Downloading $fileName (version mismatch or missing)")
+                        downloadDbFile(context, url, fileName) { success ->
+                            if (success) {
+                                prefs.edit().putString("${key}_version", version).apply()
+                                Log.d("DBSync", "$fileName downloaded and updated to version $version")
+                            } else {
+                                Log.e("DBSync", "Failed to download $fileName")
+                            }
+                        }
+                    } else {
+                        Log.d("DBSync", "$fileName is up to date")
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e("DBSync", "Error syncing DB files: ${e.message}")
+            }
+        }.start()
+        hideBottomProgressBar()
+    }
+
+    private fun downloadDbFile(
+        context: Context,
+        url: String,
+        fileName: String,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val saveFile = File(context.filesDir, fileName)
+
+        // ✅ Skip if already downloaded
+        if (saveFile.exists()) {
+            Log.d("DBDownload", "$fileName already exists, skipping download")
+            onComplete(true)
+            return
+        }
+
+        Thread {
+            try {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connect()
+
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val inputStream = connection.inputStream
+                    saveFile.outputStream().use { output ->
+                        inputStream.copyTo(output)
+                    }
+                    Log.d("DBDownload", "$fileName downloaded successfully")
+                    onComplete(true)
+                } else {
+                    Log.e("DBDownload", "Failed to download $fileName: ${connection.responseCode}")
+                    onComplete(false)
+                }
+            } catch (e: Exception) {
+                Log.e("DBDownload", "Error downloading $fileName: ${e.message}")
+                onComplete(false)
+            }
+        }.start()
+    }
+
+    // Load Airports from CSV
     private fun loadAirportsFromCSV() {
         val inputStream = resources.openRawResource(R.raw.airports2) // ✅ Use new CSV file
         val reader = BufferedReader(InputStreamReader(inputStream))

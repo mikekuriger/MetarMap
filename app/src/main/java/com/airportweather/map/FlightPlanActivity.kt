@@ -4,14 +4,16 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
+import android.text.Spannable
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
-import android.util.Log
+import android.text.style.ForegroundColorSpan
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import android.graphics.Color
+import android.widget.TextView
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 class FlightPlanActivity : AppCompatActivity() {
 
@@ -31,13 +33,12 @@ class FlightPlanActivity : AppCompatActivity() {
 
         // ✅ Load the "current" flight plan when opening the page
         loadFlightPlan()
-        loadAirportsFromCSV()
 
         // ✅ Example: Change text programmatically
         //binding.flightPlanText.text = "Flight Plan"
 
         // ✅ Listen for text input in flightPlanEdit
-        binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
+        /*binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 binding.flightPlanEdit.removeTextChangedListener(this) // Prevent infinite loop
 
@@ -54,7 +55,67 @@ class FlightPlanActivity : AppCompatActivity() {
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })*/
+        binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                binding.flightPlanEdit.removeTextChangedListener(this)
+
+                val dbHelper = AirportDatabaseHelper(this@FlightPlanActivity)
+                val input = s.toString().uppercase()
+                val endsWithSpace = input.endsWith(" ")
+                val words = input.trim().split("\\s+".toRegex())
+
+                val spannable = SpannableStringBuilder()
+
+                for (i in words.indices) {
+                    val word = words[i]
+                    if (word.isEmpty()) continue
+
+                    val isComplete = (i < words.lastIndex) || endsWithSpace
+//                    val color = when {
+//                        isComplete && dbHelper.airportExists(word) -> Color.GREEN
+//                        !isComplete && dbHelper.airportPrefixExists(word) -> Color.WHITE
+//                        else -> Color.RED
+//                    }
+
+                    val color = when {
+                        dbHelper.airportExists(word) -> Color.GREEN
+                        dbHelper.airportPrefixExists(word) -> Color.WHITE
+                        else -> Color.RED
+                    }
+
+                    val start = spannable.length
+                    spannable.append(word)
+                    spannable.setSpan(
+                        ForegroundColorSpan(color),
+                        start,
+                        start + word.length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+
+                    if (i < words.lastIndex || endsWithSpace) {
+                        spannable.append(" ")
+                    }
+                }
+
+                val cursorPos = binding.flightPlanEdit.selectionStart
+                binding.flightPlanEdit.setText(spannable, TextView.BufferType.SPANNABLE)
+                binding.flightPlanEdit.setSelection(minOf(cursorPos, spannable.length))
+
+
+//                val cursorPos = spannable.length
+//                binding.flightPlanEdit.setText(spannable)
+//                binding.flightPlanEdit.setSelection(cursorPos)
+
+                binding.flightPlanEdit.addTextChangedListener(this)
+            }
+
+
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+
 
         // BUTTONS
 
@@ -121,11 +182,11 @@ class FlightPlanActivity : AppCompatActivity() {
             sharedPreferences.edit().remove("WAYPOINTS").apply()
 
             // Send empty list to MainActivity
-            sendWaypointsToMap(emptyList())
+            //sendWaypointsToMap(emptyList())
         }
     }
 
-    private fun loadAirportsFromCSV(): MutableList<String> {
+    /*private fun loadAirportsFromCSV(): MutableList<String> {
         val airportCodes: MutableList<String> = mutableListOf()
         val inputStream = resources.openRawResource(R.raw.airports)
         val reader = BufferedReader(InputStreamReader(inputStream))
@@ -142,7 +203,7 @@ class FlightPlanActivity : AppCompatActivity() {
 
         Log.d("DEBUG", "Loaded Airports: $airportCodes") // ✅ Debugging output
         return airportCodes
-    }
+    }*/
 
     // current flight plan
     private fun loadFlightPlan() {
@@ -193,7 +254,7 @@ class FlightPlanActivity : AppCompatActivity() {
         if (invalidWaypoints.isNotEmpty()) {
             binding.flightPlanEdit.setTextColor(android.graphics.Color.RED)
         } else {
-            binding.flightPlanEdit.setTextColor(android.graphics.Color.BLACK)
+            binding.flightPlanEdit.setTextColor(android.graphics.Color.WHITE)
         }
 
         // ✅ Update UI for next and final waypoint

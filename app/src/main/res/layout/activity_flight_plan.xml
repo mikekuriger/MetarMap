@@ -20,20 +20,36 @@
         android:textColor="@android:color/white"
         android:textSize="20sp" />
 
+<!--    <EditText-->
+<!--        android:id="@+id/flightPlanEdit"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:background="@drawable/edit_text"-->
+<!--        android:textColor="#FFFFFF"-->
+<!--        android:textCursorDrawable="@null"-->
+<!--        android:padding="10dp"-->
+<!--        android:textColorHint="#AAAAAA"-->
+<!--        android:inputType="textMultiLine"-->
+<!--        android:maxLines="3"-->
+<!--        android:layout_height="85dp"-->
+<!--        android:hint="Enter flight plan"-->
+<!--        app:layout_constraintTop_toBottomOf="@id/flightPlanText"-->
+<!--        />-->
+
     <EditText
         android:id="@+id/flightPlanEdit"
-        android:background="@android:drawable/edit_text"
+        android:layout_width="match_parent"
+        android:background="@drawable/edit_text"
+        android:textColor="#FFFFFF"
+        android:textCursorDrawable="@null"
         android:padding="10dp"
-        android:gravity="top|start"
-        android:includeFontPadding="false"
+        android:textColorHint="#AAAAAA"
         android:inputType="textMultiLine"
         android:maxLines="3"
-        android:scrollbars="vertical"
-        app:layout_constraintTop_toBottomOf="@id/flightPlanText"
-        android:layout_width="match_parent"
         android:layout_height="85dp"
-        android:layout_marginTop="0dp"
         android:hint="Enter Waypoints"
+        app:layout_constraintTop_toBottomOf="@id/flightPlanText"
+        android:gravity="top|start"
+        android:layout_marginTop="0dp"
         android:textSize="16sp" />
 
     <LinearLayout
