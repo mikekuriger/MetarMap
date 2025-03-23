@@ -174,7 +174,7 @@ class FlightPlanActivity : AppCompatActivity() {
             // change activate button to exit button
             binding.activateFlightPlanButton.text = "Exit"
             // Send empty list to MainActivity
-            sendWaypointsToMap(emptyList())
+            //sendWaypointsToMap(emptyList())
         }
     }
 
