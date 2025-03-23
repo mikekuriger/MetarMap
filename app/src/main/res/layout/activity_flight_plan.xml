@@ -97,7 +97,7 @@
                 android:id="@+id/activateFlightPlanButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Activate" />
+                android:text="Exit" />
         </LinearLayout>
 
 <!--        <Button-->

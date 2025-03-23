@@ -38,79 +38,58 @@ class FlightPlanActivity : AppCompatActivity() {
         //binding.flightPlanText.text = "Flight Plan"
 
         // ✅ Listen for text input in flightPlanEdit
-        /*binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                binding.flightPlanEdit.removeTextChangedListener(this) // Prevent infinite loop
-
-                val upperCaseText = s.toString().uppercase()
-                if (s.toString() != upperCaseText) {
-                    binding.flightPlanEdit.setText(upperCaseText)
-                    binding.flightPlanEdit.setSelection(upperCaseText.length) // Keep cursor at the end
-                }
-
-                //validateWaypoints(binding.flightPlanEdit.text.toString())
-
-                binding.flightPlanEdit.addTextChangedListener(this) // Reattach listener
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })*/
         binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
+                if (s.isNullOrBlank()) {
+                    binding.activateFlightPlanButton.text = "Exit"
+                } else {
+                    binding.activateFlightPlanButton.text = "Activate"
+                }
+
                 binding.flightPlanEdit.removeTextChangedListener(this)
+
+                val current = s.toString()
+                val upper = current.uppercase()
+
+                if (current != upper) {
+                    s?.replace(0, s.length, upper)
+                    binding.flightPlanEdit.setSelection(minOf(binding.flightPlanEdit.selectionStart, upper.length))
+                }
 
                 val dbHelper = AirportDatabaseHelper(this@FlightPlanActivity)
                 val input = s.toString().uppercase()
                 val endsWithSpace = input.endsWith(" ")
                 val words = input.trim().split("\\s+".toRegex())
 
-                val spannable = SpannableStringBuilder()
+                // Clear existing spans
+                s?.getSpans(0, s.length, ForegroundColorSpan::class.java)?.forEach {
+                    s.removeSpan(it)
+                }
 
+                var position = 0
                 for (i in words.indices) {
                     val word = words[i]
                     if (word.isEmpty()) continue
 
-                    val isComplete = (i < words.lastIndex) || endsWithSpace
-//                    val color = when {
-//                        isComplete && dbHelper.airportExists(word) -> Color.GREEN
-//                        !isComplete && dbHelper.airportPrefixExists(word) -> Color.WHITE
-//                        else -> Color.RED
-//                    }
-
+                    val isLastWord = (i == words.lastIndex) && !endsWithSpace
                     val color = when {
                         dbHelper.airportExists(word) -> Color.GREEN
-                        dbHelper.airportPrefixExists(word) -> Color.WHITE
+                        dbHelper.airportPrefixExists(word) && isLastWord -> Color.WHITE
                         else -> Color.RED
                     }
 
-                    val start = spannable.length
-                    spannable.append(word)
-                    spannable.setSpan(
+                    s?.setSpan(
                         ForegroundColorSpan(color),
-                        start,
-                        start + word.length,
+                        position,
+                        position + word.length,
                         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
 
-                    if (i < words.lastIndex || endsWithSpace) {
-                        spannable.append(" ")
-                    }
+                    position += word.length + 1 // account for the space
                 }
-
-                val cursorPos = binding.flightPlanEdit.selectionStart
-                binding.flightPlanEdit.setText(spannable, TextView.BufferType.SPANNABLE)
-                binding.flightPlanEdit.setSelection(minOf(cursorPos, spannable.length))
-
-
-//                val cursorPos = spannable.length
-//                binding.flightPlanEdit.setText(spannable)
-//                binding.flightPlanEdit.setSelection(cursorPos)
 
                 binding.flightPlanEdit.addTextChangedListener(this)
             }
-
-
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -161,9 +140,20 @@ class FlightPlanActivity : AppCompatActivity() {
         }
 
         // ✅ When "Activate Flight Plan" button is clicked, send waypoints to MainActivity
+        // it might also be an exit button
         binding.activateFlightPlanButton.setOnClickListener {
-            val waypoints = binding.flightPlanEdit.text.toString().trim().split("\\s+".toRegex())
-            if (waypoints.isEmpty()) return@setOnClickListener
+            val rawText = binding.flightPlanEdit.text.toString().trim()
+            if (rawText.isEmpty()) {
+                binding.flightPlanEdit.text.clear()
+                sharedPreferences.edit().remove("SAVED_FLIGHT_PLAN").apply()
+                sharedPreferences.edit().remove("WAYPOINTS").apply()
+                sendWaypointsToMap(emptyList())
+                return@setOnClickListener
+            }
+
+            val waypoints = rawText.split("\\s+".toRegex())
+            saveFlightPlan(rawText)
+            sendWaypointsToMap(waypoints)
 
             // ✅ Validate, Save, Submit
             //validateWaypoints(flightplan)
@@ -181,8 +171,10 @@ class FlightPlanActivity : AppCompatActivity() {
             // Remove waypoints sent to map
             sharedPreferences.edit().remove("WAYPOINTS").apply()
 
+            // change activate button to exit button
+            binding.activateFlightPlanButton.text = "Exit"
             // Send empty list to MainActivity
-            //sendWaypointsToMap(emptyList())
+            sendWaypointsToMap(emptyList())
         }
     }
 
@@ -209,6 +201,11 @@ class FlightPlanActivity : AppCompatActivity() {
     private fun loadFlightPlan() {
         val currentFlightPlan = sharedPreferences.getString("SAVED_FLIGHT_PLAN", "")
         binding.flightPlanEdit.setText(currentFlightPlan)
+        if (currentFlightPlan != null) {
+            if (!currentFlightPlan.isEmpty()) {
+                binding.activateFlightPlanButton.text = "Activate"
+            }
+        }
     }
 
     private fun saveFlightPlan(flightPlan: String) {

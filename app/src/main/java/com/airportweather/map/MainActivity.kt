@@ -80,6 +80,7 @@ import android.view.MenuItem
 import android.widget.ImageButton
 import androidx.drawerlayout.widget.DrawerLayout
 import com.airportweather.map.databinding.ActivityMainBinding
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
@@ -836,82 +837,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return super.onOptionsItemSelected(item)
     }
 
-    // ✅ Start Location Updates
-    // refactoring 3/20/25
-    /*private fun requestLocationUpdates() {
-        Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
-            return
-        }
-
-        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                locationResult.lastLocation?.let { location ->
-                    val userLatLng = LatLng(location.latitude, location.longitude)
-                    Log.d("LocationUpdate", "User Location: $userLatLng")
-
-                    // ✅ Follow the user *only* if they haven't moved the map
-                    if (isFollowingUser) {
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
-                    }
-
-                    // ✅ GPS-Based Movement (Track)
-                    val track = location.bearing.toDouble()
-                    val groundSpeedmps = location.speed.toDouble()
-                    val groundSpeed = groundSpeedmps * 1.94384  // Convert to knots
-                    val plannedAirSpeed = 95
-                    val altitude = location.altitude * 3.28084  // ✅ Convert to feet
-
-                    // fake waypoint for testing
-                    //val wpLocation = LatLng(34.1819, -118.3079)
-                    //val wpName = "KBUR"
-
-                    // waypoints 1 from intent
-                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-                    //val waypoints = listOf("KBUR", "KSMO")
-                    val latLngList = waypoints.mapNotNull { airportMap[it] }
-
-                    val wpName: String
-                    val wp2Name: String
-                    val wpLocation: LatLng
-
-                    if (waypoints.size > 1) {
-                        wpName = waypoints[0]  // ✅ First waypoint
-                        wp2Name = waypoints[1] // ✅ Second waypoint
-                    } else {
-                        wpName = "direct"                 // ✅ Default if no waypoints
-                        wp2Name = waypoints.getOrNull(0) ?: "----"  // ✅ First WP if available, else default
-                    }
-
-                    val currentLeg = "$wpName → $wp2Name"
-                    if (latLngList.size > 1) {
-                        wpLocation = latLngList[1]
-                    } else {
-                        wpLocation = latLngList[0]
-                    }
-
-                    Log.d("LocationUpdate", "wpName: $wpName")
-                    Log.d("LocationUpdate", "wpLocation: $wpLocation")
-
-                    // ✅ Desired Bearing (Calculate bearing to next waypoint)
-                    val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
-                    val distanceWp = calculateDistance(userLatLng, wpLocation)
-                    val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
-                    val eta = formatETA(etaMinutes, groundSpeed)  // ✅ Converts to H:M if over 60 min
-
-                    // ✅ Update Flight Info UI #1
-                    updateFlightInfo(wpLocation, currentLeg, track, bearingWp, distanceWp, groundSpeed, plannedAirSpeed, altitude, eta, waypoints)
-
-                }
-            }
-        }, Looper.getMainLooper())
-    }*/
+    // ✅ Start Location Updates MRK 50
     private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 500).build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 50).build()
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
@@ -1040,17 +969,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             String.format("%d", minutes)  // ✅ Example: "12.5 min"
         }
     }
-/*    fun formatETA(etaMinutes: Double, groundSpeedKnots: Double): String {
-        return if (groundSpeedKnots < 10) {
-            "--:--"  // 🚨 No ETA if speed is too low
-        } else if (etaMinutes >= 60) {
-            val hours = (etaMinutes / 60).toInt()
-            val minutes = (etaMinutes % 60).toInt()
-            String.format("%d:%02d", hours, minutes)  // ✅ Example: 1:05 (1 hour, 5 min)
-        } else {
-            String.format("%.1f min", etaMinutes)  // ✅ Example: "12.5 min"
-        }
-    }*/
     fun calculateTotalDistance(waypoints: List<String>): Double {
         var totalDistance = 0.0
 
@@ -1074,44 +992,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         return String.format("%02d:%02d", hours, minutes)
     }
-
-    // Flight Plan Data
-//    fun updateFlightInfo(data: FlightData) {
-//        Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
-//        Log.i("updateFlightInfo", "wayPoints: ${data.waypoints}")
-//        Log.i("updateFlightInfo", "track: ${data.track}")
-//        Log.i("updateFlightInfo", "groundSpeed: ${data.groundSpeed}")
-//        Log.i("updateFlightInfo", "plannedAirSpeed: ${data.plannedAirSpeed}")
-//        Log.i("updateFlightInfo", "altitude: ${data.altitude}")
-//        Log.i("updateFlightInfo", "eta: ${data.eta}")
-//        Log.i("updateFlightInfo", "bearing: ${data.bearing}")
-//        Log.i("updateFlightInfo", "distance: ${data.distance}")
-//
-//        //planning mode
-//        val isPlanningMode = data.groundSpeed < activeSpeed
-//        val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE  // Blue for planned airspeed, white for actual flight
-//        val etaDestColor = if (isPlanningMode) Color.CYAN else Color.WHITE
-//
-//        binding.currentLeg.text = data.currentLeg
-//        binding.trackText.text = "${data.track.roundToInt()}°"
-//        binding.bearingText.text = "${data.bearing.roundToInt()}°"
-//        binding.distanceText.text = "${data.distance.roundToInt()}nm"
-//        binding.gpsSpeed.text = "${data.groundSpeed.roundToInt()}kt"
-//        binding.altitudeText.text = "${data.altitude.roundToInt()}"
-//        binding.etaText.text = data.eta
-//        binding.etaText.setTextColor(etaColor)
-//
-//        val destination = data.waypoints.lastOrNull() ?: "----"
-//        binding.destText.text = destination
-//        binding.etaDestText.setTextColor(etaDestColor)
-//
-//        val totalDistance = calculateTotalDistance(data.waypoints)
-//        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
-//
-//        val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
-//        val totalETA = formatETA(etaMinutes)
-//        binding.etaDestText.text = totalETA
-//    }
 
     fun updateFlightInfo(data: FlightData) {
         Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
@@ -1137,7 +1017,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         binding.etaText.text = data.eta
         binding.etaText.setTextColor(etaColor)
 
-        if (data.groundSpeed < 10) {
+        if (isPlanningMode) {
             binding.trackText.text = "---"
             binding.trackText.setTextColor(Color.WHITE)
 
@@ -1163,9 +1043,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
         val totalETA = formatETA(etaMinutes)
         binding.etaDestText.text = totalETA
-
     }
-
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
@@ -2545,11 +2423,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
 
             // ✅ Center the map on the user's last known location (or first waypoint if no location available)
-            val currentLatLng = LatLng(location.latitude, location.longitude)
+            /*val currentLatLng = LatLng(location.latitude, location.longitude)
             val focusPoint = currentLatLng ?: latLngList.firstOrNull()
-            //val focusPoint = lastKnownUserLocation ?: latLngList.firstOrNull()
+            focusPoint?.let { mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 10f)) }*/
 
-            focusPoint?.let { mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 10f)) }
+            // ✅ Center the map on the route
+            if (latLngList.isNotEmpty()) {
+                val boundsBuilder = LatLngBounds.builder()
+                for (point in latLngList) {
+                    boundsBuilder.include(point)
+                }
+                val bounds = boundsBuilder.build()
+                val padding = 100 // pixels of padding around route
+
+                val cameraUpdate = CameraUpdateFactory.newLatLngBounds(bounds, padding)
+                mMap.moveCamera(cameraUpdate)
+            } else if (location != null) {
+                val userLatLng = LatLng(location.latitude, location.longitude)
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
+            }
+
 
             // ✅ Simplified Flight Plan Visibility Toggle
             val hasMultipleWaypoints = waypoints.size > 1
