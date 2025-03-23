@@ -1159,14 +1159,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val totalETA = formatETA(etaMinutes)
         binding.etaDestText.text = totalETA
 
-        // 🔥 Set trackText color based on deviation from bearing
-        val delta = abs((data.track - data.bearing + 540) % 360 - 180) // Normalize 0–180
-        val trackColor = when {
-            delta > 15 -> Color.RED
-            delta > 5 -> Color.YELLOW
-            else -> Color.WHITE
-        }
-        binding.trackText.setTextColor(trackColor)
     }
 
 
