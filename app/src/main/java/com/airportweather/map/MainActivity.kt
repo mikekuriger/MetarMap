@@ -689,7 +689,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         binding.layers.setOnClickListener {}
 
         // ✅ Follow Button
-        //val followButton = findViewById<ImageButton>(R.id.custom_center_button)
         val followButton = binding.customCenterButton
         followButton.setOnClickListener {
             isFollowingUser = !isFollowingUser // Toggle the follow mode
@@ -740,8 +739,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }*/
 
         // ✅ Initialize Navigation Drawer
-        //drawerLayout = findViewById(R.id.drawer_layout)
-        //navView = findViewById(R.id.nav_view)
         drawerLayout=binding.drawerLayout
         navView=binding.navView
 
@@ -800,7 +797,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
 
         // initialize spinner and adapter
-        //val layerSpinner = findViewById<Spinner>(R.id.layer_selector)
         val layerSpinner = binding.layerSelector
         val adapter = ArrayAdapter.createFromResource(
             this,
@@ -1132,7 +1128,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             // Only disable follow if the move was triggered by a gesture.
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
                 isFollowingUser = false
-//                val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
                 val customCenterButton = binding.customCenterButton
                 customCenterButton.setColorFilter(Color.RED)
                 Log.d("MapDebug", "User manually moved the map. Disabling follow #1")
@@ -1161,7 +1156,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (enableTfr == 1) {
             loadAndDrawTFR()
             // Initialize the tfr toggle button
-            //val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
             val tfrButton = binding.toggleTfrButton
             var isTFRVisible = true
             tfrButton.setOnClickListener {
@@ -1192,7 +1186,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             loadAndDrawAirspace(mMap, this)
 
             // Initialize the airspace toggle button
-            //val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button) mike
             val airspaceButton = binding.toggleAirspaceButton
             var isAirspaceVisible = true
             airspaceButton.setOnClickListener {
@@ -1207,7 +1200,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (enableSectional == 1) {
             // Initialize the tile overlay toggle
             var isSectionalVisible: Boolean
-            //val vfrSecButton = findViewById<Button>(R.id.toggle_vfrsec_button)
             val vfrSecButton = binding.toggleVfrsecButton
             if (firstLaunch) {
                 isSectionalVisible = true
@@ -1242,7 +1234,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             startAutoRefresh(15)
 
             // Initialize the metar toggle button
-            //val metarButton = findViewById<Button>(R.id.toggle_metar_button)
             val metarButton = binding.toggleMetarButton
             var isMetarVisible = true
             metarButton.setOnClickListener {
@@ -1266,58 +1257,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         hideBottomProgressBar()
-
-
-        /*// Initialize the airspace toggle button
-        val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
-        var isAirspaceVisible = true
-        airspaceButton.setOnClickListener {
-            isAirspaceVisible = !isAirspaceVisible
-            toggleAirspace()
-            updateButtonState(airspaceButton, isAirspaceVisible)
-        }*/
-
-        /*// Initialize the tfr toggle button
-        val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
-        var isTFRVisible = true
-        tfrButton.setOnClickListener {
-            isTFRVisible = !isTFRVisible
-            toggleTFRVisibility()
-            updateButtonState(tfrButton, isTFRVisible)
-        }*/
-
-        /*// Handle when user clicks on a TFR
-        mMap.setOnPolygonClickListener { polygon ->
-            val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
-
-            if (tfrList != null) {
-                if (tfrList.size == 1) {
-                    // ✅ Show single TFR pop-up
-                    showTfrPopup(this, tfrList[0])
-                } else {
-                    // ✅ Show list selection if multiple TFRs exist
-                    showTfrSelectionDialog(this, tfrList)
-                }
-            }
-        }*/
-
-        /*// Initialize the metar toggle button
-        val metarButton = findViewById<Button>(R.id.toggle_metar_button)
-        var isMetarVisible = true
-        metarButton.setOnClickListener {
-            isMetarVisible = !isMetarVisible
-            toggleMetarVisibility()
-            updateButtonState(metarButton, isMetarVisible)
-        }
-
-        // Handle when user clicks on a metar marker
-        mMap.setOnMarkerClickListener { marker ->
-            val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
-            if (data != null) {
-                showMetarDialog(data.metar, data.taf)
-            }
-            true
-        }*/
 
     }
 
@@ -1737,9 +1676,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     }
     private fun showBottomProgressBar(message: String) {
-        //val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
-        //val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
-        //val progressMessage = findViewById<TextView>(R.id.progress_message_bottom)
         val progressBar = binding.progressBottomBar
         val progressOverlay = binding.progressOverlay
         val progressMessage = binding.progressMessageBottom
@@ -1752,8 +1688,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         progressOverlay.visibility = View.VISIBLE
     }
     private fun hideBottomProgressBar() {
-//        val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
-//        val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
         val progressBar = binding.progressBottomBar
         val progressOverlay = binding.progressOverlay
         progressBar.visibility = View.GONE
