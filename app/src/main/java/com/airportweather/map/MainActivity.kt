@@ -1192,7 +1192,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             loadAndDrawAirspace(mMap, this)
 
             // Initialize the airspace toggle button
-            //val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
+            //val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button) mike
             val airspaceButton = binding.toggleAirspaceButton
             var isAirspaceVisible = true
             airspaceButton.setOnClickListener {
