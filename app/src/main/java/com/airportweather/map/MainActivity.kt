@@ -89,6 +89,7 @@ import okhttp3.OkHttpClient
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -882,8 +883,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
         val altitude = location.altitude * 3.28084  // Convert to feet
-        val track = location.bearing.toDouble()
+
         val latLngList = waypoints.mapNotNull { airportMap[it] }
+        // wind correcion (not yet)
+        val windSpeedKt
+        val windDirection
+        //val wca = Math.toDegrees(asin((windSpeedKt * sin(windDirection - trueCourse)) / trueAirspeed))
+        //val groundSpeed = trueAirspeed * cos(wca) + windSpeed * cos(windDirection - trueCourse)
+
 
         // if only one waypoint, use direct to
         val wpName: String
@@ -904,6 +911,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             wpLocation = latLngList[0]
         }
 
+        // adjust track for magnetic variation
+        val magVar = airportMagVarMap[wp2Name] ?: 0.0
+        val track = location.bearing.toDouble()
+        val magneticTrack = (track - magVar + 360) % 360
+
         val bearingWp = calculateBearing(userLatLng, wpLocation, wp2Name)
         val distanceWp = calculateDistance(userLatLng, wpLocation)
         val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
@@ -912,7 +924,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return FlightData(
             wpLocation = wpLocation,
             currentLeg = "$wpName → $wp2Name",
-            track = track,
+            track = magneticTrack,
             bearing = bearingWp,
             distance = distanceWp,
             groundSpeed = groundSpeed,
