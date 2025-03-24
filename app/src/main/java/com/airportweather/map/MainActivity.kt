@@ -623,6 +623,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
     private val activeSpeed = 10
     private val plannedAirSpeed = 95 // make editable in the UI
+    private var showVersion = true
+    private var showZoom = true
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -665,39 +667,83 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // ✅ Download databases if needed
         syncDatabaseFiles(this)
 
+        // side buttons
         // ✅ Toggle Flight Info Visibility
-        binding.flightPlan.setOnClickListener {
+        val flightPlanButton = binding.flightPlan
+        val flightInfoLayout = binding.flightInfoLayout
+        flightPlanButton.setOnClickListener {
             Log.d("FlightToggle", "Flight Plan button clicked")  // ✅ Log click event
 
-            val isVisible = binding.flightInfoLayout.visibility == View.VISIBLE
+            val isVisible = flightInfoLayout.visibility == View.VISIBLE
             Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
 
-            binding.flightInfoLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
+            flightInfoLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
 
-            binding.flightInfoLayout.bringToFront()
-            binding.flightInfoLayout.requestLayout()
+            flightInfoLayout.bringToFront()
+            flightInfoLayout.requestLayout()
 
-            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
+            Log.d("FlightToggle", "New visibility: ${flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
+        }
+
+        // ✅ Open Layer Options
+        binding.layers.setOnClickListener {}
+
+        // ✅ Follow Button
+        //val followButton = findViewById<ImageButton>(R.id.custom_center_button)
+        val followButton = binding.customCenterButton
+        followButton.setOnClickListener {
+            isFollowingUser = !isFollowingUser // Toggle the follow mode
+            val newColor = if (isFollowingUser) Color.BLACK else Color.RED
+            followButton.setColorFilter(newColor)
+            if (isFollowingUser) {
+                try {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        if (location != null) {
+                            val currentLatLng = LatLng(location.latitude, location.longitude)
+
+                            // 🔍 Check current zoom level
+                            if (::mMap.isInitialized) {
+                                val currentZoom = mMap.cameraPosition.zoom
+                                val targetZoom =
+                                    if (currentZoom < 6f) 9f else currentZoom  // Threshold decision
+                                mMap.animateCamera(
+                                    CameraUpdateFactory.newLatLngZoom(
+                                        currentLatLng,
+                                        targetZoom
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    Log.d("MapMove", "Following, Custom Button - Following = $isFollowingUser")
+                } catch (e: SecurityException) {
+                    e.printStackTrace()
+                }
+            } else {
+                Log.d("MapMove", "NOT Following, Custom Button - Following = $isFollowingUser")
+            }
         }
 
         // ✅ Toggle Flight Dest visibility (testing)
-//        binding.layers.setOnClickListener {
-//            Log.d("FlightToggle", "Layer button clicked")  // ✅ Log click event
-//
-//            val isVisible = binding.flightInfoLayout2.visibility == View.VISIBLE
-//            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
-//
-//            binding.flightInfoLayout2.visibility = if (isVisible) View.GONE else View.VISIBLE
-//
-//            binding.flightInfoLayout2.bringToFront()
-//            binding.flightInfoLayout2.requestLayout()
-//
-//            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout2.visibility}")  // ✅ Log visibility after toggle
-//        }
+        /*binding.layers.setOnClickListener {
+            Log.d("FlightToggle", "Layer button clicked")  // ✅ Log click event
+
+            val isVisible = binding.flightInfoLayout2.visibility == View.VISIBLE
+            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
+
+            binding.flightInfoLayout2.visibility = if (isVisible) View.GONE else View.VISIBLE
+
+            binding.flightInfoLayout2.bringToFront()
+            binding.flightInfoLayout2.requestLayout()
+
+            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout2.visibility}")  // ✅ Log visibility after toggle
+        }*/
 
         // ✅ Initialize Navigation Drawer
-        drawerLayout = findViewById(R.id.drawer_layout)
-        navView = findViewById(R.id.nav_view)
+        //drawerLayout = findViewById(R.id.drawer_layout)
+        //navView = findViewById(R.id.nav_view)
+        drawerLayout=binding.drawerLayout
+        navView=binding.navView
 
 //11:57:05.071 ActionBarDrawerToggle    W  DrawerToggle may not show up because NavigationIcon is not visible. You may need to call actionbar.setDisplayHomeAsUpEnabled(true);
 //        val toggle = ActionBarDrawerToggle(
@@ -731,48 +777,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("LocationUpdate", "Function triggered in onCreate")
         requestLocationUpdates()
 
-        // Follow Button
-        val followButton = findViewById<ImageButton>(R.id.custom_center_button)
-        followButton.setOnClickListener {
-            isFollowingUser = !isFollowingUser // Toggle the follow mode
-            val newColor = if (isFollowingUser) Color.BLACK else Color.RED
-            followButton.setColorFilter(newColor)
-            if (isFollowingUser) {
-                try {
-                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                        if (location != null) {
-                            val currentLatLng = LatLng(location.latitude, location.longitude)
-
-                            // 🔍 Check current zoom level
-                            if (::mMap.isInitialized) {
-                                val currentZoom = mMap.cameraPosition.zoom
-                                val targetZoom =
-                                    if (currentZoom < 6f) 9f else currentZoom  // Threshold decision
-                                mMap.animateCamera(
-                                    CameraUpdateFactory.newLatLngZoom(
-                                        currentLatLng,
-                                        targetZoom
-                                    )
-                                )
-                            }
-                        }
-                    }
-                    Log.d("MapMove", "Following, Custom Button - Following = $isFollowingUser")
-                } catch (e: SecurityException) {
-                    e.printStackTrace()
-                }
-                } else {
-                Log.d("MapMove", "NOT Following, Custom Button - Following = $isFollowingUser")
-            }
-        }
-
         //Display VERSION
-        /*val versionText = findViewById<TextView>(R.id.versionText)
+        val versionText = binding.versionText
+        if (showVersion) {
+            versionText.visibility = View.VISIBLE
+        } else {
+            versionText.visibility = View.GONE
+        }
         versionText.text = getString(
             R.string.app_version,
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
-        )*/
+        )
 
         // Initialize the map
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
@@ -784,7 +800,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
 
         // initialize spinner and adapter
-        val layerSpinner = findViewById<Spinner>(R.id.layer_selector)
+        //val layerSpinner = findViewById<Spinner>(R.id.layer_selector)
+        val layerSpinner = binding.layerSelector
         val adapter = ArrayAdapter.createFromResource(
             this,
             R.array.layer_options,
@@ -886,8 +903,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         val latLngList = waypoints.mapNotNull { airportMap[it] }
         // wind correcion (not yet)
-        val windSpeedKt
-        val windDirection
+        //val windSpeedKt
+        //val windDirection
         //val wca = Math.toDegrees(asin((windSpeedKt * sin(windDirection - trueCourse)) / trueAirspeed))
         //val groundSpeed = trueAirspeed * cos(wca) + windSpeed * cos(windDirection - trueCourse)
 
@@ -1081,7 +1098,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             mMap.isMyLocationEnabled = true
         }
 
-
         showBottomProgressBar("🚨 Initializing all the things")
 
         // ✅ Apply the custom dark mode style
@@ -1102,16 +1118,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             saveMapPosition()
             updateVisibleMarkers(metarData, tafData)
             // Optionally show zoom for debug
-            //val zoom = mMap.cameraPosition.zoom
-            //Log.d("ZoomDebug", "Current Zoom Level: $zoom")
-            // findViewById<TextView>(R.id.zoomLevelText)?.text = "Zoom: ${zoom.toInt()}"
+            if (showZoom) {
+                val zoom = mMap.cameraPosition.zoom
+                Log.d("ZoomDebug", "Current Zoom Level: $zoom")
+                binding.zoomText.text = "Zoom: ${zoom.toInt()}"
+                binding.zoomText.visibility = View.VISIBLE
+            } else {
+                binding.zoomText.visibility = View.GONE
+            }
         }
 
         mMap.setOnCameraMoveStartedListener { reason ->
             // Only disable follow if the move was triggered by a gesture.
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
                 isFollowingUser = false
-                val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
+//                val customCenterButton = findViewById<ImageButton>(R.id.custom_center_button)
+                val customCenterButton = binding.customCenterButton
                 customCenterButton.setColorFilter(Color.RED)
                 Log.d("MapDebug", "User manually moved the map. Disabling follow #1")
             }
@@ -1139,7 +1161,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (enableTfr == 1) {
             loadAndDrawTFR()
             // Initialize the tfr toggle button
-            val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
+            //val tfrButton = findViewById<Button>(R.id.toggle_tfr_button)
+            val tfrButton = binding.toggleTfrButton
             var isTFRVisible = true
             tfrButton.setOnClickListener {
                 isTFRVisible = !isTFRVisible
@@ -1169,7 +1192,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             loadAndDrawAirspace(mMap, this)
 
             // Initialize the airspace toggle button
-            val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
+            //val airspaceButton = findViewById<Button>(R.id.toggle_airspace_button)
+            val airspaceButton = binding.toggleAirspaceButton
             var isAirspaceVisible = true
             airspaceButton.setOnClickListener {
                 isAirspaceVisible = !isAirspaceVisible
@@ -1183,7 +1207,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (enableSectional == 1) {
             // Initialize the tile overlay toggle
             var isSectionalVisible: Boolean
-            val vfrSecButton = findViewById<Button>(R.id.toggle_vfrsec_button)
+            //val vfrSecButton = findViewById<Button>(R.id.toggle_vfrsec_button)
+            val vfrSecButton = binding.toggleVfrsecButton
             if (firstLaunch) {
                 isSectionalVisible = true
                 toggleSectionalOverlay(mMap)
@@ -1217,7 +1242,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             startAutoRefresh(15)
 
             // Initialize the metar toggle button
-            val metarButton = findViewById<Button>(R.id.toggle_metar_button)
+            //val metarButton = findViewById<Button>(R.id.toggle_metar_button)
+            val metarButton = binding.toggleMetarButton
             var isMetarVisible = true
             metarButton.setOnClickListener {
                 isMetarVisible = !isMetarVisible
@@ -1711,9 +1737,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     }
     private fun showBottomProgressBar(message: String) {
-        val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
-        val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
-        val progressMessage = findViewById<TextView>(R.id.progress_message_bottom)
+        //val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
+        //val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
+        //val progressMessage = findViewById<TextView>(R.id.progress_message_bottom)
+        val progressBar = binding.progressBottomBar
+        val progressOverlay = binding.progressOverlay
+        val progressMessage = binding.progressMessageBottom
         if (progressBar == null || progressMessage == null) {
             Log.e("ProgressBar", "Progress bar or message view not found!")
             return
@@ -1723,8 +1752,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         progressOverlay.visibility = View.VISIBLE
     }
     private fun hideBottomProgressBar() {
-        val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
-        val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
+//        val progressBar = findViewById<LinearLayout>(R.id.progress_bottom_bar)
+//        val progressOverlay = findViewById<FrameLayout>(R.id.progress_overlay)
+        val progressBar = binding.progressBottomBar
+        val progressOverlay = binding.progressOverlay
         progressBar.visibility = View.GONE
         progressOverlay.visibility = View.GONE
     }

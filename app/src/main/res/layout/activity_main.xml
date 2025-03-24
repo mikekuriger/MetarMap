@@ -206,14 +206,6 @@
                             android:gravity="center"
                             android:background="#33ffffff"
                             android:textColor="@android:color/white"/>
-<!--                        <TextView-->
-<!--                            android:text="VS"-->
-<!--                            android:textSize="8sp"-->
-<!--                            android:layout_weight="1"-->
-<!--                            android:layout_width="0dp"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:gravity="center"-->
-<!--                            android:textColor="@android:color/white"/>-->
                     </LinearLayout>
 
                     <!-- ✅ Second Data Row -->
@@ -274,15 +266,6 @@
                             android:layout_width="1dp"
                             android:layout_height="match_parent"
                             android:background="@android:color/darker_gray"/>
-<!--                        <TextView-->
-<!--                            android:id="@+id/vs_text"-->
-<!--                            android:text="-&#45;&#45;"-->
-<!--                            android:textSize="16sp"-->
-<!--                            android:layout_weight="1"-->
-<!--                            android:layout_width="0dp"-->
-<!--                            android:layout_height="wrap_content"-->
-<!--                            android:gravity="center"-->
-<!--                            android:textColor="@android:color/white"/>-->
                         <TextView
                             android:id="@+id/dest_text"
                             android:text="----"
@@ -398,282 +381,6 @@
             </LinearLayout>
         </LinearLayout>
 
-
-        <!--&lt;!&ndash; Flight Info Panel &ndash;&gt;
-        <LinearLayout
-            android:id="@+id/flightInfoLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#FF000000"
-            android:visibility="gone"
-            android:gravity="center">
-
-            &lt;!&ndash; 🔹 Top Label Row &ndash;&gt;
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="#33ffffff" >
-
-                <TextView
-                    android:text="Next WP"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="DTN"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="Bearing"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="ETA"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="bold"/>
-            </LinearLayout>
-
-            &lt;!&ndash; ✅ First Data Row &ndash;&gt;
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="#00FFFFFF" >
-
-                <TextView
-                    android:id="@+id/next_waypoint_name"
-                    android:text="KWHP"
-                    android:textSize="18sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="bold" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/distance_text"
-                    android:text="-&#45;&#45;nm"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/bearing_text"
-                    android:text="-&#45;&#45;°"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/eta_text"
-                    android:text="&#45;&#45;:&#45;&#45;"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-            </LinearLayout>
-
-            &lt;!&ndash; 🔹 Second Label Row &ndash;&gt;
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="#33ffffff" >
-
-                <TextView
-                    android:text="Alt"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="GS"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="Track"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:text="VS"
-                    android:textSize="8sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal" />
-            </LinearLayout>
-
-            &lt;!&ndash; ✅ Second Data Row &ndash;&gt;
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="#00FFFFFF" >
-
-                <TextView
-                    android:id="@+id/altitude_text"
-                    android:text="-&#45;&#45;ft"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/gps_speed"
-                    android:text="-&#45;&#45;kt"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/track_text"
-                    android:text="-&#45;&#45;°"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/darker_gray"/>
-
-                <TextView
-                    android:id="@+id/vs_text"
-                    android:text="650"
-                    android:textSize="16sp"
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textColor="@android:color/white"
-                    android:textStyle="normal"/>
-            </LinearLayout>
-        </LinearLayout>
--->
         <!-- Side Buttons -->
         <!-- Custom Center-Map Button -->
         <androidx.fragment.app.FragmentContainerView
@@ -718,17 +425,29 @@
             android:src="@drawable/ic_plane"
             android:contentDescription="flight plan" />
 
-        <!-- Version number -->
-<!--        <TextView
+        <!-- data row for testing -->
+        <TextView
+            android:id="@+id/zoomText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="4dp"
+            android:layout_marginBottom="55dp"
+            android:layout_gravity="right|bottom"
+            android:text="Zoom: "
+            android:textSize="7sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+        <TextView
             android:id="@+id/versionText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginEnd="4dp"
+            android:layout_marginBottom="45dp"
+            android:layout_gravity="right|bottom"
             android:text="@string/app_version"
-            android:textSize="10sp"
+            android:textSize="7sp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />-->
+            app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Progress Overlay -->
         <FrameLayout
