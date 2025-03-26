@@ -5,14 +5,13 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
 import android.text.Spannable
-import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Color
-import android.widget.TextView
+import android.widget.Toast
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 
 class FlightPlanActivity : AppCompatActivity() {
@@ -112,6 +111,26 @@ class FlightPlanActivity : AppCompatActivity() {
                 .show()
         }
 
+        // ✅ When "Delete Flight Plan" button is clicked, delete saved flight plan
+        binding.deleteFlightPlanButton.setOnClickListener {
+            val allPlans = loadAllFlightPlans()
+            val planNames = allPlans.map { it.first }.toTypedArray()
+
+            AlertDialog.Builder(this)
+                .setTitle("Delete Flight Plan")
+                .setItems(planNames) { _, which ->
+                    // Get the plan name for the selected item.
+                    val planName = allPlans[which].first
+                    // Delete the flight plan using your function.
+                    deleteNamedFlightPlan(planName)
+                    // Optionally clear the flight plan edit field if it was loaded.
+                    //binding.flightPlanEdit.text.clear()
+                    // Provide some feedback.
+                    Toast.makeText(this, "$planName deleted", Toast.LENGTH_SHORT).show()
+                }
+                .show()
+        }
+
         // ✅ When "Save Flight Plan" button is clicked, save current flight plan
         binding.saveFlightPlanButton.setOnClickListener {
             val currentPlan = binding.flightPlanEdit.text.toString().trim()
@@ -134,39 +153,25 @@ class FlightPlanActivity : AppCompatActivity() {
                 .show()
         }
 
-        // ✅ When "Delete Flight Plan" button is clicked, delete saved flight plan
-        binding.deleteFlightPlanButton.setOnClickListener {
-            //deleteNamedFlightPlan(flightplanName)
-        }
-
         // ✅ When "Activate Flight Plan" button is clicked, send waypoints to MainActivity
         // it might also be an exit button
         binding.activateFlightPlanButton.setOnClickListener {
             val rawText = binding.flightPlanEdit.text.toString().trim()
             if (rawText.isEmpty()) {
                 binding.flightPlanEdit.text.clear()
-                sharedPreferences.edit().remove("SAVED_FLIGHT_PLAN").apply()
                 sharedPreferences.edit().remove("WAYPOINTS").apply()
                 sendWaypointsToMap(emptyList())
                 return@setOnClickListener
             }
 
             val waypoints = rawText.split("\\s+".toRegex())
-            saveFlightPlan(rawText)
-            sendWaypointsToMap(waypoints)
-
-            // ✅ Validate, Save, Submit
-            //validateWaypoints(flightplan)
-            saveFlightPlan(binding.flightPlanEdit.text.toString())
+            sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
             sendWaypointsToMap(waypoints)
         }
 
         // ✅ When "Clear Flight Plan" button is clicked, remove waypoints
         binding.clearFlightPlanButton.setOnClickListener {
             binding.flightPlanEdit.text.clear()
-
-            // Remove saved flight plan
-            sharedPreferences.edit().remove("SAVED_FLIGHT_PLAN").apply()
 
             // Remove waypoints sent to map
             sharedPreferences.edit().remove("WAYPOINTS").apply()
@@ -178,38 +183,15 @@ class FlightPlanActivity : AppCompatActivity() {
         }
     }
 
-    /*private fun loadAirportsFromCSV(): MutableList<String> {
-        val airportCodes: MutableList<String> = mutableListOf()
-        val inputStream = resources.openRawResource(R.raw.airports)
-        val reader = BufferedReader(InputStreamReader(inputStream))
-
-        reader.useLines { lines ->
-            lines.forEach { line ->
-                val tokens = line.split(",")
-                if (tokens.size > 5) {
-                    val id = tokens[1].trim('"').uppercase()
-                    airportCodes.add(id) // ✅ Store ICAO code in list
-                }
-            }
-        }
-
-        Log.d("DEBUG", "Loaded Airports: $airportCodes") // ✅ Debugging output
-        return airportCodes
-    }*/
-
     // current flight plan
     private fun loadFlightPlan() {
-        val currentFlightPlan = sharedPreferences.getString("SAVED_FLIGHT_PLAN", "")
+        val currentFlightPlan = sharedPreferences.getString("WAYPOINTS", "")
         binding.flightPlanEdit.setText(currentFlightPlan)
         if (currentFlightPlan != null) {
             if (!currentFlightPlan.isEmpty()) {
                 binding.activateFlightPlanButton.text = "Activate"
             }
         }
-    }
-
-    private fun saveFlightPlan(flightPlan: String) {
-        sharedPreferences.edit().putString("SAVED_FLIGHT_PLAN", flightPlan).apply()
     }
 
     // saved flight plans

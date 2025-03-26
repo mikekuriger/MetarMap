@@ -14,6 +14,7 @@
         <item>Flight Condition</item>
         <item>Temperature</item>
         <item>Wind Barbs</item>
+        <item>None</item>
     </string-array>
     <string name="navigation_drawer_open">Open Navigation</string>
     <string name="navigation_drawer_close">Close Navigation</string>

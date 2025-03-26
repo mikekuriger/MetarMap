@@ -402,7 +402,7 @@
             android:contentDescription="center_map" />
 
         <ImageButton
-            android:id="@+id/layers"
+            android:id="@+id/settingsButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
@@ -410,11 +410,11 @@
             android:layout_marginBottom="95dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_layers"
+            android:src="@drawable/ic_settings"
             android:contentDescription="layers" />
 
         <ImageButton
-            android:id="@+id/flightPlan"
+            android:id="@+id/flightPlanButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
@@ -508,7 +508,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/rounded_button"
                 android:text="@string/toggle_airspace"
-                android:textColor="@android:color/white"
+                android:textColor="@android:color/darker_gray"
                 android:textSize="10sp"
 
                 tools:ignore="TouchTargetSizeCheck" />
@@ -527,7 +527,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/rounded_button"
                 android:text="@string/toggle_tfr"
-                android:textColor="@android:color/white"
+                android:textColor="@android:color/darker_gray"
                 android:textSize="10sp"
 
                 tools:ignore="TouchTargetSizeCheck" />
@@ -544,7 +544,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/rounded_button"
                 android:text="@string/toggle_weather"
-                android:textColor="@android:color/white"
+                android:textColor="@android:color/darker_gray"
                 android:textSize="10sp"
                 tools:ignore="TouchTargetSizeCheck" />
 

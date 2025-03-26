@@ -2,7 +2,7 @@ package com.airportweather.map
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.DownloadManager
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -21,9 +21,7 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -70,6 +68,7 @@ import kotlinx.serialization.*
 import org.json.JSONArray
 import org.json.JSONObject
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
@@ -77,7 +76,8 @@ import android.location.Location
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
-import android.widget.ImageButton
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.drawerlayout.widget.DrawerLayout
 import com.airportweather.map.databinding.ActivityMainBinding
 import com.google.android.gms.maps.model.LatLngBounds
@@ -85,15 +85,15 @@ import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.maps.android.ui.IconGenerator
-import okhttp3.OkHttpClient
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.security.MessageDigest
 import kotlin.math.abs
-import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+
 
 @Serializable
 data class METAR(
@@ -163,17 +163,6 @@ data class MarkerStyle(
     val showWindBarb: Boolean = false,
     val textOverlay: String? = null
 )
-data class FlightPlan(
-    val wpLocation: LatLng,
-    val currentLeg: String,
-    val bearing: Double,
-    val distance: Double,
-    val groundSpeed: Double,
-    val plannedAirSpeed: Int,
-    val altitude: Double,
-    val eta: String,
-    val waypoints: List<String>
-)
 data class FlightData(
     val wpLocation: LatLng,
     val currentLeg: String,
@@ -186,7 +175,6 @@ data class FlightData(
     val eta: String,
     val waypoints: List<String>
 )
-
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
@@ -602,22 +590,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
     private lateinit var binding: ActivityMainBinding
-
-    private var isFollowingUser = false
     private var areTFRsVisible = true
-    private val tfrPolygons = mutableListOf<Polygon>()
     private var areAirspacesVisible = true
-    private val airspacePolygons = mutableListOf<Polygon>()
     private var areMetarsVisible = true
+    private var sectionalVisible = false
+    private var terminalVisible = sectionalVisible
+    private var isFollowingUser = false
+    private val tfrPolygons = mutableListOf<Polygon>()
+    private val airspacePolygons = mutableListOf<Polygon>()
     private val metarMarkers = mutableListOf<Marker>()
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
     private var currentLayerName: String = "FlightConditions"
     private var sectionalOverlay: TileOverlay? = null
-    private var sectionalVisible = false
     private var terminalOverlay: TileOverlay? = null
-    private var terminalVisible = false
     private var lastKnownUserLocation: LatLng? = null
     private val airportMap = mutableMapOf<String, LatLng>()
     private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
@@ -625,6 +612,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val plannedAirSpeed = 95 // make editable in the UI
     private var showVersion = true
     private var showZoom = true
+    private lateinit var sharedPrefs: SharedPreferences
+//    private val settingsLauncher = registerForActivityResult(
+//        ActivityResultContracts.StartActivityForResult()
+//    ) { result ->
+//        if (result.resultCode == Activity.RESULT_OK) {
+//            // Re-read settings and apply changes
+//            loadMapPreferences()
+//        }
+//    }
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -638,6 +634,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         data object Altimeter : MapLayer()
         data object Ceiling : MapLayer()
         data object Clouds : MapLayer()
+        data object None : MapLayer()
 
         companion object {
             fun fromName(name: String): MapLayer {
@@ -648,8 +645,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     "Ceiling" -> Ceiling
                     "Clouds" -> Clouds
                     "Wind Barbs" -> Wind
+                    "None" -> None
                     else -> FlightConditions
                 }
+            }
+        }
+    }
+
+    // print out saved prefs
+    fun prefsDump() {
+        val prefNames = listOf("MapSettings", "AppPrefs", "WAYPOINTS", "SavedLocation", "db_versions")
+        for (name in prefNames) {
+            val prefs = getSharedPreferences(name, MODE_PRIVATE)
+            for ((key, value) in prefs.all) {
+                Log.d("PrefsDump", "$name → $key = $value")
             }
         }
     }
@@ -657,11 +666,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        prefsDump()
+
         // ✅ Initialize View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // grab preferences
+        sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
+
+        // settings
+//        val intent = Intent(this, SettingsActivity::class.java)
+//        settingsLauncher.launch(intent)
+
+        //areAirspacesVisible = sharedPrefs.getBoolean("show_airspace", true)
+        areMetarsVisible = sharedPrefs.getBoolean("show_metars", true)
+        //sectionalVisible = sharedPrefs.getBoolean("show_chart", true)
+        //terminalVisible = sectionalVisible
+        //areTFRsVisible = sharedPrefs.getBoolean("show_tfrs", true)
+
         // ✅ Load airports from CSV
+        // CHANGE ME TO USE DATABASE
         loadAirportsFromCSV()
 
         // ✅ Download databases if needed
@@ -669,7 +694,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // side buttons
         // ✅ Toggle Flight Info Visibility
-        val flightPlanButton = binding.flightPlan
+        val flightPlanButton = binding.flightPlanButton
         val flightInfoLayout = binding.flightInfoLayout
         flightPlanButton.setOnClickListener {
             Log.d("FlightToggle", "Flight Plan button clicked")  // ✅ Log click event
@@ -685,8 +710,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Log.d("FlightToggle", "New visibility: ${flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
         }
 
-        // ✅ Open Layer Options
-        binding.layers.setOnClickListener {}
+        // ✅ Settings / Options Button
+        val settingsButton = binding.settingsButton
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+            //settingsLauncher.launch(intent)
+
+        }
 
         // ✅ Follow Button
         val followButton = binding.customCenterButton
@@ -723,35 +754,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
 
-        // ✅ Toggle Flight Dest visibility (testing)
-        /*binding.layers.setOnClickListener {
-            Log.d("FlightToggle", "Layer button clicked")  // ✅ Log click event
-
-            val isVisible = binding.flightInfoLayout2.visibility == View.VISIBLE
-            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
-
-            binding.flightInfoLayout2.visibility = if (isVisible) View.GONE else View.VISIBLE
-
-            binding.flightInfoLayout2.bringToFront()
-            binding.flightInfoLayout2.requestLayout()
-
-            Log.d("FlightToggle", "New visibility: ${binding.flightInfoLayout2.visibility}")  // ✅ Log visibility after toggle
-        }*/
-
         // ✅ Initialize Navigation Drawer
         drawerLayout=binding.drawerLayout
         navView=binding.navView
-
-//11:57:05.071 ActionBarDrawerToggle    W  DrawerToggle may not show up because NavigationIcon is not visible. You may need to call actionbar.setDisplayHomeAsUpEnabled(true);
-//        val toggle = ActionBarDrawerToggle(
-//            this, drawerLayout, R.string.navigation_drawer_open, R.string.navigation_drawer_close
-//        )
-//        drawerLayout.addDrawerListener(toggle)
-//        toggle.syncState()
-
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         navView.setNavigationItemSelectedListener(this)
-
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // enables the map to re-center when user moves his location (traveling)
@@ -791,9 +798,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // load saved layer choice
-        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
+        // load saved layers and preferences
+        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE) //works
         currentLayerName = sharedPrefs.getString("selectedLayer", "FlightConditions") ?: "FlightConditions"
+
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
 
         // initialize spinner and adapter
@@ -827,18 +835,57 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     refreshMarkers()
                 }
             }
-
             override fun onNothingSelected(parent: AdapterView<*>?) {}
-
         }
     }
     // end of onCreate
+
+    override fun onResume() {
+        super.onResume()
+        if (::mMap.isInitialized) {
+            loadMapPreferences()
+        }
+    }
+
+    // settings
+    private fun loadMapPreferences() {
+        val prefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
+        val showAirspace = prefs.getBoolean("show_airspace", true)
+        val showTfrs = prefs.getBoolean("show_tfrs", true)
+        val showMetars = prefs.getBoolean("show_metars", true)
+        val showChart = prefs.getBoolean("show_chart", true)
+
+        // Apply logic to show/hide layers
+        setLayerVisibility(showAirspace, showTfrs, showMetars, showChart)
+    }
+
+    private fun setLayerVisibility(
+        showAirspace: Boolean,
+        showTfrs: Boolean,
+        showMetars: Boolean,
+        showChart: Boolean
+    ) {
+        toggleAirspace(showAirspace)
+        updateButtonState(binding.toggleAirspaceButton, showAirspace)
+
+        toggleTFRVisibility(showTfrs)
+        updateButtonState(binding.toggleTfrButton, showTfrs)
+
+        toggleMetarVisibility(showMetars)
+        updateButtonState(binding.toggleMetarButton, showMetars)
+
+        toggleSectionalOverlay(mMap,showChart)
+        updateButtonState(binding.toggleVfrsecButton, showChart)
+
+    }
 
     // ✅ Navigation Drawer
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
             R.id.nav_flightplanning -> startActivity(Intent(this, FlightPlanActivity::class.java))
+            R.id.nav_settings -> startActivity(Intent(this, SettingsActivity::class.java))
+            //R.id.nav_settings -> settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
         }
         drawerLayout.closeDrawers() // ✅ Close drawer after selection
         return true
@@ -1034,7 +1081,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val etaDestColor = if (isPlanningMode) Color.CYAN else Color.WHITE
 
         binding.currentLeg.text = data.currentLeg
-        //binding.trackText.text = "${data.track.roundToInt()}°"
+        binding.trackText.text = "${data.track.roundToInt()}°"
         binding.bearingText.text = "${data.bearing.roundToInt()}°"
         binding.distanceText.text = "${data.distance.roundToInt()}nm"
         binding.gpsSpeed.text = "${data.groundSpeed.roundToInt()}kt"
@@ -1144,120 +1191,126 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             prefs.edit().putBoolean("first_launch", false).apply()
             val burbank = LatLng(34.1819, -118.3079)
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(burbank, 9f))
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+            //settingsLauncher.launch(intent)
             //showFirstLaunchDialog()
         } else {
             moveToLastSavedLocationOrCurrent()
         }
 
-        //moveToLastSavedLocationOrCurrent()
-
         // **Load TFR GeoJSON**
-        var enableTfr = 1
-        if (enableTfr == 1) {
-            loadAndDrawTFR()
-            // Initialize the tfr toggle button
-            val tfrButton = binding.toggleTfrButton
-            var isTFRVisible = true
-            tfrButton.setOnClickListener {
-                isTFRVisible = !isTFRVisible
-                toggleTFRVisibility()
-                updateButtonState(tfrButton, isTFRVisible)
-            }
+        loadAndDrawTFR()
 
-            // Handle when user clicks on a TFR
-            mMap.setOnPolygonClickListener { polygon ->
-                val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+        val tfrButton = binding.toggleTfrButton
+        var isTFRVisible = sharedPrefs.getBoolean("show_tfrs", true)
+        // toggle button state based on shared preferences
+        updateButtonState(tfrButton, isTFRVisible)
+        toggleTFRVisibility(isTFRVisible)
 
-                if (tfrList != null) {
-                    if (tfrList.size == 1) {
-                        // ✅ Show single TFR pop-up
-                        showTfrPopup(this, tfrList[0])
-                    } else {
-                        // ✅ Show list selection if multiple TFRs exist
-                        showTfrSelectionDialog(this, tfrList)
-                    }
+        tfrButton.setOnClickListener {
+            isTFRVisible = !isTFRVisible
+            // toggle in savedprefs
+            sharedPrefs.edit().putBoolean("show_tfrs", isTFRVisible).apply()
+            toggleTFRVisibility(isTFRVisible)
+            updateButtonState(tfrButton, isTFRVisible)
+        }
+
+        // Handle when user clicks on a TFR
+        mMap.setOnPolygonClickListener { polygon ->
+            val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+
+            if (tfrList != null) {
+                if (tfrList.size == 1) {
+                    // ✅ Show single TFR pop-up
+                    showTfrPopup(this, tfrList[0])
+                } else {
+                    // ✅ Show list selection if multiple TFRs exist
+                    showTfrSelectionDialog(this, tfrList)
                 }
             }
         }
 
         // **Load Airspace Boundaries**
-        var enableAirspace = 1
-        if (enableAirspace == 1) {
-            loadAndDrawAirspace(mMap, this)
+        loadAndDrawAirspace(mMap, this)
 
-            // Initialize the airspace toggle button
-            val airspaceButton = binding.toggleAirspaceButton
-            var isAirspaceVisible = true
-            airspaceButton.setOnClickListener {
-                isAirspaceVisible = !isAirspaceVisible
-                toggleAirspace()
-                updateButtonState(airspaceButton, isAirspaceVisible)
-            }
+        // Initialize the airspace toggle button
+        var isAirspaceVisible = sharedPrefs.getBoolean("show_airspace", true)
+        val airspaceButton = binding.toggleAirspaceButton
+        // toggle button state based on shared preferences
+        updateButtonState(airspaceButton, isAirspaceVisible)
+        toggleAirspace(isAirspaceVisible)
+
+        airspaceButton.setOnClickListener {
+            isAirspaceVisible = !isAirspaceVisible
+            // toggle saved prefs
+            sharedPrefs.edit().putBoolean("show_airspace", isAirspaceVisible).apply()
+            toggleAirspace(isAirspaceVisible)
+            updateButtonState(airspaceButton, isAirspaceVisible)
         }
 
         // Sectionals
-        var enableSectional = 1
-        if (enableSectional == 1) {
-            // Initialize the tile overlay toggle
-            var isSectionalVisible: Boolean
-            val vfrSecButton = binding.toggleVfrsecButton
-            if (firstLaunch) {
-                isSectionalVisible = true
-                toggleSectionalOverlay(mMap)
-            } else {
-                isSectionalVisible = false
-            }
-            vfrSecButton.setOnClickListener {
-                isSectionalVisible = !isSectionalVisible
-                toggleSectionalOverlay(mMap)
-                updateButtonState(vfrSecButton, isSectionalVisible)
-            }
+        // Initialize the tile overlay toggle
+        var isSectionalVisible: Boolean
+        val vfrSecButton = binding.toggleVfrsecButton
+        if (firstLaunch) {
+            isSectionalVisible = true
+            updateButtonState(vfrSecButton, isSectionalVisible)
+            sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
+            toggleSectionalOverlay(mMap,true)
+        } else {
+            isSectionalVisible = sharedPrefs.getBoolean("show_chart", true)
+            updateButtonState(vfrSecButton, isSectionalVisible)
+            toggleSectionalOverlay(mMap,isSectionalVisible)
+        }
+        vfrSecButton.setOnClickListener {
+            isSectionalVisible = !isSectionalVisible
+            // toggle in savedprefs
+            sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
+            prefsDump()
+            toggleSectionalOverlay(mMap,isSectionalVisible)
+            updateButtonState(vfrSecButton, isSectionalVisible)
         }
 
-        // Flight Plan
-        var enableFlightPlan = 1
-        if (enableFlightPlan == 1) {
-            // ✅ Handle flight plan waypoints
-            //intent #2
-            intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
-                if (waypoints.isNotEmpty()) {
-                    updateMapWithWaypoints(waypoints)
-                }
+        // ✅ Handle flight plan waypoints
+        intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
+            if (waypoints.isNotEmpty()) {
+                updateMapWithWaypoints(waypoints)
             }
         }
 
         // **Load Metars**
-        var enableMetar = 1
-        if (enableMetar == 1) {
-            loadAndDrawMetar()
-            // ** refresh weather data
-            startAutoRefresh(15)
+        loadAndDrawMetar()
+        // ** refresh weather data
+        startAutoRefresh(15)
 
-            // Initialize the metar toggle button
-            val metarButton = binding.toggleMetarButton
-            var isMetarVisible = true
-            metarButton.setOnClickListener {
-                isMetarVisible = !isMetarVisible
-                toggleMetarVisibility()
-                updateButtonState(metarButton, isMetarVisible)
-            }
+        // Initialize the metar toggle button
+        var isMetarVisible = sharedPrefs.getBoolean("show_metars", true)
+        val metarButton = binding.toggleMetarButton
+        // toggle button state based on shared preferences
+        updateButtonState(metarButton, isMetarVisible)
 
-            // Handle when user clicks on a metar marker
-            mMap.setOnMarkerClickListener { marker ->
-                val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
-                if (data != null) {
-                    showMetarDialog(data.metar, data.taf)
-                }
-                true
+        metarButton.setOnClickListener {
+            isMetarVisible = !isMetarVisible
+            // toggle in savedprefs
+            sharedPrefs.edit().putBoolean("show_metars", isMetarVisible).apply()
+            toggleMetarVisibility(isMetarVisible)
+            updateButtonState(metarButton, isMetarVisible)
+        }
+
+        // Handle when user clicks on a metar marker
+        mMap.setOnMarkerClickListener { marker ->
+            val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
+            if (data != null) {
+                showMetarDialog(data.metar, data.taf)
             }
+            true
         }
 
         if (::mMap.isInitialized) {
             checkLocationPermission()
         }
-
         hideBottomProgressBar()
-
     }
 
     private fun checkLocationPermission() {
@@ -1290,7 +1343,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             checkLocationPermission()
         }
     }
-
     private fun moveToCurrentLocation() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
@@ -1305,7 +1357,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
     private fun moveToLastSavedLocationOrCurrent() {
-        val prefs = getSharedPreferences("map_prefs", MODE_PRIVATE)
+        val prefs = getSharedPreferences("SavedLocation", MODE_PRIVATE)
         val savedLat = prefs.getFloat("lat", Float.MIN_VALUE)
         val savedLng = prefs.getFloat("lng", Float.MIN_VALUE)
         val savedZoom = prefs.getFloat("zoom", 10f) // Default zoom level
@@ -1329,7 +1381,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
     private fun saveMapPosition() {
-        val prefs = getSharedPreferences("map_prefs", MODE_PRIVATE)
+        val prefs = getSharedPreferences("SavedLocation", MODE_PRIVATE)
         val editor = prefs.edit()
         val target = mMap.cameraPosition.target
         editor.putFloat("lat", target.latitude.toFloat())
@@ -1347,6 +1399,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         Log.d("MapDebug", "Saved layer: $layerName")
     }
+
+    private fun saveVisibility(key: String, isChecked: Boolean) {
+        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
+        sharedPrefs.edit().putBoolean(key, isChecked).apply()
+        Log.d("MapDebug", "Saved visibility: $key = $isChecked")
+    }
+
+    private fun loadVisibility(item: String, default: Boolean = true): Boolean {
+        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
+        return sharedPrefs.getBoolean(item, default)
+    }
+
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -1428,7 +1492,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
-
     // Update markers based on visible map area
     private fun updateVisibleMarkers(metars: List<METAR>, tafs: List<TAF>) {
         val visibleBounds = mMap.projection.visibleRegion.latLngBounds
@@ -1462,13 +1525,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     MapLayer.Altimeter -> createAltimeterMarker(metar, location)
                     MapLayer.Ceiling -> createCeilingMarker(metar, location)
                     MapLayer.Clouds -> createCloudMarker(metar, location)
+                    MapLayer.None -> null
                 }
 
                 // Add the marker from the `when` clause if it's not null
                 marker?.let { metarMarkers.add(it) }
 
                 // Add the wind dot for all layers except FlightConditions
-                if (currentLayer != MapLayer.FlightConditions) {
+                if (currentLayer != MapLayer.FlightConditions && currentLayer != MapLayer.None) {
                     createMetarDotForWindLayer(metar, location)?.let { metarMarkers.add(it) }
                 }
 
@@ -1556,26 +1620,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return createDotMarker(metar, null, location, style) // No TAF border
     }
 
-/*    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
+    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
-                it >= 27 -> Color.RED
-                it <= 5 -> Color.BLUE
+                it >= 32  -> Color.RED
+                it <= 2 -> Color.BLUE
                 else -> Color.WHITE
             }
-            val bgColor = Color.argb(125, 0, 0, 0)
+            //val bgColor = Color.argb(125, 0, 0, 0)
+            val bgColor = Color.BLACK
             val bitmap = createTextBitmap("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
             //val bitmap = createTextBitmap("${it}°C", tempColor)
             return mMap.addMarker(MarkerOptions()
                 .position(location)
                 .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
                 .visible(areMetarsVisible)
-                .anchor(0.5f, 0.5f))
+//                .anchor(0.5f, 0.5f))
+                .anchor(0.5f, 1.3f))
         }
         return null
-    }*/
+    }
 
-    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
+    /*private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
                 it >= 27 -> Color.RED
@@ -1604,7 +1670,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 .anchor(.5f, 1.2f))
         }
         return null
-    }
+    }*/
     private fun createAltimeterMarker(metar: METAR, location: LatLng): Marker? {
         metar.altimeterInHg?.let {
             val bgColor = Color.BLACK
@@ -1679,10 +1745,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val progressBar = binding.progressBottomBar
         val progressOverlay = binding.progressOverlay
         val progressMessage = binding.progressMessageBottom
-        if (progressBar == null || progressMessage == null) {
-            Log.e("ProgressBar", "Progress bar or message view not found!")
-            return
-        }
+//        if (progressBar == null || progressMessage == null) {
+//            Log.e("ProgressBar", "Progress bar or message view not found!")
+//            return
+//        }
         progressMessage.text = message
         progressBar.visibility = View.VISIBLE
         progressOverlay.visibility = View.VISIBLE
@@ -1696,10 +1762,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun updateButtonState(button: Button, isActive: Boolean) {
         // Change button color based on state
         if (isActive) {
-            //button.setBackgroundResource(R.drawable.rounded_button) // Active state
             button.setTextColor(Color.WHITE)
         } else {
-            //button.setBackgroundResource(R.drawable.rounded_button) // Inactive state
             button.setTextColor(Color.GRAY)
         }
     }
@@ -1958,10 +2022,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .setNegativeButton("Cancel", null)
             .show()
     }
-    private fun toggleTFRVisibility() {
-        areTFRsVisible = !areTFRsVisible
+    private fun toggleTFRVisibility(visible: Boolean) {
+        areTFRsVisible = visible
         tfrPolygons.forEach { it.isVisible = areTFRsVisible }
-        Log.d("Toggle", "TFR visibility set to $areTFRsVisible")
+        Log.d("Toggle", "Saved TFR visibility - set to $areTFRsVisible")
     }
     // AIRSPACE
     private fun loadAndDrawAirspace(map: GoogleMap, context: Context) {
@@ -2044,8 +2108,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         return points
     }
-    private fun toggleAirspace() {
-        areAirspacesVisible = !areAirspacesVisible
+    private fun toggleAirspace(visible: Boolean) {
+        //areAirspacesVisible = !areAirspacesVisible
+        areAirspacesVisible = visible
         airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
         Log.d("Toggle", "Airspace visibility set to $areAirspacesVisible")
     }
@@ -2221,13 +2286,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         alertDialog.show()
     }
 
-    private fun toggleMetarVisibility() {
-        areMetarsVisible = !areMetarsVisible
+    private fun toggleMetarVisibility(visible: Boolean) {
+        areMetarsVisible = visible
         metarMarkers.forEach { marker ->
             marker.isVisible = areMetarsVisible
         }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
     }
+
     private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
         // Skip calm winds or invalid data
         if (windSpeedKt < 4) return null
@@ -2337,7 +2403,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
     // TILES (sectional charts)
-    private fun toggleSectionalOverlay(map: GoogleMap) {
+    private fun toggleSectionalOverlay(map: GoogleMap,visible: Boolean) {
         if (sectionalOverlay == null) {
             val sectionalTileProvider = SectionalTileProvider(this)
             val tileOverlayOptions = TileOverlayOptions()
@@ -2356,8 +2422,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             terminalOverlay = map.addTileOverlay(tileOverlayOptions)
         }
 
-        sectionalVisible = !sectionalVisible // Toggle Sectional visibility
-        terminalVisible = sectionalVisible  // Keep Terminal consistent
+        //sectionalVisible = !sectionalVisible // Toggle Sectional visibility
+        //terminalVisible = sectionalVisible  // Keep Terminal consistent
+        sectionalVisible = visible
+        terminalVisible = visible
 
         sectionalOverlay?.isVisible = sectionalVisible
         terminalOverlay?.isVisible = terminalVisible
@@ -2466,8 +2534,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     val localFile = File(localDir, fileName)
 
                     val storedVersion = prefs.getString("${key}_version", null)
+                    val expectedHash = dbInfo.getString("sha256")
+                    val actualHash = getFileSha256(localFile)
+                    val fileValid = localFile.exists() && actualHash == expectedHash
 
-                    if (!localFile.exists() || storedVersion != version) {
+                    if (!fileValid || storedVersion != version) {
+                        //Log.d("DBSync", "Downloading $fileName (invalid hash or version mismatch)")
+                        Log.e("DBSync", "Downloading $fileName - Checksum mismatch! Expected: $expectedHash, Actual: $actualHash")
+                        downloadDbFile(context, url, fileName) { success ->
+                            if (success && getFileSha256(localFile) == expectedHash) {
+                                prefs.edit().putString("${key}_version", version).apply()
+                                Log.d("DBSync", "$fileName downloaded and verified")
+                            } else {
+                                Log.e("DBSync", "Download failed or hash mismatch for $fileName")
+                            }
+                        }
+                    } else {
+                        Log.d("DBSync", "$fileName is up to date and hash-verified. Expected: $expectedHash, Actual: $actualHash\"")
+                    }
+                    /*if (!localFile.exists() || storedVersion != version) {
                         Log.d("DBSync", "Downloading $fileName (version mismatch or missing)")
                         downloadDbFile(context, url, fileName) { success ->
                             if (success) {
@@ -2479,7 +2564,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         }
                     } else {
                         Log.d("DBSync", "$fileName is up to date")
-                    }
+                    }*/
                 }
 
             } catch (e: Exception) {
@@ -2527,6 +2612,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }.start()
     }
+
+    private fun getFileSha256(file: File): String {
+        val buffer = ByteArray(1024)
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            var read = fis.read(buffer)
+            while (read != -1) {
+                digest.update(buffer, 0, read)
+                read = fis.read(buffer)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
 
     // Load Airports from CSV
     private fun loadAirportsFromCSV() {
