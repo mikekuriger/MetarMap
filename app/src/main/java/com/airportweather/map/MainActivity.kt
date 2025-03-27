@@ -2,7 +2,6 @@ package com.airportweather.map
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -71,22 +70,19 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
 import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MenuItem
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.drawerlayout.widget.DrawerLayout
 import com.airportweather.map.databinding.ActivityMainBinding
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
-import com.google.maps.android.ui.IconGenerator
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.security.MessageDigest
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -174,7 +170,24 @@ data class FlightData(
     val altitude: Double,
     val eta: String,
     val waypoints: List<String>
-)
+) {
+    companion object {
+        fun empty(): FlightData {
+            return FlightData(
+                wpLocation = LatLng(0.0, 0.0),
+                currentLeg = "N/A",
+                track = 0.0,
+                bearing = 0.0,
+                distance = 0.0,
+                groundSpeed = 0.0,
+                plannedAirSpeed = 100,  // Or your default
+                altitude = 0.0,
+                eta = "--:--",
+                waypoints = emptyList()
+            )
+        }
+    }
+}
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
@@ -606,21 +619,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var sectionalOverlay: TileOverlay? = null
     private var terminalOverlay: TileOverlay? = null
     private var lastKnownUserLocation: LatLng? = null
-    private val airportMap = mutableMapOf<String, LatLng>()
-    private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
+//    private val airportMap = mutableMapOf<String, LatLng>()
+//    private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
     private val activeSpeed = 10
     private val plannedAirSpeed = 95 // make editable in the UI
     private var showVersion = true
     private var showZoom = true
     private lateinit var sharedPrefs: SharedPreferences
-//    private val settingsLauncher = registerForActivityResult(
-//        ActivityResultContracts.StartActivityForResult()
-//    ) { result ->
-//        if (result.resultCode == Activity.RESULT_OK) {
-//            // Re-read settings and apply changes
-//            loadMapPreferences()
-//        }
-//    }
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -675,25 +680,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // grab preferences
         sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
 
-        // settings
-//        val intent = Intent(this, SettingsActivity::class.java)
-//        settingsLauncher.launch(intent)
-
         //areAirspacesVisible = sharedPrefs.getBoolean("show_airspace", true)
         areMetarsVisible = sharedPrefs.getBoolean("show_metars", true)
         //sectionalVisible = sharedPrefs.getBoolean("show_chart", true)
         //terminalVisible = sectionalVisible
         //areTFRsVisible = sharedPrefs.getBoolean("show_tfrs", true)
 
-        // ✅ Load airports from CSV
-        // CHANGE ME TO USE DATABASE
-        loadAirportsFromCSV()
+        // ✅ Load airports from CSV (weather data)
+        //loadAirportsFromCSV()
 
-        // ✅ Download databases if needed
-        syncDatabaseFiles(this)
+        // ✅ Download databases and load airports
+        lifecycleScope.launch {
+            syncAirportDatabases()
+            //loadAirportsFromDatabase()
+        }
 
         // side buttons
-        // ✅ Toggle Flight Info Visibility
+        // ✅ Flight info button
         val flightPlanButton = binding.flightPlanButton
         val flightInfoLayout = binding.flightInfoLayout
         flightPlanButton.setOnClickListener {
@@ -710,13 +713,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Log.d("FlightToggle", "New visibility: ${flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
         }
 
+        // ✅ NavLog Button
+        val navLogButton = binding.navLogButton
+        navLogButton.setOnClickListener {
+            val intent = Intent(this, NavLogActivity::class.java)
+            startActivity(intent)
+        }
+
         // ✅ Settings / Options Button
         val settingsButton = binding.settingsButton
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
-            //settingsLauncher.launch(intent)
-
         }
 
         // ✅ Follow Button
@@ -938,8 +946,62 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }, Looper.getMainLooper())
     }
 
-    // Handles All Calculations for flight planning
+    // Handles All Calculations for flight planning (via db)
     private fun calculateFlightData(location: Location, waypoints: List<String>): FlightData {
+        val dbHelper = AirportDatabaseHelper(this)
+        val userLatLng = LatLng(location.latitude, location.longitude)
+        val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
+        val altitude = location.altitude * 3.28084  // Convert to feet
+
+        val wpName: String
+        val wp2Name: String
+
+        if (waypoints.size > 1) {
+            wpName = waypoints[0]
+            wp2Name = waypoints[1]
+        } else {
+            wpName = "direct"
+            wp2Name = waypoints.getOrNull(0) ?: "----"
+        }
+
+        val airportInfo = dbHelper.getAirportInfo(wp2Name)
+        if (airportInfo == null) {
+            Log.e("FlightCalc", "No airport data for $wp2Name")
+            return FlightData.empty() // Replace with a valid fallback
+        }
+
+        val wpLocation = LatLng(airportInfo.lat, airportInfo.lon)
+        val magVar = airportInfo.magVar
+
+        val track = location.bearing.toDouble()
+        val magneticTrack = (track - magVar + 360) % 360
+
+        val bearingWp = calculateBearing(
+            this,             // context
+            userLatLng,       // current (user) location
+            wpLocation,       // target waypoint
+            wp2Name           // airport ID to look up magVar
+        )
+
+        val distanceWp = calculateDistance(userLatLng, wpLocation)
+        val etaMinutes = calculateETA(distanceWp, groundSpeed, plannedAirSpeed)
+        val eta = formatETA(etaMinutes)
+
+        return FlightData(
+            wpLocation = wpLocation,
+            currentLeg = "$wpName → $wp2Name",
+            track = magneticTrack,
+            bearing = bearingWp,
+            distance = distanceWp,
+            groundSpeed = groundSpeed,
+            plannedAirSpeed = plannedAirSpeed,
+            altitude = altitude,
+            eta = eta,
+            waypoints = waypoints
+        )
+    }
+
+    /*private fun calculateFlightData(location: Location, waypoints: List<String>): FlightData {
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
         val altitude = location.altitude * 3.28084  // Convert to feet
@@ -993,10 +1055,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             eta = eta,
             waypoints = waypoints
         )
+    }*/
+
+    // calculate bearing and distance to next waypoint
+    fun calculateBearing(context: Context, currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
+        val lat1 = Math.toRadians(currentLocation.latitude)
+        val lon1 = Math.toRadians(currentLocation.longitude)
+        val lat2 = Math.toRadians(nextWaypoint.latitude)
+        val lon2 = Math.toRadians(nextWaypoint.longitude)
+        val deltaLon = lon2 - lon1
+        val y = sin(deltaLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
+        var bearing = Math.toDegrees(atan2(y, x))
+
+        val dbHelper = AirportDatabaseHelper(context)
+        val info = dbHelper.getAirportInfo(airportId)
+        val magVar = info?.magVar ?: 0.0
+
+        bearing -= magVar
+        return (bearing + 360) % 360
     }
 
-    // calculate bearing and distance to next waypoint (fake burbank)
-    fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
+    /*fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
         val lat1 = Math.toRadians(currentLocation.latitude)
         val lon1 = Math.toRadians(currentLocation.longitude)
         val lat2 = Math.toRadians(nextWaypoint.latitude)
@@ -1009,7 +1089,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val magVar = airportMagVarMap[airportId] ?: 0.0
         bearing -= magVar
         return (bearing + 360) % 360  // Normalize to 0-360°
-    }
+    }*/
     fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
         val R = 3440.065  // Earth radius in nautical miles
         val lat1 = Math.toRadians(currentLocation.latitude)
@@ -1041,7 +1121,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             String.format("%d", minutes)  // ✅ Example: "12.5 min"
         }
     }
-    fun calculateTotalDistance(waypoints: List<String>): Double {
+    fun calculateTotalDistance(waypoints: List<String>, dbHelper: AirportDatabaseHelper): Double {
+        var totalDistance = 0.0
+
+        for (i in 0 until waypoints.size - 1) {
+            val fromInfo = dbHelper.getAirportInfo(waypoints[i])
+            val toInfo = dbHelper.getAirportInfo(waypoints[i + 1])
+
+            if (fromInfo != null && toInfo != null) {
+                val from = LatLng(fromInfo.lat, fromInfo.lon)
+                val to = LatLng(toInfo.lat, toInfo.lon)
+                totalDistance += calculateDistance(from, to)
+            } else {
+                Log.w("NavLog", "Missing airport data for: ${waypoints[i]} or ${waypoints[i + 1]}")
+            }
+        }
+
+        return totalDistance
+    }
+
+    // old function with CSV file
+    /*fun calculateTotalDistance(waypoints: List<String>): Double {
         var totalDistance = 0.0
 
         for (i in 0 until waypoints.size - 1) {
@@ -1053,7 +1153,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
         return totalDistance
-    }
+    }*/
 
     fun calculateTotalETA(totalDistance: Double, groundSpeedKnots: Double): String {
         if (groundSpeedKnots <= 0) return "--:--" // Prevent divide by zero
@@ -1109,7 +1209,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         binding.destText.text = destination
         binding.etaDestText.setTextColor(etaDestColor)
 
-        val totalDistance = calculateTotalDistance(data.waypoints)
+        val dbHelper = AirportDatabaseHelper(this)
+        val totalDistance = calculateTotalDistance(data.waypoints, dbHelper)
         binding.dtdText.text = "${totalDistance.roundToInt()}nm"
 
         val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
@@ -2438,181 +2539,187 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     //Flight plan markers
     @SuppressLint("MissingPermission")
     private fun updateMapWithWaypoints(waypoints: List<String>) {
-        //mMap.clear()
+        val dbHelper = AirportDatabaseHelper(this)
+
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
             val latLngList = mutableListOf<LatLng>()
 
-            // ✅ If we got the user's location, and only one airport use it as the starting point
+            // ✅ Start from user's location if only one waypoint
             if (waypoints.size == 1 && location != null) {
                 val userLatLng = LatLng(location.latitude, location.longitude)
                 latLngList.add(userLatLng)
             }
 
-            // ✅ Add all waypoints from the flight plan
+            // ✅ Add all waypoints from the database
             for (waypoint in waypoints) {
-                val latLng = airportMap[waypoint.uppercase()]
-                if (latLng != null) {
-                    latLngList.add(latLng)
+                val info = dbHelper.getAirportInfo(waypoint)
+                if (info != null) {
+                    latLngList.add(LatLng(info.lat, info.lon))
+                } else {
+                    Log.w("MapUpdate", "No coordinates found for $waypoint")
                 }
             }
 
-            // ✅ Draw magenta line between waypoints NAV LINES
+            // ✅ Draw magenta line between waypoints
             if (latLngList.size > 1) {
                 val polylineOptions = PolylineOptions()
                     .addAll(latLngList)
-                    //.color(Color.argb(255, 255, 16, 240))  // PINK for Current Leg
                     .color(Color.argb(255, 16, 16, 240))  // BLUE for planning
                     .width(20f)
-                    .zIndex(2f)  //markers are re-drawn which makes them appear on top :-(
+                    .zIndex(2f)
                 mMap.addPolyline(polylineOptions)
             }
 
-            // ✅ Center the map on the user's last known location (or first waypoint if no location available)
-            /*val currentLatLng = LatLng(location.latitude, location.longitude)
-            val focusPoint = currentLatLng ?: latLngList.firstOrNull()
-            focusPoint?.let { mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 10f)) }*/
-
-            // ✅ Center the map on the route
+            // ✅ Adjust camera to show route or fallback to user location
             if (latLngList.isNotEmpty()) {
                 val boundsBuilder = LatLngBounds.builder()
-                for (point in latLngList) {
-                    boundsBuilder.include(point)
-                }
+                latLngList.forEach { boundsBuilder.include(it) }
                 val bounds = boundsBuilder.build()
-                val padding = 100 // pixels of padding around route
-
-                val cameraUpdate = CameraUpdateFactory.newLatLngBounds(bounds, padding)
-                mMap.moveCamera(cameraUpdate)
+                val padding = 100
+                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
             } else if (location != null) {
                 val userLatLng = LatLng(location.latitude, location.longitude)
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
             }
 
-
-            // ✅ Simplified Flight Plan Visibility Toggle
+            // ✅ Show flight info layouts
             val hasMultipleWaypoints = waypoints.size > 1
             binding.flightInfoLayout.visibility = View.VISIBLE
-            binding.flightInfoLayout2.visibility =
-                if (hasMultipleWaypoints) View.VISIBLE else View.GONE
-
+            binding.flightInfoLayout2.visibility = if (hasMultipleWaypoints) View.VISIBLE else View.GONE
             binding.flightInfoLayout.bringToFront()
             binding.flightInfoLayout.requestLayout()
-            Log.d("AUTOTOGGLE", "Current visibility: ${binding.flightInfoLayout.visibility}")
-            Log.d("AUTOTOGGLE", "Current visibility2: ${binding.flightInfoLayout2.visibility}")
         }
     }
-
     // Download airport databases
-    private fun syncDatabaseFiles(context: Context) {
-        showBottomProgressBar("🚨 Updating databases...")
-        val localDir = context.filesDir
-        val prefs = context.getSharedPreferences("db_versions", Context.MODE_PRIVATE)
+    private suspend fun syncAirportDatabases() {
+        val dbKeys = getDatabaseKeysFromManifest()
+        val prefs = getSharedPreferences("db_versions", MODE_PRIVATE)
 
-        val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+        for (key in dbKeys) {
+            val manifest = getDatabaseManifest() ?: continue
+            val dbInfo = manifest.getJSONObject(key)
+            val remoteVersion = dbInfo.getString("version")
 
-        Thread {
+            val localVersion = prefs.getString("${key}_version", null)
+
+            if (localVersion == remoteVersion) {
+                Log.d("DBSync", "$key is up to date (version $localVersion)")
+                continue  // No need to re-download
+            }
+
+            Log.d("DBSync", "$key is outdated or missing, downloading...")
+            val downloadSuccess = downloadDatabaseFileFromManifest(key, dbInfo)
+
+            if (downloadSuccess) {
+                prefs.edit()
+                    .putString("${key}_version", remoteVersion)
+                    .putString("${key}_sha256", dbInfo.getString("sha256"))
+                    .apply()
+            } else {
+                Log.e("DBSync", "$key failed to download or verify")
+            }
+        }
+    }
+    private suspend fun getDatabaseManifest(): JSONObject? = withContext(Dispatchers.IO) {
+        try {
+            val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+            val conn = URL(manifestUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connect()
+
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e("DBManifest", "HTTP ${conn.responseCode} while fetching manifest")
+                return@withContext null
+            }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            return@withContext JSONObject(response)
+        } catch (e: Exception) {
+            Log.e("DBManifest", "Error fetching manifest: ${e.message}")
+            null
+        }
+    }
+    private suspend fun getDatabaseKeysFromManifest(): List<String> {
+        return withContext(Dispatchers.IO) {
             try {
+                val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
                 val connection = URL(manifestUrl).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connect()
 
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    Log.e("DBSync", "Failed to fetch manifest")
-                    return@Thread
+                    Log.e("DBManifest", "Failed to fetch manifest: HTTP ${connection.responseCode}")
+                    return@withContext emptyList()
                 }
 
                 val manifestJson = connection.inputStream.bufferedReader().readText()
                 val manifest = JSONObject(manifestJson)
 
-                val dbKeys = listOf("faa_airports", "faa_fixes", "faa_frequencies")
-
-                dbKeys.forEach { key ->
-                    val dbInfo = manifest.getJSONObject(key)
-                    val version = dbInfo.getString("version")
-                    val url = dbInfo.getString("url")
-                    val fileName = url.substringAfterLast("/")
-                    val localFile = File(localDir, fileName)
-
-                    val storedVersion = prefs.getString("${key}_version", null)
-                    val expectedHash = dbInfo.getString("sha256")
-                    val actualHash = getFileSha256(localFile)
-                    val fileValid = localFile.exists() && actualHash == expectedHash
-
-                    if (!fileValid || storedVersion != version) {
-                        //Log.d("DBSync", "Downloading $fileName (invalid hash or version mismatch)")
-                        Log.e("DBSync", "Downloading $fileName - Checksum mismatch! Expected: $expectedHash, Actual: $actualHash")
-                        downloadDbFile(context, url, fileName) { success ->
-                            if (success && getFileSha256(localFile) == expectedHash) {
-                                prefs.edit().putString("${key}_version", version).apply()
-                                Log.d("DBSync", "$fileName downloaded and verified")
-                            } else {
-                                Log.e("DBSync", "Download failed or hash mismatch for $fileName")
-                            }
-                        }
-                    } else {
-                        Log.d("DBSync", "$fileName is up to date and hash-verified. Expected: $expectedHash, Actual: $actualHash\"")
-                    }
-                    /*if (!localFile.exists() || storedVersion != version) {
-                        Log.d("DBSync", "Downloading $fileName (version mismatch or missing)")
-                        downloadDbFile(context, url, fileName) { success ->
-                            if (success) {
-                                prefs.edit().putString("${key}_version", version).apply()
-                                Log.d("DBSync", "$fileName downloaded and updated to version $version")
-                            } else {
-                                Log.e("DBSync", "Failed to download $fileName")
-                            }
-                        }
-                    } else {
-                        Log.d("DBSync", "$fileName is up to date")
-                    }*/
+                val keys = mutableListOf<String>()
+                val iterator = manifest.keys()
+                while (iterator.hasNext()) {
+                    keys.add(iterator.next())
                 }
 
+                Log.d("DBManifest", "Found keys: $keys")
+                keys
             } catch (e: Exception) {
-                Log.e("DBSync", "Error syncing DB files: ${e.message}")
+                Log.e("DBManifest", "Error loading keys: ${e.message}")
+                emptyList()
             }
-        }.start()
-        hideBottomProgressBar()
-    }
-
-    private fun downloadDbFile(
-        context: Context,
-        url: String,
-        fileName: String,
-        onComplete: (Boolean) -> Unit
-    ) {
-        val saveFile = File(context.filesDir, fileName)
-
-        // ✅ Skip if already downloaded
-        if (saveFile.exists()) {
-            Log.d("DBDownload", "$fileName already exists, skipping download")
-            onComplete(true)
-            return
         }
-
-        Thread {
-            try {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connect()
-
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    val inputStream = connection.inputStream
-                    saveFile.outputStream().use { output ->
-                        inputStream.copyTo(output)
-                    }
-                    Log.d("DBDownload", "$fileName downloaded successfully")
-                    onComplete(true)
-                } else {
-                    Log.e("DBDownload", "Failed to download $fileName: ${connection.responseCode}")
-                    onComplete(false)
-                }
-            } catch (e: Exception) {
-                Log.e("DBDownload", "Error downloading $fileName: ${e.message}")
-                onComplete(false)
-            }
-        }.start()
     }
+    private suspend fun downloadDatabaseFileFromManifest(key: String, dbInfo: JSONObject): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = dbInfo.getString("url")
+                val expectedHash = dbInfo.getString("sha256")
+                val fileName = "$key.db"
+                val dbFile = File(getDatabasePath(fileName).path)
 
+                if (dbFile.exists()) dbFile.delete()
+
+                val success = downloadFile(url, dbFile)
+                if (!success) return@withContext false
+
+                val actualHash = getFileSha256(dbFile)
+                val valid = actualHash == expectedHash
+
+                if (!valid) {
+                    Log.e("DBDownload", "Hash mismatch for $key: expected=$expectedHash actual=$actualHash")
+                    dbFile.delete()
+                }
+
+                return@withContext valid
+            } catch (e: Exception) {
+                Log.e("DBDownload", "Exception while downloading $key: ${e.message}")
+                false
+            }
+        }
+    }
+    private fun downloadFile(url: String, destination: File): Boolean {
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connect()
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                conn.inputStream.use { input ->
+                    destination.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.d("DBDownload", "Downloaded ${destination.name}")
+                true
+            } else {
+                Log.e("DBDownload", "HTTP ${conn.responseCode} for ${destination.name}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("DBDownload", "Failed to download ${destination.name}: ${e.message}")
+            false
+        }
+    }
     private fun getFileSha256(file: File): String {
         val buffer = ByteArray(1024)
         val digest = MessageDigest.getInstance("SHA-256")
@@ -2625,53 +2732,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
-
-
-    // Load Airports from CSV
-    private fun loadAirportsFromCSV() {
-        val inputStream = resources.openRawResource(R.raw.airports2) // ✅ Use new CSV file
-        val reader = BufferedReader(InputStreamReader(inputStream))
-
-        reader.useLines { lines ->
-            lines.forEach { line ->
-                val tokens = line.split(",") // ✅ Split CSV by commas
-
-                if (tokens.size > 30) { // ✅ Ensure enough fields exist
-                    val airportId = tokens[4].trim('"').uppercase() // ✅ ICAO code (ARPT_ID)
-                    val city = tokens[6].trim('"') // ✅ City (CITY)
-                    val airportName = tokens[12].trim('"') // ✅ Airport Name (ARPT_NAME)
-                    val lat = tokens[19].toDoubleOrNull() ?: return@forEach // ✅ Latitude (LAT_DECIMAL)
-                    val lon = tokens[24].toDoubleOrNull() ?: return@forEach // ✅ Longitude (LONG_DECIMAL)
-                    val elev = tokens[25].toDoubleOrNull() ?: 0.0 // ✅ Elevation (ELEV_FT)
-                    val magVar = tokens[28].toDoubleOrNull() ?: 0.0 // ✅ Magnetic Variation (MAG_VARN)
-                    val magHemis = tokens[29].trim('"') // ✅ "E" (East) or "W" (West)
-
-                    // ✅ Convert Magnetic Variation: East = Positive, West = Negative
-                    val correctedMagVar = if (magHemis == "W") -magVar else magVar
-
-                    airportMap[airportId] = LatLng(lat, lon) // ✅ Store LatLng
-                    airportMagVarMap[airportId] = correctedMagVar  // ✅ Store Magnetic Variation
-                }
-            }
-        }
-    }
-
-    /*private fun loadAirportsFromCSV() {
-        val inputStream = resources.openRawResource(R.raw.airports)
-        val reader = BufferedReader(InputStreamReader(inputStream))
-
-        reader.useLines { lines ->
-            lines.forEach { line ->
-                val tokens = line.split(",") // CSV split
-                if (tokens.size > 5) {
-                    val id = tokens[1].trim('"') // Airport code (e.g., KBUR)
-                    val lat = tokens[4].toDoubleOrNull() ?: return@forEach
-                    val lng = tokens[5].toDoubleOrNull() ?: return@forEach
-                    airportMap[id] = LatLng(lat, lng) // Store in map
-                }
-            }
-        }
-    }*/
 }
 
 abstract class BaseTileProvider(

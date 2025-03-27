@@ -1,10 +1,12 @@
 package com.airportweather.map
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import android.os.Environment
 import android.util.Log
 import android.view.View
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -14,7 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -24,6 +25,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -41,6 +43,13 @@ class DownloadActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         adapter = SectionalAdapter(sectionalList, this)
         recyclerView.adapter = adapter
+
+        // Wire up DB download button
+        findViewById<Button>(R.id.downloadDbButton).setOnClickListener {
+            lifecycleScope.launch {
+                syncAirportDatabases()
+            }
+        }
 
         loadSectionalList()
     }
@@ -79,11 +88,9 @@ class DownloadActivity : AppCompatActivity() {
                 // ✅ Process Sectionals, Adding Terminal Info if Available
                 for ((name, sectionalObj) in sectionalMap) {
                     val fileName = sectionalObj.getString("fileName")
-//                    val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloat()
                     val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
 
                     val terminalObj = terminalMap[name]
-//                    val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull() ?: 0f
                     val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt() ?: 0
                     val totalSize = sectionalSize + terminalSize
 
@@ -163,7 +170,6 @@ class DownloadActivity : AppCompatActivity() {
             }
         }
     }
-
     @SuppressLint("MutatingSharedPrefs")
     private fun markSectionalAsInstalled(fileName: String) {
         val prefs = getSharedPreferences("installed_sectionals", MODE_PRIVATE)
@@ -176,8 +182,6 @@ class DownloadActivity : AppCompatActivity() {
 
         Log.d("INSTALL_MARK", "Updated installed list: $installedSet")
     }
-
-
     private fun getDownloadStorageDir(): File {
         return getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
     }
@@ -264,7 +268,6 @@ class DownloadActivity : AppCompatActivity() {
             }
         }
     }
-
     @SuppressLint("NotifyDataSetChanged")
     fun downloadSectional(
         chart: SectionalChart,
@@ -369,5 +372,148 @@ class DownloadActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    // Download airport databases
+    private suspend fun syncAirportDatabases() {
+        val dbKeys = getDatabaseKeysFromManifest()
+        val prefs = getSharedPreferences("db_versions", MODE_PRIVATE)
+
+        for (key in dbKeys) {
+            val manifest = getDatabaseManifest() ?: continue
+            val dbInfo = manifest.getJSONObject(key)
+            val remoteVersion = dbInfo.getString("version")
+
+            val localVersion = prefs.getString("${key}_version", null)
+
+            if (localVersion == remoteVersion) {
+                Log.d("DBSync", "$key is up to date (version $localVersion)")
+                continue  // No need to re-download
+            }
+
+            Log.d("DBSync", "$key is outdated or missing, downloading...")
+            val downloadSuccess = downloadDatabaseFileFromManifest(key, dbInfo)
+
+            if (downloadSuccess) {
+                prefs.edit()
+                    .putString("${key}_version", remoteVersion)
+                    .putString("${key}_sha256", dbInfo.getString("sha256"))
+                    .apply()
+            } else {
+                Log.e("DBSync", "$key failed to download or verify")
+            }
+        }
+    }
+    private suspend fun getDatabaseManifest(): JSONObject? = withContext(Dispatchers.IO) {
+        try {
+            val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+            val conn = URL(manifestUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connect()
+
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e("DBManifest", "HTTP ${conn.responseCode} while fetching manifest")
+                return@withContext null
+            }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            return@withContext JSONObject(response)
+        } catch (e: Exception) {
+            Log.e("DBManifest", "Error fetching manifest: ${e.message}")
+            null
+        }
+    }
+    private suspend fun getDatabaseKeysFromManifest(): List<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+                val connection = URL(manifestUrl).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connect()
+
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    Log.e("DBManifest", "Failed to fetch manifest: HTTP ${connection.responseCode}")
+                    return@withContext emptyList()
+                }
+
+                val manifestJson = connection.inputStream.bufferedReader().readText()
+                val manifest = JSONObject(manifestJson)
+
+                val keys = mutableListOf<String>()
+                val iterator = manifest.keys()
+                while (iterator.hasNext()) {
+                    keys.add(iterator.next())
+                }
+
+                Log.d("DBManifest", "Found keys: $keys")
+                keys
+            } catch (e: Exception) {
+                Log.e("DBManifest", "Error loading keys: ${e.message}")
+                emptyList()
+            }
+        }
+    }
+    private suspend fun downloadDatabaseFileFromManifest(key: String, dbInfo: JSONObject): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = dbInfo.getString("url")
+                val expectedHash = dbInfo.getString("sha256")
+                val fileName = "$key.db"
+                val dbFile = File(getDatabasePath(fileName).path)
+
+                if (dbFile.exists()) dbFile.delete()
+
+                val success = downloadFile(url, dbFile)
+                if (!success) return@withContext false
+
+                val actualHash = getFileSha256(dbFile)
+                val valid = actualHash == expectedHash
+
+                if (!valid) {
+                    Log.e("DBDownload", "Hash mismatch for $key: expected=$expectedHash actual=$actualHash")
+                    dbFile.delete()
+                }
+
+                return@withContext valid
+            } catch (e: Exception) {
+                Log.e("DBDownload", "Exception while downloading $key: ${e.message}")
+                false
+            }
+        }
+    }
+    private fun downloadFile(url: String, destination: File): Boolean {
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connect()
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                conn.inputStream.use { input ->
+                    destination.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.d("DBDownload", "Downloaded ${destination.name}")
+                true
+            } else {
+                Log.e("DBDownload", "HTTP ${conn.responseCode} for ${destination.name}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("DBDownload", "Failed to download ${destination.name}: ${e.message}")
+            false
+        }
+    }
+    private fun getFileSha256(file: File): String {
+        val buffer = ByteArray(1024)
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            var read = fis.read(buffer)
+            while (read != -1) {
+                digest.update(buffer, 0, read)
+                read = fis.read(buffer)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }

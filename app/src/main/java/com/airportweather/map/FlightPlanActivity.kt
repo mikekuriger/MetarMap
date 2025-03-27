@@ -18,7 +18,7 @@ class FlightPlanActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFlightPlanBinding
     private lateinit var sharedPreferences: SharedPreferences
-    private val airportMap = mutableMapOf<String, Boolean>() // Stores valid airports
+    //private val airportMap = mutableMapOf<String, Boolean>() // Stores valid airports
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -225,20 +225,20 @@ class FlightPlanActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun validateWaypoints(input: String) {
-        val waypoints = input.trim().split("\\s+".toRegex())
-        val invalidWaypoints = waypoints.filter { it.isNotEmpty() && !airportMap.containsKey(it.uppercase()) }
-
-        // ✅ Change text color if any invalid waypoints exist
-        if (invalidWaypoints.isNotEmpty()) {
-            binding.flightPlanEdit.setTextColor(android.graphics.Color.RED)
-        } else {
-            binding.flightPlanEdit.setTextColor(android.graphics.Color.WHITE)
-        }
-
-        // ✅ Update UI for next and final waypoint
-        //binding.nextWaypointName.text = waypoints.firstOrNull()?.uppercase() ?: "N/A"
-        //binding.destText.text = waypoints.lastOrNull()?.uppercase() ?: "N/A"
-    }
+//    private fun validateWaypoints(input: String) {
+//        val waypoints = input.trim().split("\\s+".toRegex())
+//        val invalidWaypoints = waypoints.filter { it.isNotEmpty() && !airportMap.containsKey(it.uppercase()) }
+//
+//        // ✅ Change text color if any invalid waypoints exist
+//        if (invalidWaypoints.isNotEmpty()) {
+//            binding.flightPlanEdit.setTextColor(android.graphics.Color.RED)
+//        } else {
+//            binding.flightPlanEdit.setTextColor(android.graphics.Color.WHITE)
+//        }
+//
+//        // ✅ Update UI for next and final waypoint
+//        //binding.nextWaypointName.text = waypoints.firstOrNull()?.uppercase() ?: "N/A"
+//        //binding.destText.text = waypoints.lastOrNull()?.uppercase() ?: "N/A"
+//    }
 
 }

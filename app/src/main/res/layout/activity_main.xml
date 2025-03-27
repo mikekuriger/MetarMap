@@ -390,16 +390,28 @@
             android:layout_height="match_parent" />
 
         <ImageButton
-            android:id="@+id/custom_center_button"
+            android:id="@+id/flightPlanButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
-            android:layout_marginBottom="50dp"
+            android:layout_marginBottom="185dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_follow"
-            android:contentDescription="center_map" />
+            android:src="@drawable/ic_plane"
+            android:contentDescription="nav display" />
+
+        <ImageButton
+            android:id="@+id/navLogButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="140dp"
+            android:padding="0dp"
+            android:background="@drawable/rounded_bg"
+            android:src="@drawable/ic_compass"
+            android:contentDescription="Nav Log" />
 
         <ImageButton
             android:id="@+id/settingsButton"
@@ -414,16 +426,16 @@
             android:contentDescription="layers" />
 
         <ImageButton
-            android:id="@+id/flightPlanButton"
+            android:id="@+id/custom_center_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
-            android:layout_marginBottom="140dp"
+            android:layout_marginBottom="50dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_plane"
-            android:contentDescription="flight plan" />
+            android:src="@drawable/ic_follow"
+            android:contentDescription="center_map" />
 
         <!-- data row for testing -->
         <TextView
