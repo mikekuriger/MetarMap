@@ -5,7 +5,7 @@ data class NavLogLeg(
     val to: String,
     val distanceNM: Double,
     val trueCourse: Int,
-    val variation: Int,
+    val variation: Double,
     val magneticCourse: Int,
     val cruisingAltitude: Int,
     val tas: Int,
@@ -14,6 +14,6 @@ data class NavLogLeg(
     val fuelUsed: Double,
     val windDirection: Int,
     val windSpeed: Int,
-    val wca: Int,
+    //val wca: Int,
     val temp: Int
 )

@@ -85,6 +85,7 @@ import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.navigation.NavigationView
 import java.security.MessageDigest
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -619,8 +620,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var sectionalOverlay: TileOverlay? = null
     private var terminalOverlay: TileOverlay? = null
     private var lastKnownUserLocation: LatLng? = null
-//    private val airportMap = mutableMapOf<String, LatLng>()
-//    private val airportMagVarMap: MutableMap<String, Double> = mutableMapOf()
     private val activeSpeed = 10
     private val plannedAirSpeed = 95 // make editable in the UI
     private var showVersion = true
@@ -659,7 +658,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     // print out saved prefs
     fun prefsDump() {
-        val prefNames = listOf("MapSettings", "AppPrefs", "WAYPOINTS", "SavedLocation", "db_versions")
+        val prefNames = listOf("FlightPlanPrefs", "MapSettings", "AppPrefs", "SavedLocation", "db_versions")
         for (name in prefNames) {
             val prefs = getSharedPreferences(name, MODE_PRIVATE)
             for ((key, value) in prefs.all) {
@@ -1072,24 +1071,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val info = dbHelper.getAirportInfo(airportId)
         val magVar = info?.magVar ?: 0.0
 
-        bearing -= magVar
+        // magVar is negative if east, positive if west - calculated in AirportDatabaseHelper
+        bearing += magVar
         return (bearing + 360) % 360
     }
-
-    /*fun calculateBearing(currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
-        val lat1 = Math.toRadians(currentLocation.latitude)
-        val lon1 = Math.toRadians(currentLocation.longitude)
-        val lat2 = Math.toRadians(nextWaypoint.latitude)
-        val lon2 = Math.toRadians(nextWaypoint.longitude)
-        val deltaLon = lon2 - lon1
-        val y = sin(deltaLon) * cos(lat2)
-        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
-        var bearing = Math.toDegrees(atan2(y, x))
-        // ✅ Add/Subtract magnetic variation (default to 0 if missing)
-        val magVar = airportMagVarMap[airportId] ?: 0.0
-        bearing -= magVar
-        return (bearing + 360) % 360  // Normalize to 0-360°
-    }*/
     fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
         val R = 3440.065  // Earth radius in nautical miles
         val lat1 = Math.toRadians(currentLocation.latitude)
@@ -1140,33 +1125,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return totalDistance
     }
 
-    // old function with CSV file
-    /*fun calculateTotalDistance(waypoints: List<String>): Double {
-        var totalDistance = 0.0
-
-        for (i in 0 until waypoints.size - 1) {
-            val from = airportMap[waypoints[i].uppercase()]
-            val to = airportMap[waypoints[i + 1].uppercase()]
-
-            if (from != null && to != null) {
-                totalDistance += calculateDistance(from, to)
-            }
-        }
-        return totalDistance
-    }*/
-
-    fun calculateTotalETA(totalDistance: Double, groundSpeedKnots: Double): String {
-        if (groundSpeedKnots <= 0) return "--:--" // Prevent divide by zero
-
-        val etaMinutes = (totalDistance / groundSpeedKnots) * 60
-        val hours = etaMinutes.toInt() / 60
-        val minutes = etaMinutes.toInt() % 60
-
-        return String.format("%02d:%02d", hours, minutes)
-    }
-
     fun updateFlightInfo(data: FlightData) {
-        Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
+/*        Log.i("updateFlightInfo", "wpLocation: ${data.wpLocation}")
         Log.i("updateFlightInfo", "wayPoints: ${data.waypoints}")
         Log.i("updateFlightInfo", "track: ${data.track}")
         Log.i("updateFlightInfo", "groundSpeed: ${data.groundSpeed}")
@@ -1174,7 +1134,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.i("updateFlightInfo", "altitude: ${data.altitude}")
         Log.i("updateFlightInfo", "eta: ${data.eta}")
         Log.i("updateFlightInfo", "bearing: ${data.bearing}")
-        Log.i("updateFlightInfo", "distance: ${data.distance}")
+        Log.i("updateFlightInfo", "distance: ${data.distance}")*/
 
         val isPlanningMode = data.groundSpeed < activeSpeed
         val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE
@@ -1499,17 +1459,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             apply()
         }
         Log.d("MapDebug", "Saved layer: $layerName")
-    }
-
-    private fun saveVisibility(key: String, isChecked: Boolean) {
-        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
-        sharedPrefs.edit().putBoolean(key, isChecked).apply()
-        Log.d("MapDebug", "Saved visibility: $key = $isChecked")
-    }
-
-    private fun loadVisibility(item: String, default: Boolean = true): Boolean {
-        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
-        return sharedPrefs.getBoolean(item, default)
     }
 
     private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
@@ -2386,7 +2335,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         alertDialog.show()
     }
-
     private fun toggleMetarVisibility(visible: Boolean) {
         areMetarsVisible = visible
         metarMarkers.forEach { marker ->
@@ -2394,7 +2342,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
     }
-
     private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
         // Skip calm winds or invalid data
         if (windSpeedKt < 4) return null
@@ -2535,60 +2482,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         terminalOverlay?.clearTileCache() // ✅ Ensures smooth transition
 
         Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
-    }
-    //Flight plan markers
-    @SuppressLint("MissingPermission")
-    private fun updateMapWithWaypoints(waypoints: List<String>) {
-        val dbHelper = AirportDatabaseHelper(this)
-
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            val latLngList = mutableListOf<LatLng>()
-
-            // ✅ Start from user's location if only one waypoint
-            if (waypoints.size == 1 && location != null) {
-                val userLatLng = LatLng(location.latitude, location.longitude)
-                latLngList.add(userLatLng)
-            }
-
-            // ✅ Add all waypoints from the database
-            for (waypoint in waypoints) {
-                val info = dbHelper.getAirportInfo(waypoint)
-                if (info != null) {
-                    latLngList.add(LatLng(info.lat, info.lon))
-                } else {
-                    Log.w("MapUpdate", "No coordinates found for $waypoint")
-                }
-            }
-
-            // ✅ Draw magenta line between waypoints
-            if (latLngList.size > 1) {
-                val polylineOptions = PolylineOptions()
-                    .addAll(latLngList)
-                    .color(Color.argb(255, 16, 16, 240))  // BLUE for planning
-                    .width(20f)
-                    .zIndex(2f)
-                mMap.addPolyline(polylineOptions)
-            }
-
-            // ✅ Adjust camera to show route or fallback to user location
-            if (latLngList.isNotEmpty()) {
-                val boundsBuilder = LatLngBounds.builder()
-                latLngList.forEach { boundsBuilder.include(it) }
-                val bounds = boundsBuilder.build()
-                val padding = 100
-                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
-            } else if (location != null) {
-                val userLatLng = LatLng(location.latitude, location.longitude)
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
-            }
-
-            // ✅ Show flight info layouts
-            val hasMultipleWaypoints = waypoints.size > 1
-            binding.flightInfoLayout.visibility = View.VISIBLE
-            binding.flightInfoLayout2.visibility = if (hasMultipleWaypoints) View.VISIBLE else View.GONE
-            binding.flightInfoLayout.bringToFront()
-            binding.flightInfoLayout.requestLayout()
-        }
     }
     // Download airport databases
     private suspend fun syncAirportDatabases() {
@@ -2732,6 +2625,239 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
+    private fun destinationPoint(start: LatLng, distanceNm: Double, bearingDeg: Double): LatLng {
+        val radiusNm = 3440.065
+        val bearingRad = Math.toRadians(bearingDeg)
+        val lat1 = Math.toRadians(start.latitude)
+        val lon1 = Math.toRadians(start.longitude)
+        val dOverR = distanceNm / radiusNm
+
+        val lat2 = asin(
+            sin(lat1) * cos(dOverR) +
+                    cos(lat1) * sin(dOverR) * cos(bearingRad)
+        )
+        val lon2 = lon1 + atan2(
+            sin(bearingRad) * sin(dOverR) * cos(lat1),
+            cos(dOverR) - sin(lat1) * sin(lat2)
+        )
+
+        return LatLng(Math.toDegrees(lat2), Math.toDegrees(lon2))
+    }
+
+    //Flight plan markers
+    @SuppressLint("MissingPermission")
+    private fun updateMapWithWaypoints(waypoints: List<String>) {
+        val dbHelper = AirportDatabaseHelper(this)
+
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            val latLngList = mutableListOf<LatLng>()
+            val waypointNames = mutableListOf<String>()
+
+            // ✅ Start from user's location if only one waypoint
+            if (waypoints.size == 1 && location != null) {
+                val userLatLng = LatLng(location.latitude, location.longitude)
+                latLngList.add(userLatLng)
+            }
+
+            // ✅ Add all waypoints from the database
+            for (waypoint in waypoints) {
+                val info = dbHelper.getAirportInfo(waypoint)
+                if (info != null) {
+                    latLngList.add(LatLng(info.lat, info.lon))
+                    waypointNames.add(info.icaoId.ifEmpty { info.airportId })
+                } else {
+                    Log.w("MapUpdate", "No coordinates found for $waypoint")
+                }
+            }
+
+            // ✅ Draw magenta line between active waypoints, blue between inactive waypoints
+            for (i in 0 until latLngList.size - 1) {
+                val from = latLngList[i]
+                val to = latLngList[i + 1]
+
+                val legColor = when (i) {
+                    0 -> Color.argb(255, 255, 0, 255) // Magenta for legs
+                    else -> Color.argb(255, 0, 230, 255) // BLUE for planning
+                }
+                val legLine = PolylineOptions()
+                    .add(from, to)
+                    .color(legColor)
+                    .width(20f)
+                    .zIndex(2f)
+
+                val legBorder = PolylineOptions()
+                    .add(from, to)
+                    .color(Color.BLACK)
+                    .width(24f)
+                    .zIndex(1f)
+
+                mMap.addPolyline(legBorder)
+                mMap.addPolyline(legLine)
+            }
+
+            // Draw waypoint names
+            for (i in latLngList.indices) {
+                val position = latLngList[i]
+                val label = waypointNames.getOrNull(i) ?: "WP$i"
+                val labelBitmap = createTextBitmap(
+                    label,
+                    Color.WHITE,
+                    Color.argb(180, 0, 0, 0)
+                ) // white on semi-transparent black
+                mMap.addMarker(
+                    MarkerOptions()
+                        .position(position)
+                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
+                        .anchor(-0.1f, 0.5f) // center and slightly right
+                        .zIndex(3f)
+                )
+            }
+
+            // Extended Runway Centerlines
+            val destination = waypoints.lastOrNull() ?: return@addOnSuccessListener
+            val runways = dbHelper.getRunwaysForAirport(destination)
+            val extensionLengthNm = 5.0  // Or whatever you want
+            for (rwy in runways) {
+                val end1LatLng = LatLng(rwy.end1.lat, rwy.end1.lon)
+                val end2LatLng = LatLng(rwy.end2.lat, rwy.end2.lon)
+
+                val ext2 = destinationPoint(end1LatLng, extensionLengthNm, rwy.end1.heading)
+                val ext1 = destinationPoint(end2LatLng, extensionLengthNm, rwy.end2.heading)
+
+                // draw runway
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end1LatLng, end2LatLng)
+                        .color(Color.WHITE)
+                        .width(20f)
+                        .zIndex(3f)
+                )
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end1LatLng, end2LatLng)
+                        .color(Color.BLACK)
+                        .width(10f)
+                        .zIndex(3.1f)
+                )
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end1LatLng, end2LatLng)
+                        .color(Color.WHITE)
+                        .width(5f)
+                        .zIndex(3.2f)
+                )
+
+                // draw extended centerline #1
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end1LatLng, ext1)
+                        .color(Color.WHITE)
+                        .width(20f)
+                        .zIndex(3f)
+                )
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end1LatLng, ext1)
+                        .color(Color.BLACK)
+                        .width(10f)
+                        .zIndex(3.1f)
+                )
+
+                // draw extended centerline #2
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end2LatLng, ext2)
+                        .color(Color.WHITE)
+                        .width(20f)
+                        .zIndex(3f)
+                )
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .add(end2LatLng, ext2)
+                        .color(Color.BLACK)
+                        .width(10f)
+                        .zIndex(3.1f)
+                )
+
+                // Optionally label the runway ends
+                val offsetNm1 = when (rwy.end1.endId.lastOrNull()) {
+                    'L' -> 0.5
+                    'R' -> -0.5
+                    'C' -> 0.0
+                    else -> 0.15
+                }
+                val labelPos1 = destinationPoint(
+                    ext1,
+                    offsetNm1,
+                    (rwy.end1.heading + 180 + 90) % 360  // approach direction + right
+                )
+                val labelBitmap1 = if (rwy.end1.rhtp == "Y") {
+                    createTextBitmap("${rwy.end1.endId} ⤵", Color.WHITE, Color.RED)
+                } else {
+                    createTextBitmap(rwy.end1.endId, Color.WHITE, Color.BLACK)
+                }
+                mMap.addMarker(
+                    MarkerOptions()
+                        .position(labelPos1)
+                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap1))
+                        .anchor(0.5f, 0.5f)
+                        //.rotation(((rwy.end1.heading + 90) % 360).toFloat())  // align with approach
+                        .flat(true)
+                        .zIndex(6f)
+                )
+
+                //end2
+
+                val offsetNm2 = when (rwy.end2.endId.lastOrNull()) {
+                    'L' -> 0.5
+                    'R' -> -0.5
+                    'C' -> 0.0
+                    else -> 0.15
+                }
+                val labelPos2 = destinationPoint(
+                    ext2,
+                    offsetNm2,
+                    (rwy.end2.heading + 180 + 90) % 360  // approach direction + right
+                )
+                val labelBitmap2 = if (rwy.end2.rhtp == "Y") {
+                    createTextBitmap("${rwy.end2.endId} ⤵", Color.WHITE, Color.RED)
+                } else {
+                    createTextBitmap(rwy.end2.endId, Color.WHITE, Color.BLACK)
+                }
+
+                mMap.addMarker(
+                    MarkerOptions()
+                        .position(labelPos2)
+                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap2))
+                        .anchor(0.5f, 0.5f)
+                        //.rotation(((rwy.end2.heading + 90) % 360).toFloat())  // align with approach
+                        .flat(true)
+                        .zIndex(6f)
+                )
+            }
+
+
+            // ✅ Adjust camera to show route or fallback to user location
+            if (latLngList.isNotEmpty()) {
+                val boundsBuilder = LatLngBounds.builder()
+                latLngList.forEach { boundsBuilder.include(it) }
+                val bounds = boundsBuilder.build()
+                val padding = 100
+                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+            } else if (location != null) {
+                val userLatLng = LatLng(location.latitude, location.longitude)
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
+            }
+
+            // ✅ Show flight info layouts
+            val hasMultipleWaypoints = waypoints.size > 1
+            binding.flightInfoLayout.visibility = View.VISIBLE
+            binding.flightInfoLayout2.visibility = if (hasMultipleWaypoints) View.VISIBLE else View.GONE
+            binding.flightInfoLayout.bringToFront()
+            binding.flightInfoLayout.requestLayout()
+        }
+    }
+
 }
 
 abstract class BaseTileProvider(

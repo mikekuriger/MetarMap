@@ -18,7 +18,6 @@ class FlightPlanActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFlightPlanBinding
     private lateinit var sharedPreferences: SharedPreferences
-    //private val airportMap = mutableMapOf<String, Boolean>() // Stores valid airports
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,6 +95,19 @@ class FlightPlanActivity : AppCompatActivity() {
 
 
         // BUTTONS
+
+        // ✅ When "Reverse Flight Plan" button is clicked
+        binding.reverseFlightPlanButton.setOnClickListener {
+            val currentPlan = binding.flightPlanEdit.text.toString().trim()
+            if (currentPlan.isEmpty()) return@setOnClickListener
+
+            val reversedPlan = currentPlan
+                .split(Regex("\\s+"))     // split by any whitespace
+                .reversed()               // reverse the list
+                .joinToString(" ")        // join back to a string
+
+            binding.flightPlanEdit.setText(reversedPlan)
+        }
 
         // ✅ When "Load Flight Plan" button is clicked, load saved flight plan
         binding.loadFlightPlanButton.setOnClickListener {
@@ -224,21 +236,4 @@ class FlightPlanActivity : AppCompatActivity() {
         intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
         startActivity(intent)
     }
-
-//    private fun validateWaypoints(input: String) {
-//        val waypoints = input.trim().split("\\s+".toRegex())
-//        val invalidWaypoints = waypoints.filter { it.isNotEmpty() && !airportMap.containsKey(it.uppercase()) }
-//
-//        // ✅ Change text color if any invalid waypoints exist
-//        if (invalidWaypoints.isNotEmpty()) {
-//            binding.flightPlanEdit.setTextColor(android.graphics.Color.RED)
-//        } else {
-//            binding.flightPlanEdit.setTextColor(android.graphics.Color.WHITE)
-//        }
-//
-//        // ✅ Update UI for next and final waypoint
-//        //binding.nextWaypointName.text = waypoints.firstOrNull()?.uppercase() ?: "N/A"
-//        //binding.destText.text = waypoints.lastOrNull()?.uppercase() ?: "N/A"
-//    }
-
 }

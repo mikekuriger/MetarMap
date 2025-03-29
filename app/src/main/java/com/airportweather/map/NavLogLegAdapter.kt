@@ -7,43 +7,37 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 class NavLogLegAdapter(private val legs: List<NavLogLeg>) :
-    RecyclerView.Adapter<NavLogLegAdapter.NavLogViewHolder>() {
+    RecyclerView.Adapter<NavLogLegAdapter.LegViewHolder>() {
 
-    class NavLogViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val title: TextView = view.findViewById(R.id.legTitle)
-        val distance: TextView = view.findViewById(R.id.legDistance)
-        val course: TextView = view.findViewById(R.id.legCourse)
-        val altitude: TextView = view.findViewById(R.id.legAltitude)
-        val tas: TextView = view.findViewById(R.id.legTAS)
-        val gs: TextView = view.findViewById(R.id.legGroundspeed)
-        val ete: TextView = view.findViewById(R.id.legETE)
-        val windspeed: TextView = view.findViewById(R.id.legWindSpeed)
-        val winddirection: TextView = view.findViewById(R.id.legWindDirection)
-        val wca: TextView = view.findViewById(R.id.legWCA)
-        val temp: TextView = view.findViewById(R.id.legTemp)
-        val fuel: TextView = view.findViewById(R.id.legFuel)
+    class LegViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val from: TextView = view.findViewById(R.id.fromWaypoint)
+        //val to: TextView = view.findViewById(R.id.toWaypoint)
+        val distance: TextView = view.findViewById(R.id.distance)
+        val altitude: TextView = view.findViewById(R.id.altitude)
+        val tas: TextView = view.findViewById(R.id.tas)
+        val gs: TextView = view.findViewById(R.id.gs)
+        val ete: TextView = view.findViewById(R.id.ete)
+        val fuelUsed: TextView = view.findViewById(R.id.fuelUsed)
+        val magneticCourse: TextView = view.findViewById(R.id.magneticCourse)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NavLogViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LegViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_nav_leg, parent, false)
-        return NavLogViewHolder(view)
+            .inflate(R.layout.item_navlog_leg, parent, false)
+        return LegViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: NavLogViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: LegViewHolder, position: Int) {
         val leg = legs[position]
-        holder.title.text = "Leg ${position + 1}: ${leg.from} → ${leg.to}"
-        holder.distance.text = "Distance: ${leg.distanceNM}NM"
-        holder.course.text = "Course: TC ${leg.trueCourse}°, MC ${leg.magneticCourse}°"
-        holder.altitude.text = "Altitude: ${leg.cruisingAltitude}ft"
-        holder.tas.text = "TAS: ${leg.tas}kt"
-        holder.gs.text = "Groundspeed: ${leg.groundspeed}kt"
-        holder.ete.text = "ETE: ${leg.ete}"
-        holder.windspeed.text = "Wind Speed: ${leg.windSpeed} kt"
-        holder.winddirection.text = "Wind Direction: ${leg.windDirection}°"
-        holder.wca.text = "Wind Correction: ${leg.wca}°"
-        holder.temp.text = "Temp: ${leg.temp}°"
-        holder.fuel.text = "Fuel used: ${leg.fuelUsed} gal"
+        holder.from.text = leg.from + " → " + leg.to
+        //holder.to.text = leg.to
+        holder.distance.text = leg.distanceNM.toString()
+        holder.altitude.text = leg.cruisingAltitude.toString()
+        holder.tas.text = leg.tas.toString()
+        holder.gs.text = leg.groundspeed.toString()
+        holder.ete.text = leg.ete
+        holder.fuelUsed.text = leg.fuelUsed.toString()
+        holder.magneticCourse.text = leg.magneticCourse.toString()
     }
 
     override fun getItemCount(): Int = legs.size

@@ -11,3 +11,17 @@ data class AirportInfo(
     val elev: Double,
     val magVar: Double
 )
+
+data class RunwayEnd(
+    val endId: String,
+    val heading: Double,
+    val lat: Double,
+    val lon: Double,
+    val rhtp: String
+)
+
+data class Runway(
+    val runwayId: String,
+    val end1: RunwayEnd,
+    val end2: RunwayEnd
+)

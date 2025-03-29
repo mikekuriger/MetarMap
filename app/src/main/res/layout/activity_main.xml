@@ -410,7 +410,7 @@
             android:layout_marginBottom="140dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_compass"
+            android:src="@drawable/ic_compass2"
             android:contentDescription="Nav Log" />
 
         <ImageButton
@@ -422,7 +422,7 @@
             android:layout_marginBottom="95dp"
             android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_settings"
+            android:src="@drawable/ic_settings3"
             android:contentDescription="layers" />
 
         <ImageButton
