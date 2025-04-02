@@ -200,21 +200,21 @@ class FlightPlanActivity : AppCompatActivity() {
         val currentFlightPlan = sharedPreferences.getString("WAYPOINTS", "")
         binding.flightPlanEdit.setText(currentFlightPlan)
         if (currentFlightPlan != null) {
-            if (!currentFlightPlan.isEmpty()) {
+            if (currentFlightPlan.isNotEmpty()) {
                 binding.activateFlightPlanButton.text = "Activate"
             }
         }
     }
 
     // saved flight plans
-    fun deleteNamedFlightPlan(name: String) {
+    private fun deleteNamedFlightPlan(name: String) {
         val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
         val plans = prefs.getStringSet("SAVED_FLIGHT_PLANS", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
         plans.removeIf { it.startsWith("$name|") }
         prefs.edit().putStringSet("SAVED_FLIGHT_PLANS", plans).apply()
     }
 
-    fun saveNamedFlightPlan(name: String, flightPlan: String) {
+    private fun saveNamedFlightPlan(name: String, flightPlan: String) {
         val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
         val allPlans = prefs.getStringSet("SAVED_FLIGHT_PLANS", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
         allPlans.removeIf { it.startsWith("$name|") }
@@ -222,7 +222,7 @@ class FlightPlanActivity : AppCompatActivity() {
         prefs.edit().putStringSet("SAVED_FLIGHT_PLANS", allPlans).apply()
     }
 
-    fun loadAllFlightPlans(): List<Pair<String, String>> {
+    private fun loadAllFlightPlans(): List<Pair<String, String>> {
         val prefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
         return prefs.getStringSet("SAVED_FLIGHT_PLANS", emptySet())?.mapNotNull {
             val parts = it.split("|", limit = 2)

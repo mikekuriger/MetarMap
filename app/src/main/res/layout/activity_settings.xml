@@ -91,6 +91,12 @@
             android:layout_height="wrap_content"
             android:text="Show GPS Signal Strength" />
 
+        <CheckBox
+            android:id="@+id/toggle_traffic_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show Traffic" />
+
 <!--        <TextView-->
 <!--            android:id="@+id/uiText"-->
 <!--            android:layout_width="match_parent"-->

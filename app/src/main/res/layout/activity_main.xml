@@ -390,6 +390,18 @@
             android:layout_height="match_parent" />
 
         <ImageButton
+            android:id="@+id/stratuxButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="230dp"
+            android:padding="0dp"
+            android:background="@drawable/rounded_bg"
+            android:src="@drawable/ic_stratux"
+            android:contentDescription="nav display" />
+
+        <ImageButton
             android:id="@+id/flightPlanButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
@@ -498,7 +510,7 @@
 
         </FrameLayout>
 
-        <!-- Buttons Container -->
+        <!-- Bottom Buttons Container -->
         <LinearLayout
             android:id="@+id/button_container"
             style="?android:attr/buttonBarStyle"
