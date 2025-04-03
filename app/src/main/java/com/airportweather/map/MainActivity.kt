@@ -685,6 +685,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             handler.postDelayed(this, 1000)  // keep looping every second
         }
     }
+    private val pruneHandler = Handler(Looper.getMainLooper())
+    private val pruneRunnable = object : Runnable {
+        override fun run() {
+            pruneStaleAircraft()
+            pruneHandler.postDelayed(this, 5000)  // run every 5 seconds
+        }
+    }
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -919,14 +926,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // prune aircraft that are gone
-        val handler = Handler(Looper.getMainLooper())
-        val pruneRunnable = object : Runnable {
-            override fun run() {
-                pruneStaleAircraft()
-                handler.postDelayed(this, 5000)  // run every 5 seconds
-            }
-        }
-        handler.post(pruneRunnable)
+        pruneHandler.post(pruneRunnable)
 
     }
     // end of onCreate
@@ -939,6 +939,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     override fun onDestroy() {
+        pruneHandler.removeCallbacks(pruneRunnable)
         super.onDestroy()
         StratuxManager.disconnectAll()
     }
@@ -1028,6 +1029,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                             StratuxManager.connectToTraffic { target ->
                                 if (!isTrafficEnabled) return@connectToTraffic
                                 runOnUiThread {
+                                    trafficMap[target.hex] = target
                                     lastKnownUserLocation?.let { loc ->
                                         updateAircraftMarker(target, loc)
                                     }
@@ -2825,7 +2827,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
     private fun pruneStaleAircraft() {
         val cutoff = System.currentTimeMillis() - 30_000  // 30 seconds stale
+        val allTargets = trafficMap
         val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
+
+        if (DEBUG_LOGGING_ENABLED) {
+            Log.d("TrafficPrune", "Total aircraft: ${allTargets.size}")
+            Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
+
+            staleTargets.forEach { (hex, target) ->
+                Log.d("TrafficPrune", "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+            }
+
+            allTargets.forEach { (hex, target) ->
+                Log.d("TrafficPrune", "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+            }
+        }
 
         for ((hex, _) in staleTargets) {
             aircraftMarkers[hex]?.remove()
@@ -2837,11 +2853,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             aircraftLabelsBottom.remove(hex)
             trafficMap.remove(hex)
         }
-
-        if (DEBUG_LOGGING_ENABLED && staleTargets.isNotEmpty()) {
-            Log.d("TrafficPrune", "Removed ${staleTargets.size} stale aircraft")
-        }
     }
+
 
 
     private fun vectorToBitmap(context: Context, vectorResId: Int): BitmapDescriptor {

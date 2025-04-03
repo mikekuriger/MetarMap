@@ -11,11 +11,8 @@ import java.math.RoundingMode
 object StratuxManager {
 
     private val client = OkHttpClient()
-
     private var gpsSocket: WebSocket? = null
     private var trafficSocket: WebSocket? = null
-
-
 
     // === GPS ===
     fun connectToGps(onUpdate: (GpsData) -> Unit) {
@@ -51,13 +48,11 @@ object StratuxManager {
             }
         })
     }
-
-    private fun reconnectGps(onUpdate: (GpsData) -> Unit) {
+    fun reconnectGps(onUpdate: (GpsData) -> Unit) {
         Handler(Looper.getMainLooper()).postDelayed({
             connectToGps(onUpdate)
         }, 2000)
     }
-
     fun disconnectGps() {
         gpsSocket?.close(1000, "User exit")
         gpsSocket = null
@@ -66,9 +61,7 @@ object StratuxManager {
     // === TRAFFIC ===
     private val trafficSubscribers = mutableListOf<(TrafficTarget) -> Unit>()
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
-
     private var trafficConnected = false
-
     fun connectToTraffic(onUpdate: (TrafficTarget) -> Unit) {
         trafficSubscribers += onUpdate
 
@@ -142,15 +135,12 @@ object StratuxManager {
             }
         })
     }
-
-    private fun reconnectTraffic(onUpdate: (TrafficTarget) -> Unit) {
+    fun reconnectTraffic(onUpdate: (TrafficTarget) -> Unit) {
         Handler(Looper.getMainLooper()).postDelayed({
             connectToTraffic(onUpdate)
         }, 2000)
     }
-
     fun getAllTraffic(): List<TrafficTarget> = trafficMap.values.toList()
-
     fun disconnectTraffic() {
         trafficSocket?.close(1000, "User exit")
         trafficSocket = null
