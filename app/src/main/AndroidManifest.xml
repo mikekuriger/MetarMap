@@ -40,6 +40,7 @@
         <activity android:name=".NavLogActivity" />
         <activity android:name=".StratuxActivity" />
         <activity android:name=".StratuxStatusActivity" />
+        <activity android:name=".TracksActivity" />
 
 
         <meta-data

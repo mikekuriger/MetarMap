@@ -390,52 +390,59 @@
             android:layout_height="match_parent" />
 
         <ImageButton
-            android:id="@+id/stratuxButton"
+            android:id="@+id/record_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="275dp"
+            android:background="@drawable/rounded_bg"
+            android:src="@drawable/ic_recording"
+            android:contentDescription="Record Track" />
+
+        <ImageButton
+            android:id="@+id/stratux_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
             android:layout_marginBottom="230dp"
-            android:padding="0dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_stratux"
-            android:contentDescription="nav display" />
+            android:contentDescription="Traffic" />
 
         <ImageButton
-            android:id="@+id/flightPlanButton"
+            android:id="@+id/flight_plan_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
             android:layout_marginBottom="185dp"
-            android:padding="0dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_plane"
-            android:contentDescription="nav display" />
+            android:contentDescription="Flight Instruments" />
 
         <ImageButton
-            android:id="@+id/navLogButton"
+            android:id="@+id/nav_log_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
             android:layout_marginBottom="140dp"
-            android:padding="0dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_compass2"
             android:contentDescription="Nav Log" />
 
         <ImageButton
-            android:id="@+id/settingsButton"
+            android:id="@+id/settings_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
             android:layout_marginBottom="95dp"
-            android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_settings3"
-            android:contentDescription="layers" />
+            android:src="@drawable/ic_settings"
+            android:contentDescription="Settings" />
 
         <ImageButton
             android:id="@+id/custom_center_button"
@@ -444,10 +451,10 @@
             android:layout_gravity="bottom|start"
             android:layout_marginStart="4dp"
             android:layout_marginBottom="50dp"
-            android:padding="0dp"
             android:background="@drawable/rounded_bg"
-            android:src="@drawable/ic_follow"
-            android:contentDescription="center_map" />
+            android:src="@drawable/ic_my_location"
+            android:contentDescription="Center_Map"
+            app:tint="@color/red" />
 
         <!-- data row for testing -->
         <TextView

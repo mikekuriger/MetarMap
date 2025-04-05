@@ -101,6 +101,6 @@ dependencies {
     implementation(libs.material.v190)
     implementation(libs.androidx.cardview)
     implementation(libs.androidx.core.splashscreen)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp)
 
 }

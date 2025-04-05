@@ -3,62 +3,69 @@ package com.airportweather.map
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.location.Location
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import android.view.Gravity
+import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
+import com.airportweather.map.databinding.ActivityMainBinding
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
+import com.google.android.gms.maps.model.Polyline
+import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.gms.maps.model.Tile
 import com.google.android.gms.maps.model.TileOverlay
 import com.google.android.gms.maps.model.TileOverlayOptions
 import com.google.android.gms.maps.model.TileProvider
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-import java.util.zip.GZIPInputStream
-import kotlin.math.exp
-import kotlin.math.pow
-import kotlin.math.roundToInt
+import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -66,31 +73,29 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
 import org.json.JSONArray
 import org.json.JSONObject
-import android.content.Intent
-import android.content.SharedPreferences
-import android.content.res.Configuration
-import android.content.res.Resources
-import android.graphics.drawable.ColorDrawable
-import android.location.Location
-import android.os.Handler
-import android.text.SpannableStringBuilder
-import android.view.Gravity
-import android.view.MenuItem
-import android.view.WindowManager
-import androidx.drawerlayout.widget.DrawerLayout
-import com.airportweather.map.databinding.ActivityMainBinding
-import com.google.android.gms.maps.model.BitmapDescriptor
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.android.gms.maps.model.PolylineOptions
-import com.google.android.material.navigation.NavigationView
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.text.*
 
 
 @Serializable
@@ -633,6 +638,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
     private lateinit var binding: ActivityMainBinding
+    private lateinit var recorder: KMLRecorder
+    private lateinit var trackFileLauncher: ActivityResultLauncher<Intent>
+
     private var areTFRsVisible = true
     private var areAirspacesVisible = true
     private var areMetarsVisible = true
@@ -692,11 +700,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             pruneHandler.postDelayed(this, 5000)  // run every 5 seconds
         }
     }
+    private var lastAltitude: Double? = null
+    private var lastTime: Long? = null
+    private var trackLine: Polyline? = null
+
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
         // const val ACTIVE_SPEED = 10
     }
+// end vars
 
     sealed class MapLayer {
         data object FlightConditions : MapLayer()
@@ -767,6 +780,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // side buttons
+        // recordButton
+        val recordButton = binding.recordButton
+        recordButton.setOnClickListener {
+            if (!recorder.isRecording) {
+                recorder.start()
+                recordButton.setColorFilter(Color.RED)
+                Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
+            } else {
+                recorder.stop()
+                recordButton.setColorFilter(Color.BLACK)
+                Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // ✅ Stratux Button
         val stratuxButton = binding.stratuxButton
         stratuxButton.setOnClickListener {
@@ -802,6 +829,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val settingsButton = binding.settingsButton
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
+            //trackFileLauncher.launch(intent)
             startActivity(intent)
         }
 
@@ -850,22 +878,92 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // enables the map to re-center when user moves his location (traveling)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
+                //Log.d("GPS", "🔥 locationCallback triggered")
+
                 locationResult.lastLocation?.let { location ->
                     val userLatLng = LatLng(location.latitude, location.longitude)
-                    //lastKnownUserLocation = userLatLng
                     lastKnownUserLocation = location
-                    Log.d("LocationUpdate", "User Location: $userLatLng")
+                    //Log.d("GPS", "Location update: ${location.latitude}, ${location.longitude}")
 
-                    // ✅ Only follow the user if they haven't moved the map
+                    // Re-center if following
                     if (isFollowingUser) {
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+                    }
+
+                    // Start Stratux traffic logic (copied from your second block)
+                    isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
+                    if (isTrafficEnabled) {
+                        if (!stratuxStarted) {
+                            stratuxStarted = true
+                            StratuxManager.connectToTraffic { target ->
+                                if (!isTrafficEnabled) return@connectToTraffic
+                                runOnUiThread {
+                                    trafficMap[target.hex] = target
+                                    lastKnownUserLocation?.let { loc ->
+                                        updateAircraftMarker(target, loc)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        stratuxStarted = false
+                        StratuxManager.disconnectTraffic()
+                        aircraftMarkers.values.forEach { it.remove() }
+                        aircraftLabels.values.forEach { it.remove() }
+                        aircraftLabelsBottom.values.forEach { it.remove() }
+                        aircraftMarkers.clear()
+                        aircraftLabels.clear()
+                        aircraftLabelsBottom.clear()
+                        trafficMap.clear()
+                    }
+
+
+                    // ✈️ Auto-recording logic
+                    val currentTime = location.time
+                    val currentAltitude = location.altitude
+                    val speedKnots = location.speed * 1.94384
+
+                    var verticalSpeedFpm = 0.0
+                    if (lastAltitude != null && lastTime != null) {
+                        val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
+                        val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
+                        verticalSpeedFpm = verticalSpeedMps * 196.8504
+                    }
+
+                    lastAltitude = currentAltitude
+                    lastTime = currentTime
+
+                    if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
+                        recorder.start()
+                        recordButton.setColorFilter(Color.RED)
+                        Log.d("KMLRecorder_main", "Takeoff detected")
+                    }
+
+                    if (recorder.isRecording) {
+                        recorder.logLocation(location)
+                    }
+
+                    // commented out so I can test on the ground
+//                    if (recorder.isRecording && speedKnots < 5 && verticalSpeedFpm < 100) {
+//                        recorder.stop()
+//                        recordButton.setColorFilter(Color.BLACK)
+//                        Log.d("KMLRecorder_main", "Landing detected")
+//                    }
+
+                    // Waypoint logic
+                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+                    if (waypoints.isEmpty()) {
+                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
+                        return
+                    } else {
+                        val flightData = calculateFlightData(location, waypoints)
+                        updateFlightInfo(flightData)
                     }
                 }
             }
         }
 
-        // #1
-        Log.d("LocationUpdate", "Function triggered in onCreate")
+        // location updates
         requestLocationUpdates()
 
         //Display VERSION
@@ -891,7 +989,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
 
-        // initialize spinner and adapter
+        // initialize spinner and adapter (for weather choices)
         val layerSpinner = binding.layerSelector
         val adapter = ArrayAdapter.createFromResource(
             this,
@@ -925,9 +1023,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // prune aircraft that are gone
+        // ADSB stratux
+        // prune aircraft that are no longer transmitting
         pruneHandler.post(pruneRunnable)
 
+        //KML Recorder (record gps track)
+        recorder = KMLRecorder(this)
+
+        //KML files (for display)
+        trackFileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val filePath = result.data?.getStringExtra("selectedTrackFile")
+                if (filePath != null) {
+                    val file = File(filePath)
+                    loadTrackFromKml(file)
+                }
+            }
+        }
     }
     // end of onCreate
 
@@ -982,6 +1094,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             R.id.nav_downloads -> startActivity(Intent(this, DownloadActivity::class.java))
             R.id.nav_flightplanning -> startActivity(Intent(this, FlightPlanActivity::class.java))
             R.id.nav_settings -> startActivity(Intent(this, SettingsActivity::class.java))
+            R.id.nav_tracks -> {
+                val intent = Intent(this, TracksActivity::class.java)
+                trackFileLauncher.launch(intent)
+            }
         }
         drawerLayout.closeDrawers() // ✅ Close drawer after selection
         return true
@@ -999,108 +1115,33 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 50).build()
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
             return
         }
 
-        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                locationResult.lastLocation?.let { location ->
-                    // Update last known
-                    lastKnownUserLocation = location
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
 
-                    val userLatLng = LatLng(location.latitude, location.longitude)
-                    Log.d("LocationUpdate", "User Location: $userLatLng")
-
-                    if (isFollowingUser) {
-                        mMap.animateCamera(
-                            CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom)
-                        )
-                    }
-
-                    // ✅ Start Stratux traffic, with location-based altitude
-                    isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
-
-                    if (isTrafficEnabled) {
-                        //Log.w("TrafficToggle", "Traffic is enabled, running connectToTraffic")
-                        if (!stratuxStarted) {
-                            stratuxStarted = true
-                            StratuxManager.connectToTraffic { target ->
-                                if (!isTrafficEnabled) return@connectToTraffic
-                                runOnUiThread {
-                                    trafficMap[target.hex] = target
-                                    lastKnownUserLocation?.let { loc ->
-                                        updateAircraftMarker(target, loc)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        //Log.d("TrafficToggle", "🛩 disconnectTraffic called. Enabled=$isTrafficEnabled, Location=${location?.altitude}" )
-                        stratuxStarted = false
-                        StratuxManager.disconnectTraffic()
-                        aircraftMarkers.values.forEach { it.remove() }
-                        aircraftLabels.values.forEach { it.remove() }
-                        aircraftLabelsBottom.values.forEach { it.remove() }
-                        aircraftMarkers.clear()
-                        aircraftLabels.clear()
-                        aircraftLabelsBottom.clear()
-                        trafficMap.clear()
-                    }
-
-                    // your waypoint logic...
-                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-                    if (waypoints.isEmpty()) {
-                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
-                        return
-                    } else {
-                        val flightData = calculateFlightData(location, waypoints)
-                        updateFlightInfo(flightData)
-                    }
-                }
-            }
-        }, Looper.getMainLooper())
     }
 
-//    private fun requestLocationUpdates() {
-//        Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-//        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 50).build()
-//
-//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
-//            return
-//        }
-//
-//        fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
-//            override fun onLocationResult(locationResult: LocationResult) {
-//                locationResult.lastLocation?.let { location ->
-//                    val userLatLng = LatLng(location.latitude, location.longitude)
-//                    Log.d("LocationUpdate", "User Location: $userLatLng")
-//
-//                    if (isFollowingUser) {
-//                        mMap.animateCamera(
-//                            CameraUpdateFactory.newLatLngZoom(
-//                                userLatLng,
-//                                mMap.cameraPosition.zoom
-//                            )
-//                        )
-//                    }
-//
-//                    // 🔹 Fetch waypoints from intent #1
-//                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-//                    if (waypoints.isEmpty()) {
-//                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
-//                        return
-//                    } else {
-//                        val flightData = calculateFlightData(location, waypoints)
-//                        // 🔹 Send processed data to UI function
-//                        updateFlightInfo(flightData)
-//                    }
-//                }
-//            }
-//        }, Looper.getMainLooper())
-//    }
+    private fun deleteAllTracks(context: Context) {
+        val trackDir = File(context.getExternalFilesDir(null), "tracks")
+        if (trackDir.exists() && trackDir.isDirectory) {
+            val deleted = trackDir.listFiles()?.map { it.delete() } ?: emptyList()
+            Log.d("TrackCleanup", "Deleted ${deleted.count { it }} track files")
+        } else {
+            Log.d("TrackCleanup", "Track directory not found")
+        }
+    }
+
 
     // Handles All Calculations for flight planning (via db)
     private fun calculateFlightData(location: Location, waypoints: List<String>): FlightData {
@@ -1130,7 +1171,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val magVar = airportInfo.magVar
 
         val track = location.bearing.toDouble()
-        val magneticTrack = (track - magVar + 360) % 360
+        //magVar is negative if east, positive if west - calculated in AirportDatabaseHelper
+        val magneticTrack = (track + magVar + 360) % 360 // MagVar1
 
         val bearingWp = calculateBearing(
             this,             // context
@@ -1166,15 +1208,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val deltaLon = lon2 - lon1
         val y = sin(deltaLon) * cos(lat2)
         val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
-        var bearing = Math.toDegrees(atan2(y, x))
+        val bearing = Math.toDegrees(atan2(y, x))
 
         val dbHelper = AirportDatabaseHelper(context)
         val info = dbHelper.getAirportInfo(airportId)
-        val magVar = info?.magVar ?: 0.0
+        val magVar = info?.magVar ?: 0.0  // #2
 
         // magVar is negative if east, positive if west - calculated in AirportDatabaseHelper
-        bearing += magVar
-        return (bearing + 360) % 360
+        return (bearing + magVar + 360) % 360 // MagVar2
     }
     private fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
         val earthRadiusNM = 3440.065
@@ -1196,6 +1237,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             (distanceNM / plannedAirSpeed) * 60
         }
     }
+    @SuppressLint("DefaultLocale")
     private fun formatETA(etaMinutes: Double): String {
         return if (etaMinutes >= 60) {
             val hours = (etaMinutes / 60).toInt()
@@ -1225,6 +1267,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return totalDistance
     }
 
+    @SuppressLint("SetTextI18n")
     private fun updateFlightInfo(data: FlightData) {
         val isPlanningMode = data.groundSpeed < activeSpeed
         val etaColor = if (isPlanningMode) Color.CYAN else Color.WHITE
@@ -1431,6 +1474,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
 
+
+        // Draw track line
+        updateMapWithTrack()
+
         // **Load Metars**
         loadAndDrawMetar()
         // ** refresh weather data
@@ -1466,8 +1513,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (::mMap.isInitialized) {
             checkLocationPermission()
         }
+
         hideBottomProgressBar()
     }
+    // End onMapReady
 
     private fun checkLocationPermission() {
         if (!::mMap.isInitialized) return
@@ -2870,6 +2919,52 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
+    //Track Line
+    private fun updateMapWithTrack() {
+        val path = recorder.getLatLngPath()
+        trackLine?.remove()
+        trackLine = mMap.addPolyline(
+            PolylineOptions()
+                .addAll(path)
+                .width(5f)
+                .color(Color.RED)
+        )
+    }
+
+    // draw track lines
+    private fun loadTrackFromKml(file: File) {
+        val path = mutableListOf<LatLng>()
+        try {
+            file.forEachLine { line ->
+                Log.d("KMLLine", line)
+
+                if (line.contains(",") && line.trim().split(",").size == 3) {
+                    val parts = line.trim().split(",")
+                    val lon = parts[0].toDoubleOrNull()
+                    val lat = parts[1].toDoubleOrNull()
+                    if (lat != null && lon != null) {
+                        path.add(LatLng(lat, lon))
+                    }
+                }
+            }
+            if (path.isNotEmpty()) {
+                mMap.addPolyline(
+                    PolylineOptions()
+                        .addAll(path)
+                        .width(10f)
+                        .color(Color.GREEN)
+                )
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(path.first(), 10f))
+            } else {
+                Toast.makeText(this, "No track data found.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Failed to load track.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
     //Flight plan markers
     @SuppressLint("MissingPermission")
     private fun updateMapWithWaypoints(waypoints: List<String>) {
@@ -3178,7 +3273,7 @@ class SectionalTileProvider(context: Context) : BaseTileProvider(
 
             // ✅ Load Sectional tiles (zoom 8-12)
             zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
-            zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
+            //zoom in 8..12 && checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, sectionalFile)
 
             else -> null // No tile available
         }
@@ -3194,7 +3289,7 @@ class TerminalTileProvider(context: Context) : BaseTileProvider(
         val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
         return when {
             terminalFile.exists() -> loadTileFromFile(terminalFile)
-            checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
+            //checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, terminalFile)
             else -> null // No tile available
         }
     }

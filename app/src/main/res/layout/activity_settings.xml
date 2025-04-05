@@ -25,6 +25,7 @@
 
         <TextView
             android:id="@+id/flightPlanningText"
+            android:visibility="gone"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="10dp"
@@ -35,12 +36,14 @@
 
         <CheckBox
             android:id="@+id/settingsSpeedKT"
+            android:visibility="gone"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Display Speed in MPH" />
 
         <CheckBox
             android:id="@+id/settingsDistanceMI"
+            android:visibility="gone"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Display Distance in Statute Miles" />
@@ -59,7 +62,7 @@
             android:padding="10dp"
             android:textStyle="bold"
             android:textSize="20dp"
-            android:text="Map Layers" />
+            android:text="Map Features" />
 
         <CheckBox
             android:id="@+id/toggle_airspace_button"
@@ -97,6 +100,13 @@
             android:layout_height="wrap_content"
             android:text="Show Traffic" />
 
+        <CheckBox
+            android:id="@+id/toggle_auto_record"
+            android:checked="true"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto Record Flight Tracks" />
+
 <!--        <TextView-->
 <!--            android:id="@+id/uiText"-->
 <!--            android:layout_width="match_parent"-->
@@ -112,6 +122,9 @@
 <!--            android:layout_height="wrap_content"-->
 <!--            android:text="Show Flight Plan Button" />-->
 
+
+        <!-- the rest is not used yet -->
+
         <TextView
             android:id="@+id/settingsButtons"
             android:layout_width="match_parent"
@@ -119,12 +132,13 @@
             android:padding="10dp"
             android:textStyle="bold"
             android:textSize="20dp"
-            android:text="Aircraft" />
+            android:text="Aircraft Specifications" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -152,6 +166,7 @@
 
     <Button
         android:id="@+id/addAircraftButton"
+        android:visibility="gone"
         android:layout_width="150dp"
         android:layout_height="wrap_content"
         android:text="Add Aircraft" />
