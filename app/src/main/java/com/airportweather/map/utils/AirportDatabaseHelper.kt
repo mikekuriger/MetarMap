@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 
 class AirportDatabaseHelper(context: Context) :
+//    SQLiteOpenHelper(context, "faa_airports.db", null, 1) {
     SQLiteOpenHelper(context, "faa_airports.db", null, 1) {
 
     override fun onCreate(db: SQLiteDatabase?) {} // Not needed if you're using a prebuilt DB
