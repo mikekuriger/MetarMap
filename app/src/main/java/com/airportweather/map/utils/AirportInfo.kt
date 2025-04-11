@@ -1,4 +1,4 @@
-package com.airportweather.map
+package com.airportweather.map.utils
 
 data class AirportInfo(
     val airportId: String,

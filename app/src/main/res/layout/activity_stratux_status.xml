@@ -5,13 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/trafficRecycler"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingBottom="4dp" />
-
     <TextView
         android:id="@+id/gpsText"
         android:layout_width="match_parent"
@@ -19,6 +12,13 @@
         android:text="GPS Loading..."
         android:textSize="8sp"
         android:paddingBottom="12dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/trafficRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingBottom="0dp" />
 
     <TextView
         android:id="@+id/weatherText"

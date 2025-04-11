@@ -382,12 +382,24 @@
         </LinearLayout>
 
         <!-- Side Buttons -->
-        <!-- Custom Center-Map Button -->
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/map"
             android:name="com.google.android.gms.maps.SupportMapFragment"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+
+        <ImageView
+            android:id="@+id/gpsStatusIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="4dp"
+            android:layout_marginBottom="320dp"
+            android:background="@drawable/rounded_bg"
+            android:contentDescription="TODO"
+            android:visibility="gone"
+            android:src="@android:drawable/ic_menu_mylocation"
+            app:tint="@android:color/holo_red_dark" />
 
         <ImageButton
             android:id="@+id/record_button"
@@ -409,7 +421,7 @@
             android:layout_marginBottom="230dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_stratux"
-            android:contentDescription="Traffic" />
+            android:contentDescription="Stratux" />
 
         <ImageButton
             android:id="@+id/flight_plan_button"
@@ -481,30 +493,33 @@
             app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Progress Overlay -->
+
+        <!-- Bottom Buttons Container -->
         <FrameLayout
             android:id="@+id/progress_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#80000000"
-            android:visibility="gone">
+            android:visibility="visible">
+            <!--            android:background="#00000000"-->
+
 
             <LinearLayout
                 android:id="@+id/progress_bottom_bar"
                 android:layout_width="match_parent"
                 android:layout_height="20dp"
                 android:layout_gravity="bottom"
-                android:orientation="horizontal"
                 android:layout_marginBottom="44dp"
-                android:padding="0dp"
                 android:background="@android:color/holo_blue_dark"
+                android:orientation="horizontal"
+                android:padding="0dp"
                 android:visibility="gone">
 
                 <ProgressBar
                     android:id="@+id/progress_spinner"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:indeterminate="true"
-                    android:layout_marginEnd="8dp" />
+                    android:layout_marginEnd="8dp"
+                    android:indeterminate="true" />
 
                 <TextView
                     android:id="@+id/progress_message_bottom"
@@ -517,7 +532,6 @@
 
         </FrameLayout>
 
-        <!-- Bottom Buttons Container -->
         <LinearLayout
             android:id="@+id/button_container"
             style="?android:attr/buttonBarStyle"

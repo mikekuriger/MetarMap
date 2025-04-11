@@ -1,7 +1,6 @@
 
-package com.airportweather.utils
+package com.airportweather.map.utils
 
-import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log

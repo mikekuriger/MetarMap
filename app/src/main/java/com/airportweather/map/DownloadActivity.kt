@@ -25,9 +25,9 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import com.airportweather.map.utils.DatabaseSyncUtils
 
 class DownloadActivity : AppCompatActivity() {
 
@@ -47,7 +47,10 @@ class DownloadActivity : AppCompatActivity() {
         // Wire up DB download button
         findViewById<Button>(R.id.downloadDbButton).setOnClickListener {
             lifecycleScope.launch {
-                syncAirportDatabases()
+                //syncAirportDatabases()
+                lifecycleScope.launch {
+                    DatabaseSyncUtils.syncAirportDatabases(this@DownloadActivity, getSharedPreferences("db_versions", MODE_PRIVATE))
+                }
             }
         }
 
@@ -88,10 +91,14 @@ class DownloadActivity : AppCompatActivity() {
                 // ✅ Process Sectionals, Adding Terminal Info if Available
                 for ((name, sectionalObj) in sectionalMap) {
                     val fileName = sectionalObj.getString("fileName")
-                    val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
+                    val sectionalSize =
+                        sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt()
+                            ?: 0
 
                     val terminalObj = terminalMap[name]
-                    val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt() ?: 0
+                    val terminalSize =
+                        terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt()
+                            ?: 0
                     val totalSize = sectionalSize + terminalSize
 
                     val chartType = when {
@@ -170,24 +177,29 @@ class DownloadActivity : AppCompatActivity() {
             }
         }
     }
+
     @SuppressLint("MutatingSharedPrefs")
     private fun markSectionalAsInstalled(fileName: String) {
         val prefs = getSharedPreferences("installed_sectionals", MODE_PRIVATE)
 
         // ✅ Always create a NEW mutable set instead of modifying the reference
-        val installedSet = prefs.getStringSet("sectionals", emptySet())?.toMutableSet() ?: mutableSetOf()
+        val installedSet =
+            prefs.getStringSet("sectionals", emptySet())?.toMutableSet() ?: mutableSetOf()
         installedSet.add(fileName)
 
         prefs.edit().putStringSet("sectionals", installedSet).apply()
 
         Log.d("INSTALL_MARK", "Updated installed list: $installedSet")
     }
+
     private fun getDownloadStorageDir(): File {
         return getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
     }
+
     private fun getTileStorageDir(localFolder: String): File {
         return File(filesDir, "tiles/$localFolder")
     }
+
     private fun unzipFile(zipFile: File, targetDirectory: File) {
         Log.d(
             "Unzip",
@@ -235,6 +247,7 @@ class DownloadActivity : AppCompatActivity() {
             Log.e("Unzip", "Error during extraction", e)
         }
     }
+
     private suspend fun downloadChart(
         url: String,
         file: File,
@@ -262,12 +275,15 @@ class DownloadActivity : AppCompatActivity() {
                     totalBytesRead += bytesRead
 
                     // ✅ Progress carries over between sectional & terminal downloads
-                    val progress = ((totalBytesRead.toFloat() / totalSizeBytes) * 100).coerceIn(0f, 100f).toInt()
+                    val progress =
+                        ((totalBytesRead.toFloat() / totalSizeBytes) * 100).coerceIn(0f, 100f)
+                            .toInt()
                     withContext(Dispatchers.Main) { progressBar.progress = progress }
                 }
             }
         }
     }
+
     @SuppressLint("NotifyDataSetChanged")
     fun downloadSectional(
         chart: SectionalChart,
@@ -298,19 +314,27 @@ class DownloadActivity : AppCompatActivity() {
                 var totalSizeBytes = 0L
 
                 val sectionalSizeBytes = if (hasSectional) {
-                    chart.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
+                    chart.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
+                        ?.times(1048576) ?: 0L
                 } else 0L
 
                 val terminalSizeBytes = if (hasTerminal) {
-                    chart.terminal!!.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
+                    chart.terminal!!.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
+                        ?.times(1048576) ?: 0L
                 } else 0L
 
                 totalSizeBytes = sectionalSizeBytes + terminalSizeBytes
 
-                Log.d("DownloadPage", "Total size for ${chart.name}: ${totalSizeBytes / 1048576} MB")
+                Log.d(
+                    "DownloadPage",
+                    "Total size for ${chart.name}: ${totalSizeBytes / 1048576} MB"
+                )
 
                 if (totalSizeBytes <= 0L) {
-                    Log.e("DownloadPage", "Error: Could not determine file size for ${chart.name} from JSON")
+                    Log.e(
+                        "DownloadPage",
+                        "Error: Could not determine file size for ${chart.name} from JSON"
+                    )
                     return@launch
                 }
 
@@ -320,7 +344,14 @@ class DownloadActivity : AppCompatActivity() {
                     Log.d("DownloadPage", "Starting download: Sectional ${chart.fileName}")
 
                     val sectionalFile = File(getDownloadStorageDir(), chart.fileName)
-                    downloadChart(chart.url, sectionalFile, sectionalSizeBytes, progressBar, totalSizeBytes, totalBytesRead)
+                    downloadChart(
+                        chart.url,
+                        sectionalFile,
+                        sectionalSizeBytes,
+                        progressBar,
+                        totalSizeBytes,
+                        totalBytesRead
+                    )
 
                     totalBytesRead += sectionalSizeBytes  // ✅ Preserve progress for terminal download
 
@@ -333,10 +364,20 @@ class DownloadActivity : AppCompatActivity() {
                 // ✅ Download Terminal Chart (if available)
                 if (hasTerminal) {
                     withContext(Dispatchers.Main) { statusText.text = "Downloading TAC" }
-                    Log.d("DownloadPage", "Starting download: Terminal ${chart.terminal!!.fileName}")
+                    Log.d(
+                        "DownloadPage",
+                        "Starting download: Terminal ${chart.terminal!!.fileName}"
+                    )
 
                     val terminalFile = File(getDownloadStorageDir(), chart.terminal!!.fileName)
-                    downloadChart(chart.terminal!!.url, terminalFile, terminalSizeBytes, progressBar, totalSizeBytes, totalBytesRead)
+                    downloadChart(
+                        chart.terminal!!.url,
+                        terminalFile,
+                        terminalSizeBytes,
+                        progressBar,
+                        totalSizeBytes,
+                        totalBytesRead
+                    )
 
                     withContext(Dispatchers.Main) { statusText.text = "Installing TAC" }
                     unzipFile(terminalFile, getTileStorageDir("Terminal"))
@@ -368,13 +409,14 @@ class DownloadActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                     statusText.text = "Download Failed"
                     adapter.notifyDataSetChanged()
-                    Toast.makeText(this@DownloadActivity, "Download failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@DownloadActivity, "Download failed", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }
         }
     }
-
-    // Download airport databases
+}
+/*    // Download airport databases
     private suspend fun syncAirportDatabases() {
         val dbKeys = getDatabaseKeysFromManifest()
         val prefs = getSharedPreferences("db_versions", MODE_PRIVATE)
@@ -516,4 +558,4 @@ class DownloadActivity : AppCompatActivity() {
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
-}
+}*/

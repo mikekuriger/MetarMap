@@ -79,7 +79,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -96,7 +95,17 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.text.*
-
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
+import com.airportweather.map.utils.AirportDatabaseHelper
+import com.airportweather.map.utils.DatabaseSyncUtils
+import com.airportweather.map.utils.loadMetarDataFromCache
+import com.airportweather.map.utils.loadTafDataFromCache
+import com.airportweather.map.utils.saveMetarDataToCache
+import com.airportweather.map.utils.saveTafDataToCache
+import java.net.InetAddress
+import java.util.ArrayList
 
 @Serializable
 data class METAR(
@@ -167,16 +176,16 @@ data class MarkerStyle(
     val textOverlay: String? = null
 )
 data class FlightData(
-    val wpLocation: LatLng,
-    val currentLeg: String,
-    val track: Double,
-    val bearing: Double,
-    val distance: Double,
-    val groundSpeed: Double,
-    val plannedAirSpeed: Int,
-    val altitude: Double,
-    val eta: String,
-    val waypoints: List<String>
+val wpLocation: LatLng,
+val currentLeg: String,
+val track: Double,
+val bearing: Double,
+val distance: Double,
+val groundSpeed: Double,
+val plannedAirSpeed: Int,
+val altitude: Double,
+val eta: String,
+val waypoints: List<Waypoint>
 ) {
     companion object {
         fun empty(): FlightData {
@@ -201,7 +210,16 @@ data class GpsData(
     val longitude: Double,
     val altitudeFt: Double,
     val speedKnots: Double,
-    val heading: Double
+    val heading: Double,
+    val fixQuality: Double,
+    val satellites: Double,
+    val satellitesTracked: Double,
+    val satellitesSeen: Double,
+    val horizontalAccuracy: Double,
+    val verticalAccuracy: Double,
+    val temperature: Double,
+    val pressureAltitude: Double,
+    val verticalSpeed: Double
 )
 data class TrafficTarget(
     val hex: String,
@@ -220,6 +238,19 @@ data class TrafficTarget(
     val ageSeconds: Double,
     val lastUpdated: Long = System.currentTimeMillis(),
     var lastKnownPosition: LatLng = LatLng(lat, lon)
+)
+
+val test = FlightData(
+    wpLocation = LatLng(0.0, 0.0),
+    currentLeg = "TEST",
+    track = 0.0,
+    bearing = 0.0,
+    distance = 0.0,
+    groundSpeed = 0.0,
+    plannedAirSpeed = 100,
+    altitude = 0.0,
+    eta = "--:--",
+    waypoints = listOf(Waypoint("TEST", "FIX", 0f, 0f, 0f))
 )
 
 
@@ -662,42 +693,120 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var showVersion = true
     private var showZoom = true
     private lateinit var sharedPrefs: SharedPreferences
-    private var isTrafficEnabled = false
+    private var isTrafficEnabled = true
+    private var isMetarVisible = true
     private val handler = Handler(Looper.getMainLooper())
     private var stratuxStarted = false
+    private var isStratuxGpsActive = false
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
     private val aircraftMarkers = mutableMapOf<String, Marker>()
     private val aircraftLabels = mutableMapOf<String, Marker>()
     private val aircraftLabelsBottom = mutableMapOf<String, Marker>()
+    private var staleTimeout = 10
     private val updateRunnable = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
 
-            for ((hex, marker) in aircraftMarkers) {
-                val target = trafficMap[hex] ?: continue
+            if (isTrafficEnabled && lastKnownUserLocation != null) {
+                for ((hex, marker) in aircraftMarkers) {
+                    val target = trafficMap[hex] ?: continue
+                    val elapsedSec = (now - target.lastUpdated) / 1000.0
+                    if (elapsedSec > staleTimeout) continue  // Skip stale
 
-                val elapsedSec = (now - target.lastUpdated) / 1000.0
-                if (elapsedSec > 30) continue  // skip stale
+                    val predicted = extrapolatePosition(target, elapsedSec)
+                    val current = marker.position
 
-                val predicted = extrapolatePosition(target, elapsedSec)
-                val current = marker.position
-                val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
-                val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
-                val smoothed = LatLng(smoothLat, smoothLon)
-                // Move the aircraft marker
-                marker.position = smoothed
-                // ✅ Move the label marker (if present)
-                aircraftLabels[hex]?.position = smoothed
-                aircraftLabelsBottom[hex]?.position = smoothed
+                    val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
+                    val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
+
+                    val smoothed = LatLng(smoothLat, smoothLon)
+                    marker.position = smoothed
+                    aircraftLabels[hex]?.position = smoothed
+                    aircraftLabelsBottom[hex]?.position = smoothed
+                }
             }
-            handler.postDelayed(this, 1000)  // keep looping every second
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+//    private val updateRunnable = object : Runnable {
+//        override fun run() {
+//            val now = System.currentTimeMillis()
+//
+//            if (isTrafficEnabled && lastKnownUserLocation != null) {
+//                lastKnownUserLocation?.let { location ->
+//                    for ((hex, marker) in aircraftMarkers) {
+//                        val target = trafficMap[hex] ?: continue
+//                        val elapsedSec = (now - target.lastUpdated) / 1000.0
+//                        if (elapsedSec > 10) continue  // skip stale
+//
+//                        val predicted = extrapolatePosition(target, elapsedSec)
+//                        val current = marker.position
+//                        val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
+//                        val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
+//                        val smoothed = LatLng(smoothLat, smoothLon)
+//
+//                        // Move the aircraft marker
+//                        marker.position = smoothed
+//
+//                        // Move the label markers (if present)
+//                        aircraftLabels[hex]?.position = smoothed
+//                        aircraftLabelsBottom[hex]?.position = smoothed
+//
+//                        // Update the marker visuals
+//                        updateAircraftMarker(target, location)
+//                    }
+//                }
+//            }
+//
+//            handler.postDelayed(this, 1000)
+//        }
+//    }
+
+
+
+    //    private val updateRunnable = object : Runnable {
+//        override fun run() {
+//            val now = System.currentTimeMillis()
+//            val cutoff = System.currentTimeMillis() - 30_000
+//
+//            for ((hex, marker) in aircraftMarkers) {
+//                val target = trafficMap[hex]
+//                if (target == null || target.lastUpdated < cutoff) {
+//                    // Don't update stale or missing targets
+//                    continue
+//                }
+//
+//                val elapsedSec = (now - target.lastUpdated) / 1000.0
+//                val predicted = extrapolatePosition(target, elapsedSec)
+//                val current = marker.position
+//                val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
+//                val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
+//                val smoothed = LatLng(smoothLat, smoothLon)
+//                // Move the aircraft marker
+//                marker.position = smoothed
+//                // ✅ Move the label marker (if present)
+//                aircraftLabels[hex]?.position = smoothed
+//                aircraftLabelsBottom[hex]?.position = smoothed
+//            }
+//            handler.postDelayed(this, 1000)  // keep looping every second
+//        }
+//    }
+    private val trafficHandler = Handler(Looper.getMainLooper())
+    private val trafficRunnable = object : Runnable {
+        override fun run() {
+            val location = lastKnownUserLocation
+            if (location != null) {
+                checkStratuxAndConnectIfEnabled(location)
+            }
+            trafficHandler.postDelayed(this, 10000)  // run every 10 second
         }
     }
     private val pruneHandler = Handler(Looper.getMainLooper())
     private val pruneRunnable = object : Runnable {
         override fun run() {
             pruneStaleAircraft()
-            pruneHandler.postDelayed(this, 5000)  // run every 5 seconds
+            pruneHandler.postDelayed(this, 30000)  // run every 30 seconds
         }
     }
     private var lastAltitude: Double? = null
@@ -775,7 +884,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // ✅ Download databases and load airports
         lifecycleScope.launch {
-            syncAirportDatabases()
+            DatabaseSyncUtils.syncAirportDatabases(this@MainActivity, getSharedPreferences("db_versions", MODE_PRIVATE))
             //loadAirportsFromDatabase()
         }
 
@@ -875,93 +984,128 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         navView.setNavigationItemSelectedListener(this)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        // enables the map to re-center when user moves his location (traveling)
+        // location stuff
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                //Log.d("GPS", "🔥 locationCallback triggered")
-
-                locationResult.lastLocation?.let { location ->
-                    val userLatLng = LatLng(location.latitude, location.longitude)
-                    lastKnownUserLocation = location
-                    //Log.d("GPS", "Location update: ${location.latitude}, ${location.longitude}")
-
-                    // Re-center if following
-                    if (isFollowingUser) {
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
-                    }
-
-                    // Start Stratux traffic logic (copied from your second block)
-                    isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
-                    if (isTrafficEnabled) {
-                        if (!stratuxStarted) {
-                            stratuxStarted = true
-                            StratuxManager.connectToTraffic { target ->
-                                if (!isTrafficEnabled) return@connectToTraffic
-                                runOnUiThread {
-                                    trafficMap[target.hex] = target
-                                    lastKnownUserLocation?.let { loc ->
-                                        updateAircraftMarker(target, loc)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        stratuxStarted = false
-                        StratuxManager.disconnectTraffic()
-                        aircraftMarkers.values.forEach { it.remove() }
-                        aircraftLabels.values.forEach { it.remove() }
-                        aircraftLabelsBottom.values.forEach { it.remove() }
-                        aircraftMarkers.clear()
-                        aircraftLabels.clear()
-                        aircraftLabelsBottom.clear()
-                        trafficMap.clear()
-                    }
-
-
-                    // ✈️ Auto-recording logic
-                    val currentTime = location.time
-                    val currentAltitude = location.altitude
-                    val speedKnots = location.speed * 1.94384
-
-                    var verticalSpeedFpm = 0.0
-                    if (lastAltitude != null && lastTime != null) {
-                        val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
-                        val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
-                        verticalSpeedFpm = verticalSpeedMps * 196.8504
-                    }
-
-                    lastAltitude = currentAltitude
-                    lastTime = currentTime
-
-                    if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
-                        recorder.start()
-                        recordButton.setColorFilter(Color.RED)
-                        Log.d("KMLRecorder_main", "Takeoff detected")
-                    }
-
-                    if (recorder.isRecording) {
-                        recorder.logLocation(location)
-                    }
-
-                    // commented out so I can test on the ground
-//                    if (recorder.isRecording && speedKnots < 5 && verticalSpeedFpm < 100) {
-//                        recorder.stop()
-//                        recordButton.setColorFilter(Color.BLACK)
-//                        Log.d("KMLRecorder_main", "Landing detected")
-//                    }
-
-                    // Waypoint logic
-                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-                    if (waypoints.isEmpty()) {
-                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
-                        return
-                    } else {
-                        val flightData = calculateFlightData(location, waypoints)
-                        updateFlightInfo(flightData)
-                    }
-                }
+                if (isStratuxGpsActive) return  // skip if Stratux is driving
+                locationResult.lastLocation?.let { handleNewLocation(it) }
             }
         }
+        // moved to new function
+//        locationCallback = object : LocationCallback() {
+//            override fun onLocationResult(locationResult: LocationResult) {
+//                if (!isStratuxGpsActive) {
+//                    locationResult.lastLocation?.let {
+//                        lastKnownUserLocation = it
+//                    }
+//                }
+//
+//                val location = lastKnownUserLocation ?: return
+//                val userLatLng = LatLng(location.latitude, location.longitude)
+//
+//                // Re-center if following
+//                if (isFollowingUser) {
+//                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+//                }
+//
+//                // Start Stratux traffic / GPS
+//                checkStratuxAndConnectIfEnabled(location)
+//
+//                // ✈️ Auto-recording logic
+//                val currentTime = location.time
+//                val currentAltitude = location.altitude
+//                val speedKnots = location.speed * 1.94384
+//
+//                var verticalSpeedFpm = 0.0
+//                if (lastAltitude != null && lastTime != null) {
+//                    val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
+//                    val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
+//                    verticalSpeedFpm = verticalSpeedMps * 196.8504
+//                }
+//
+//                lastAltitude = currentAltitude
+//                lastTime = currentTime
+//
+//                if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
+//                    recorder.start()
+//                    recordButton.setColorFilter(Color.RED)
+//                    Log.d("KMLRecorder_main", "Takeoff detected")
+//                }
+//
+//                if (recorder.isRecording) {
+//                    recorder.logLocation(location)
+//                }
+//
+//                val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+//                if (waypoints.isNotEmpty()) {
+//                    val flightData = calculateFlightData(location, waypoints)
+//                    updateFlightInfo(flightData)
+//                }
+//            }
+//        }
+
+
+//        locationCallback = object : LocationCallback() {
+//            override fun onLocationResult(locationResult: LocationResult) {
+//                //Log.d("GPS", "🔥 locationCallback triggered")
+//
+//                locationResult.lastLocation?.let { location ->
+//                    val userLatLng = LatLng(location.latitude, location.longitude)
+//                    lastKnownUserLocation = location
+//                    //Log.d("GPS", "Location update: ${location.latitude}, ${location.longitude}")
+//
+//                    // Re-center if following
+//                    if (isFollowingUser) {
+//                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+//                    }
+//
+//                    // Start Stratux traffic / GPS
+//                    checkStratuxAndConnectIfEnabled(location)
+//
+//                    // ✈️ Auto-recording logic
+//                    val currentTime = location.time
+//                    val currentAltitude = location.altitude
+//                    val speedKnots = location.speed * 1.94384
+//
+//                    var verticalSpeedFpm = 0.0
+//                    if (lastAltitude != null && lastTime != null) {
+//                        val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
+//                        val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
+//                        verticalSpeedFpm = verticalSpeedMps * 196.8504
+//                    }
+//
+//                    lastAltitude = currentAltitude
+//                    lastTime = currentTime
+//
+//                    if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
+//                        recorder.start()
+//                        recordButton.setColorFilter(Color.RED)
+//                        Log.d("KMLRecorder_main", "Takeoff detected")
+//                    }
+//
+//                    if (recorder.isRecording) {
+//                        recorder.logLocation(location)
+//                    }
+//
+//                    // commented out so I can test on the ground
+////                    if (recorder.isRecording && speedKnots < 5 && verticalSpeedFpm < 100) {
+////                        recorder.stop()
+////                        recordButton.setColorFilter(Color.BLACK)
+////                        Log.d("KMLRecorder_main", "Landing detected")
+////                    }
+//
+//                    // Waypoint logic
+//                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+//                    if (waypoints.isEmpty()) {
+//                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
+//                        return
+//                    } else {
+//                        val flightData = calculateFlightData(location, waypoints)
+//                        updateFlightInfo(flightData)
+//                    }
+//                }
+//            }
+//        }
 
         // location updates
         requestLocationUpdates()
@@ -1024,11 +1168,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // ADSB stratux
+        lastKnownUserLocation?.let { checkStratuxAndConnectIfEnabled(it) }
+        //trafficHandler.post(trafficRunnable)
+
         // prune aircraft that are no longer transmitting
         pruneHandler.post(pruneRunnable)
 
         //KML Recorder (record gps track)
         recorder = KMLRecorder(this)
+
+
 
         //KML files (for display)
         trackFileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -1144,22 +1293,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
 
     // Handles All Calculations for flight planning (via db)
-    private fun calculateFlightData(location: Location, waypoints: List<String>): FlightData {
+    private fun calculateFlightData(location: Location, waypoints: ArrayList<Waypoint>?): FlightData {
         val dbHelper = AirportDatabaseHelper(this)
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
         val altitude = location.altitude * 3.28084  // Convert to feet
 
-        val wpName: String
-        val wp2Name: String
+        val wpName: String = waypoints?.getOrNull(0)?.name ?: "direct"
+        val wp2Name: String = waypoints?.getOrNull(1)?.name ?: waypoints?.getOrNull(0)?.name ?: "----"
 
-        if (waypoints.size > 1) {
-            wpName = waypoints[0]
-            wp2Name = waypoints[1]
-        } else {
-            wpName = "direct"
-            wp2Name = waypoints.getOrNull(0) ?: "----"
-        }
+        // in case we need the waypoint and not just the name
+        val defaultWp = Waypoint("direct", "NONE", 0f, 0f, 0f, false, false)
+        val fallbackWp = Waypoint("----", "NONE", 0f, 0f, 0f, false, false)
+
+//        if (waypoints.size > 1) {
+//            wpName = waypoints[0]
+//            wp2Name = waypoints[1]
+//        } else {
+//            wpName = "direct"
+//            wp2Name = waypoints.getOrNull(0) ?: "----"
+//        }
 
         val airportInfo = dbHelper.getAirportInfo(wp2Name)
         if (airportInfo == null) {
@@ -1195,7 +1348,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             plannedAirSpeed = plannedAirSpeed,
             altitude = altitude,
             eta = eta,
-            waypoints = waypoints
+            waypoints = waypoints ?: emptyList()
         )
     }
 
@@ -1248,24 +1401,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             String.format("%d", minutes)  // ✅ Example: "12.5 min"
         }
     }
-    private fun calculateTotalDistance(waypoints: List<String>, dbHelper: AirportDatabaseHelper): Double {
+
+    private fun calculateTotalDistance(waypoints: List<Waypoint>): Double {
         var totalDistance = 0.0
 
         for (i in 0 until waypoints.size - 1) {
-            val fromInfo = dbHelper.getAirportInfo(waypoints[i])
-            val toInfo = dbHelper.getAirportInfo(waypoints[i + 1])
-
-            if (fromInfo != null && toInfo != null) {
-                val from = LatLng(fromInfo.lat, fromInfo.lon)
-                val to = LatLng(toInfo.lat, toInfo.lon)
-                totalDistance += calculateDistance(from, to)
-            } else {
-                Log.w("NavLog", "Missing airport data for: ${waypoints[i]} or ${waypoints[i + 1]}")
-            }
+            val from = LatLng(waypoints[i].lat.toDouble(), waypoints[i].lon.toDouble())
+            val to = LatLng(waypoints[i + 1].lat.toDouble(), waypoints[i + 1].lon.toDouble())
+            totalDistance += calculateDistance(from, to)
         }
 
         return totalDistance
     }
+
 
     @SuppressLint("SetTextI18n")
     private fun updateFlightInfo(data: FlightData) {
@@ -1298,12 +1446,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             binding.trackText.text = "${data.track.roundToInt()}°"
         }
 
-        val destination = data.waypoints.lastOrNull() ?: "----"
-        binding.destText.text = destination
+        //val destination = data.waypoints.lastOrNull() ?: "----"
+        //binding.destText.text = destination
+        val destinationName = data.waypoints.lastOrNull()?.name ?: "----"
+        binding.destText.text = destinationName
         binding.etaDestText.setTextColor(etaDestColor)
 
-        val dbHelper = AirportDatabaseHelper(this)
-        val totalDistance = calculateTotalDistance(data.waypoints, dbHelper)
+        //val dbHelper = AirportDatabaseHelper(this)
+        //val totalDistance = calculateTotalDistance(data.waypoints, dbHelper)
+        val totalDistance = calculateTotalDistance(data.waypoints)
         binding.dtdText.text = "${totalDistance.roundToInt()}nm"
 
         val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
@@ -1468,11 +1619,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // ✅ Handle flight plan waypoints
-        intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
-            if (waypoints.isNotEmpty()) {
-                updateMapWithWaypoints(waypoints)
-            }
+        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableArrayListExtra("WAYPOINTS")
         }
+
+        if (!waypoints.isNullOrEmpty()) {
+            updateMapWithWaypoints(waypoints)
+        }
+
+//        intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
+//            if (waypoints.isNotEmpty()) {
+//                updateMapWithWaypoints(waypoints)
+//            }
+//        }
 
 
         // Draw track line
@@ -1480,15 +1642,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // **Load Metars**
         loadAndDrawMetar()
-        // ** refresh weather data
-        startAutoRefresh(15)
+
+        // ** try to refresh weather data every 15 mins
+        startAutoRefresh(15) // testing seconds
 
         //read traffic preference
-        isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
-
+        isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
 
         // Initialize the metar toggle button
-        var isMetarVisible = sharedPrefs.getBoolean("show_metars", true)
+        isMetarVisible = sharedPrefs.getBoolean("show_metars", true)
         val metarButton = binding.toggleMetarButton
         // toggle button state based on shared preferences
         updateButtonState(metarButton, isMetarVisible)
@@ -1514,7 +1676,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             checkLocationPermission()
         }
 
-        hideBottomProgressBar()
+        Handler(Looper.getMainLooper()).postDelayed({
+            hideBottomProgressBar()
+        }, 3000)
     }
     // End onMapReady
 
@@ -1680,13 +1844,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lifecycleScope.launch {
             while (true) {
                 delay(intervalMinutes * 60 * 1000) // ✅ Wait before updating
-                Log.d("AUTO_REFRESH", "Refreshing METAR & TAF data")
-                showBottomProgressBar("🚨 Refreshing METAR & TAF data")
+                Log.d("AUTO_REFRESH", "Refreshing Weather data")
                 loadAndDrawMetar() // ✅ Re-fetch and update data
             }
         }
     }
     // Update markers based on visible map area
+    fun Context.isInternetAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     private fun updateVisibleMarkers(metars: List<METAR>, tafs: List<TAF>) {
         val visibleBounds = mMap.projection.visibleRegion.latLngBounds
         metarMarkers.forEach { it.remove() }
@@ -1935,23 +2105,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     """.trimIndent()
 
     }
-    private fun showBottomProgressBar(message: String) {
+    private fun showBottomProgressBar(message: String, color: Int = ContextCompat.getColor(this@MainActivity, android.R.color.holo_blue_dark)) {
         val progressBar = binding.progressBottomBar
-        val progressOverlay = binding.progressOverlay
         val progressMessage = binding.progressMessageBottom
-//        if (progressBar == null || progressMessage == null) {
-//            Log.e("ProgressBar", "Progress bar or message view not found!")
-//            return
-//        }
+        if (progressMessage == null) {
+            Log.e("ProgressBar", "Progress bar or message view not found!")
+            return
+        }
         progressMessage.text = message
         progressBar.visibility = View.VISIBLE
-        progressOverlay.visibility = View.VISIBLE
+        progressBar.setBackgroundColor(color)
     }
     private fun hideBottomProgressBar() {
         val progressBar = binding.progressBottomBar
         val progressOverlay = binding.progressOverlay
         progressBar.visibility = View.GONE
-        progressOverlay.visibility = View.GONE
+        //progressOverlay.visibility = View.GONE
     }
     private fun updateButtonState(button: Button, isActive: Boolean) {
         // Change button color based on state
@@ -2314,15 +2483,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lifecycleScope.launch {
             try {
                 // ✅ Load cached METAR & TAF data before downloading new ones
-                showBottomProgressBar("🌦️ Loading Weather Data")
+                Log.d("loadAndDrawMetar", "🌦️ Updating Weather Data")
+                showBottomProgressBar("🌦️ Downloading Latest Weather Data")
+
                 metarData = loadMetarDataFromCache(filesDir)
                 tafData = loadTafDataFromCache(filesDir)
 
                 updateVisibleMarkers(metarData, tafData) // Show cached data immediately
 
                 // ✅ Download and merge new data
-                val newMetars = downloadAndUnzipMetarData(filesDir)
-                val newTafs = downloadAndUnzipTafData(filesDir)
+                var newMetars: List<METAR> = emptyList()
+                var newTafs: List<TAF> = emptyList()
+                if (isInternetAvailable()) {
+
+                    newMetars = downloadAndUnzipMetarData(filesDir)
+                    newTafs = downloadAndUnzipTafData(filesDir)
+                } else {
+                    Log.d("loadAndDrawMetar", "❌ No Internet Connection")
+                    //val color = ContextCompat.getColor(this@MainActivity, android.R.color.holo_red_dark)
+                    //showBottomProgressBar("❌ No Internet, Unable to Update Weather", color)
+                    return@launch
+                }
 
                 // ✅ Merge new and cached data
                 metarData = mergeMetarData(metarData, newMetars)
@@ -2331,18 +2512,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 // ✅ Save updated data
                 saveMetarDataToCache(metarData, filesDir)
                 saveTafDataToCache(tafData, filesDir)
-
                 updateVisibleMarkers(metarData, tafData) // Refresh UI
 
             } catch (e: Exception) {
                 Log.e("METAR_UPDATE", "Error fetching METAR data", e)
                 withContext(Dispatchers.Main) {
                     showBottomProgressBar("❌ Weather Data Failed")
-                   // executeNextTask()  // ✅ Continue even if failed
                 }
             } finally {
                 withContext(Dispatchers.Main) {
-                    hideBottomProgressBar()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        hideBottomProgressBar()
+                    }, 3000)
                 }
             }
         }
@@ -2630,8 +2811,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
 
-    // Download airport databases
-    private suspend fun syncAirportDatabases() {
+    // Download airport databases (all of these are in DownloadActivity.kt)
+/*    private suspend fun syncAirportDatabases() {
         val dbKeys = getDatabaseKeysFromManifest()
         val prefs = getSharedPreferences("db_versions", MODE_PRIVATE)
 
@@ -2771,7 +2952,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
-    }
+    }*/
     private fun destinationPoint(start: LatLng, distanceNm: Double, bearingDeg: Double): LatLng {
         val earthRadiusNM = 3440.065
         val bearingRad = Math.toRadians(bearingDeg)
@@ -2791,8 +2972,180 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return LatLng(Math.toDegrees(lat2), Math.toDegrees(lon2))
     }
 
+    // GPS source
+    private fun handleNewLocation(location: Location) {
+        lastKnownUserLocation = location
+
+        val userLatLng = LatLng(location.latitude, location.longitude)
+
+        // Re-center if following
+        if (isFollowingUser) {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+        }
+
+        // Start Stratux traffic / GPS
+        checkStratuxAndConnectIfEnabled(location)
+
+        // Auto-recording logic
+        val currentTime = location.time
+        val currentAltitude = location.altitude
+        val speedKnots = location.speed * 1.94384
+
+        var verticalSpeedFpm = 0.0
+        if (lastAltitude != null && lastTime != null) {
+            val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
+            val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
+            verticalSpeedFpm = verticalSpeedMps * 196.8504
+        }
+
+        lastAltitude = currentAltitude
+        lastTime = currentTime
+
+        if (!recorder.isRecording && speedKnots > 15 && verticalSpeedFpm > 100) {
+            //recorder.start()
+            binding.recordButton.setColorFilter(Color.RED)
+            Log.d("KMLRecorder_main", "Takeoff detected")
+        }
+
+        if (recorder.isRecording) {
+            //recorder.logLocation(location)
+        }
+
+        if (recorder.isRecording && speedKnots < 15 && verticalSpeedFpm < 100) {
+            //recorder.stop()
+            binding.recordButton.setColorFilter(Color.BLACK)
+            Log.d("KMLRecorder_main", "Landing detected")
+        }
+
+        // Flight Plan waypoints
+        //val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
+        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableArrayListExtra("WAYPOINTS")
+        }
+
+        if (waypoints != null) {
+            if (waypoints.isNotEmpty()) {
+                val flightData = calculateFlightData(location, waypoints)
+                updateFlightInfo(flightData)
+            }
+        }
+    }
+
     //Traffic markers (stratux)
-    fun extrapolatePosition(target: TrafficTarget, seconds: Double): LatLng {
+    private fun checkStratuxAndConnectIfEnabled(loc: Location) {
+        lifecycleScope.launch {
+            val reachable = withContext(Dispatchers.IO) {
+                try {
+                    InetAddress.getByName("192.168.10.1").isReachable(1000)
+                } catch (e: Exception) {
+                    Log.e("Stratux", "Ping failed", e)
+                    false
+                }
+            }
+            if (reachable) {
+                Log.d("Stratux", "checkStratuxAndConnectIfEnabled - reachable = $reachable")
+                binding.stratuxButton.setColorFilter(Color.GRAY)
+
+                // enable GPS
+                StratuxManager.connectToGps { gps ->
+                    runOnUiThread {
+                        isStratuxGpsActive = true
+                        binding.gpsStatusIcon.setColorFilter(Color.GREEN)
+
+                        // Replace internal GPS
+                        val fakeLocation = Location("Stratux").apply {
+                            latitude = gps.latitude
+                            longitude = gps.longitude
+                            altitude = gps.altitudeFt / 3.28084
+                            if (gps.heading in 0.0..360.0) {
+                                bearing = gps.heading.toFloat()
+                            }
+                            speed = gps.speedKnots.toFloat() * 0.514444f  // knots to m/s
+                            time = System.currentTimeMillis()
+                        }
+                        //lastKnownUserLocation = fakeLocation
+                        handleNewLocation(fakeLocation)
+                    }
+                }
+
+                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
+                if (isTrafficEnabled) {
+                    Log.d(
+                        "Stratux",
+                        "checkStratuxAndConnectIfEnabled - isTrafficEnabled = $isTrafficEnabled"
+                    )
+                    binding.stratuxButton.setColorFilter(Color.GREEN)
+
+                    if (!stratuxStarted) {
+                        Log.d(
+                            "Stratux",
+                            "checkStratuxAndConnectIfEnabled - stratuxStarted = $stratuxStarted, starting it"
+                        )
+                        lifecycleScope.launch {
+                            stratuxStarted = true
+                            StratuxManager.connectToTraffic { target ->
+                                if (!isTrafficEnabled) return@connectToTraffic
+
+                                runOnUiThread {
+                                    if (isTrafficEnabled) {
+                                        trafficMap[target.hex] = target
+                                        updateAircraftMarker(target, loc)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Log.d(
+                            "Stratux",
+                            "checkStratuxAndConnectIfEnabled - stratuxStarted = $stratuxStarted, already started"
+                        )
+                    }
+                } else {
+                    Log.d(
+                        "Stratux",
+                        "checkStratuxAndConnectIfEnabled - isTrafficEnabled = $isTrafficEnabled, shutting down stratux"
+                    )
+                    stratuxStarted = false
+                    //binding.stratuxButton.setColorFilter(Color.GRAY)
+                    StratuxManager.disconnectTraffic()
+                    clearAllTraffic()
+                }
+            } else {
+                Log.w(
+                    "Stratux",
+                    "❌ Stratux not reachable - skipping connect and/or disconnecting"
+                )
+                stratuxStarted = false
+                StratuxManager.disconnectTraffic()
+                clearAllTraffic()
+                binding.gpsStatusIcon.setColorFilter(Color.RED)
+                // update button, RED if traffic is enabled or GRAY if traffic is disabled
+                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
+                if (isTrafficEnabled) {
+                    binding.stratuxButton.setColorFilter(Color.RED)
+                } else {
+                    binding.stratuxButton.setColorFilter(Color.BLACK)
+                }
+            }
+        }
+    }
+
+    fun clearAllTraffic() {
+        Log.d("Stratux", "clearAllTraffic")
+        runOnUiThread {
+            aircraftMarkers.values.forEach { it.remove() }
+            aircraftLabels.values.forEach { it.remove() }
+            aircraftLabelsBottom.values.forEach { it.remove() }
+            aircraftMarkers.clear()
+            aircraftLabels.clear()
+            aircraftLabelsBottom.clear()
+            trafficMap.clear()
+        }
+    }
+    private fun extrapolatePosition(target: TrafficTarget, seconds: Double): LatLng {
         val earthRadiusNM = 3440.065
         val distanceNm = (target.speedKts / 3600.0) * seconds
         val bearingRad = Math.toRadians(target.course.toDouble())
@@ -2875,19 +3228,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
     private fun pruneStaleAircraft() {
-        val cutoff = System.currentTimeMillis() - 30_000  // 30 seconds stale
-        val allTargets = trafficMap
+        val cutoff = System.currentTimeMillis() - 1000 * staleTimeout
         val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
+        Log.d("TrafficPrune", "Total aircraft: ${aircraftMarkers.size}, Stale aircraft: ${staleTargets.size}")
 
-        if (DEBUG_LOGGING_ENABLED) {
-            Log.d("TrafficPrune", "Total aircraft: ${allTargets.size}")
+        if (!DEBUG_LOGGING_ENABLED) {
+            Log.d("TrafficPrune", "Total aircraft: ${aircraftMarkers.size}")
             Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
+            Log.d("TrafficPrune", "Markers: ${aircraftMarkers.size}, Labels: ${aircraftLabels.size}, Bottom Labels: ${aircraftLabelsBottom.size}")
+
 
             staleTargets.forEach { (hex, target) ->
                 Log.d("TrafficPrune", "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
             }
 
-            allTargets.forEach { (hex, target) ->
+            trafficMap.forEach { (hex, target) ->
                 Log.d("TrafficPrune", "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
             }
         }
@@ -2903,6 +3258,41 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             trafficMap.remove(hex)
         }
     }
+
+
+//    private fun pruneStaleAircraft() {
+//        val cutoff = System.currentTimeMillis() - 10_000  // 30 seconds stale
+//        val allTargets = trafficMap
+//        val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
+//
+//        if (DEBUG_LOGGING_ENABLED) {
+//            Log.d("TrafficPrune", "Total aircraft: ${allTargets.size}")
+//            Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
+//            Log.d("TrafficPrune", "Markers: ${aircraftMarkers.size}, Labels: ${aircraftLabels.size}, Bottom Labels: ${aircraftLabelsBottom.size}")
+//
+//
+//            staleTargets.forEach { (hex, target) ->
+//                Log.d("TrafficPrune", "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+//            }
+//
+//            allTargets.forEach { (hex, target) ->
+//                Log.d("TrafficPrune", "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+//            }
+//        }
+//
+//        for ((hex, _) in staleTargets) {
+//            Log.d("TrafficPrune", "Remaining markers after prune: ${aircraftMarkers.size}")
+//
+//            aircraftMarkers[hex]?.remove()
+//            aircraftLabels[hex]?.remove()
+//            aircraftLabelsBottom[hex]?.remove()
+//
+//            aircraftMarkers.remove(hex)
+//            aircraftLabels.remove(hex)
+//            aircraftLabelsBottom.remove(hex)
+//            trafficMap.remove(hex)
+//        }
+//    }
 
 
 
@@ -2967,27 +3357,72 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     //Flight plan markers
     @SuppressLint("MissingPermission")
-    private fun updateMapWithWaypoints(waypoints: List<String>) {
+    /*    private fun updateMapWithWaypoints(waypoints: List<Waypoint>) {
+            val dbHelper = AirportDatabaseHelper(this)
+
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                val latLngList = mutableListOf<LatLng>()
+                val waypointNames = mutableListOf<String>()
+
+                // ✅ Start from user's location if only one waypoint
+                if (waypoints.size == 1 && location != null) {
+                    val userLatLng = LatLng(location.latitude, location.longitude)
+                    latLngList.add(userLatLng)
+                }
+
+                // ✅ Add all waypoints from the database
+                for (waypoint in waypoints) {
+                    val info = dbHelper.getAirportInfo(waypoint)
+                    if (info != null) {
+                        latLngList.add(LatLng(info.lat, info.lon))
+                        waypointNames.add(info.icaoId.ifEmpty { info.airportId })
+                    } else {
+                        Log.w("MapUpdate", "No coordinates found for $waypoint")
+                    }
+                }*/
+
+    private fun updateMapWithWaypoints(waypoints: List<Waypoint>) {
+        val latLngList = mutableListOf<LatLng>()
+        val waypointNames = mutableListOf<String>()
         val dbHelper = AirportDatabaseHelper(this)
+//        val userAircraftCallSign = sharedPrefs.getString("user_aircraft_callsign", null)
 
+        // If only one waypoint and user location is available, use user location as start
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            val latLngList = mutableListOf<LatLng>()
-            val waypointNames = mutableListOf<String>()
-
-            // ✅ Start from user's location if only one waypoint
             if (waypoints.size == 1 && location != null) {
                 val userLatLng = LatLng(location.latitude, location.longitude)
                 latLngList.add(userLatLng)
+                //waypointNames.add(userAircraftCallSign)
+                waypointNames.add(".")
+
             }
 
-            // ✅ Add all waypoints from the database
-            for (waypoint in waypoints) {
-                val info = dbHelper.getAirportInfo(waypoint)
-                if (info != null) {
-                    latLngList.add(LatLng(info.lat, info.lon))
-                    waypointNames.add(info.icaoId.ifEmpty { info.airportId })
-                } else {
-                    Log.w("MapUpdate", "No coordinates found for $waypoint")
+            //waypointNames.add("You")
+
+            for (wp in waypoints) {
+                latLngList.add(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
+                waypointNames.add(wp.name)
+                if (wp.type == "NAVAID" || wp.type == "FIX") {
+                    val style = MarkerStyle(
+                        size = 40,  // smaller than METAR
+                        fillColor = if (wp.type == "NAVAID") Color.CYAN else Color.LTGRAY,
+                        borderColor = Color.WHITE,
+                        borderWidth = 6
+                    )
+                    val dotBitmap = createDotBitmap(
+                        size = style.size,
+                        fillColor = style.fillColor,
+                        borderColor = style.borderColor,
+                        borderWidth = style.borderWidth
+                    )
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
+                            .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                            .anchor(0.5f, 0.5f)
+                            .zIndex(2f)
+                            .visible(true)
+                    )
                 }
             }
 
@@ -3003,13 +3438,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 val legLine = PolylineOptions()
                     .add(from, to)
                     .color(legColor)
-                    .width(20f)
+                    .width(10f)
                     .zIndex(2f)
 
                 val legBorder = PolylineOptions()
                     .add(from, to)
                     .color(Color.BLACK)
-                    .width(24f)
+                    .width(12f)
                     .zIndex(1f)
 
                 mMap.addPolyline(legBorder)
@@ -3035,7 +3470,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
 
             // Extended Runway Centerlines
-            val destination = waypoints.lastOrNull() ?: return@addOnSuccessListener
+            //val destination = waypoints.lastOrNull() ?: return@addOnSuccessListener
+            val destination = waypoints.lastOrNull()?.name ?: return@addOnSuccessListener
             val runways = dbHelper.getRunwaysForAirport(destination)
             val extensionLengthNm = 5.0  // Or whatever you want
             for (rwy in runways) {

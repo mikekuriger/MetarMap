@@ -6,20 +6,19 @@
         android:title="Settings" />
 
     <item
+        android:id="@+id/nav_tracks"
+        android:src="@android:drawable/ic_menu_compass"
+        android:title="Flight Tracks" />
+
+    <item
         android:id="@+id/nav_downloads"
         android:icon="@android:drawable/ic_menu_save"
         android:title="Downloads" />
 
     <item
         android:id="@+id/nav_flightplanning"
-        android:icon="@android:drawable/ic_menu_compass"
+        android:icon="@android:drawable/ic_menu_edit"
         android:title="Flight Planning" />
-
-    <item
-        android:id="@+id/nav_tracks"
-        android:src="@android:drawable/ic_menu_directions"
-        android:title="Flight Tracks" />
-
 
 </menu>
 

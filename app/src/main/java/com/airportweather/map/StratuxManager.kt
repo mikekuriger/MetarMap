@@ -14,27 +14,44 @@ object StratuxManager {
     private var gpsSocket: WebSocket? = null
     private var trafficSocket: WebSocket? = null
 
-    // === GPS ===
+    // === GPS === (for display only right now - need to build a module to use this)
     fun connectToGps(onUpdate: (GpsData) -> Unit) {
+        Log.d("Stratux", "📡 GPS connectToGps triggered")
         val request = Request.Builder()
             .url("ws://192.168.10.1/situation")
             .build()
 
         gpsSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d("Stratux", "📡 GPS Raw: $text")  // 🔍 Log raw message first
+
                 try {
                     val json = JSONObject(text)
                     val gps = GpsData(
                         latitude = json.optDouble("GPSLatitude"),
                         longitude = json.optDouble("GPSLongitude"),
-                        altitudeFt = json.optDouble("GPSAltitude"),
-                        speedKnots = json.optDouble("GPSSpeed"),
-                        heading = json.optDouble("GPSHeading")
+                        altitudeFt = json.optDouble("GPSAltitudeMSL"),
+                        speedKnots = json.optDouble("GPSGroundSpeed"),
+                        heading = json.optDouble("GPSTrueCourse"),
+                        fixQuality = json.optDouble("GPSFixQuality"),
+                        satellites = json.optDouble("GPSSatellites"),
+                        satellitesTracked = json.optDouble("GPSSatellitesTracked"),
+                        satellitesSeen = json.optDouble("GPSSatellitesSeen"),
+                        horizontalAccuracy = json.optDouble("GPSHorizontalAccuracy"),
+                        verticalAccuracy = json.optDouble("GPSVerticalAccuracy"),
+                        temperature = json.optDouble("BaroTemperature"),
+                        pressureAltitude = json.optDouble("BaroPressureAltitude"),
+                        verticalSpeed = json.optDouble("BaroVerticalSpeed")
                     )
+                    Log.d("Stratux", "✅ Parsed GPS: $gps")
                     onUpdate(gps)
                 } catch (e: Exception) {
                     Log.e("Stratux", "GPS parse error: ${e.message}")
                 }
+            }
+
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i("Stratux", "✅ GPS WebSocket connected")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -63,6 +80,8 @@ object StratuxManager {
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
     private var trafficConnected = false
     fun connectToTraffic(onUpdate: (TrafficTarget) -> Unit) {
+        Log.d("Stratux", "📡 Traffic connectToTraffic triggered")
+
         trafficSubscribers += onUpdate
 
         // 🔥 Immediately send current list to the new subscriber

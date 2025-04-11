@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import android.util.Log
 import android.view.WindowManager
 import android.widget.TextView
+import com.airportweather.map.utils.AirportDatabaseHelper
 import com.google.android.gms.maps.model.LatLng
 import kotlin.math.asin
 import kotlin.math.atan2

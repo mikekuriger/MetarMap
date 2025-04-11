@@ -1,6 +1,8 @@
-package com.airportweather.map
+package com.airportweather.map.utils
 
 import android.util.Log
+import com.airportweather.map.METAR
+import com.airportweather.map.TAF
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File

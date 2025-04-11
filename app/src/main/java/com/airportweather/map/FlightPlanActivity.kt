@@ -11,8 +11,10 @@ import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Color
+import android.util.Log
 import android.widget.Toast
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
+import com.airportweather.map.utils.AirportDatabaseHelper
 
 class FlightPlanActivity : AppCompatActivity() {
 
@@ -71,7 +73,11 @@ class FlightPlanActivity : AppCompatActivity() {
 
                     val isLastWord = (i == words.lastIndex) && !endsWithSpace
                     val color = when {
+                        dbHelper.fixExists(word) -> Color.YELLOW
+                        dbHelper.navExists(word) -> Color.BLUE
                         dbHelper.airportExists(word) -> Color.GREEN
+                        dbHelper.fixPrefixExists(word) && isLastWord -> Color.WHITE
+                        dbHelper.navPrefixExists(word) && isLastWord -> Color.WHITE
                         dbHelper.airportPrefixExists(word) && isLastWord -> Color.WHITE
                         else -> Color.RED
                     }
@@ -176,7 +182,11 @@ class FlightPlanActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val waypoints = rawText.split("\\s+".toRegex())
+            //val waypoints = rawText.split("\\s+".toRegex())
+            val dbHelper = AirportDatabaseHelper(this)
+            val codes = rawText.split("\\s+".toRegex())
+            val waypoints = codes.mapNotNull { dbHelper.lookupWaypoint(it) }
+
             sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
             sendWaypointsToMap(waypoints)
         }
@@ -231,9 +241,20 @@ class FlightPlanActivity : AppCompatActivity() {
     }
 
     // push to map
-    private fun sendWaypointsToMap(waypoints: List<String>) {
+    private fun sendWaypointsToMap(waypoints: List<Waypoint>) {
         val intent = Intent(this, MainActivity::class.java)
-        intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
+        intent.putParcelableArrayListExtra("WAYPOINTS", ArrayList(waypoints))
+        Log.d("FlightPlan", "Sending ${waypoints.size} waypoints")
+        for (wp in waypoints) {
+            Log.d("FlightPlan", "→ ${wp.name} (${wp.lat}, ${wp.lon})")
+        }
+
         startActivity(intent)
     }
+
+//    private fun sendWaypointsToMap(waypoints: List<String>) {
+//        val intent = Intent(this, MainActivity::class.java)
+//        intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
+//        startActivity(intent)
+//    }
 }

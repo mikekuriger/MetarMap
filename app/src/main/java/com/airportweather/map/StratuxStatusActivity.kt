@@ -42,7 +42,15 @@ class StratuxStatusActivity : AppCompatActivity() {
                     Longitude: ${gps.longitude}
                     Altitude: ${gps.altitudeFt} ft
                     Speed: ${gps.speedKnots} kt
-                    Heading: ${gps.heading}
+                    Vertical Speed: ${gps.verticalSpeed}
+                    Fix Quality: ${gps.fixQuality}
+                    Satellites: ${gps.satellites}
+                    Satellites Tracked: ${gps.satellitesTracked}
+                    Satellites Seen: ${gps.satellitesSeen}
+                    Horizontal Accuracy: ${gps.horizontalAccuracy}
+                    Vertical Accuracy: ${gps.verticalAccuracy}
+                    Temperature: ${gps.temperature}
+                    Pressure Altitude: ${gps.pressureAltitude}
                 """.trimIndent()
             }
         }
