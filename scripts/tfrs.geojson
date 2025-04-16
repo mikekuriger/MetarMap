@@ -7560,10 +7560,10 @@
         "description": "DISNEYLAND THEME PARK, ANAHEIM, CA",
         "notam": "4_3635",
         "dateIssued": "2014-10-27T15:50:00",
-        "dateEffective": "2018-10-27T15:50:00",
+        "dateEffective": null,
         "dateExpire": "PERM",
-        "upperVal": 91390,
-        "lowerVal": 5150,
+        "upperVal": 3000,
+        "lowerVal": 0,
         "facility": "ZLA",
         "type": "SECURITY"
       }
