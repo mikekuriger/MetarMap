@@ -1,0 +1,22 @@
+{
+  "faa_navigation": {
+    "version": "2025-04-14",
+    "url": "https://regiruk.netlify.app/sqlite/faa_navigation.db",
+    "sha256": "630f7461fdffed7ad0aa458894779b9e59555663a01cea6e74ee7a55ff71e51b"
+  },
+  "faa_airports": {
+    "version": "2025-04-14",
+    "url": "https://regiruk.netlify.app/sqlite/faa_airports.db",
+    "sha256": "4d662396b54f63cbdf8540c6ebc233afc62757133d158b1cae7c0ca233a568ac"
+  },
+  "faa_fixes": {
+    "version": "2025-04-14",
+    "url": "https://regiruk.netlify.app/sqlite/faa_fixes.db",
+    "sha256": "a0d0a3373ac41f237019c49f7b96603d18eaad2d3c2037f52efa130a5e41494e"
+  },
+  "faa_frequencies": {
+    "version": "2025-04-14",
+    "url": "https://regiruk.netlify.app/sqlite/faa_frequencies.db",
+    "sha256": "11bc3a290961fe28844007808cb6c536a2bb855de3e6152d74e56965aa7eff3e"
+  }
+}
