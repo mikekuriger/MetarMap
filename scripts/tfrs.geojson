@@ -159,14 +159,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "18NM NORTH OF FALLS, ID, Saturday, April 19, 2025 UTC",
+        "notam": "5_7309",
         "dateIssued": "2025-04-16T15:14:00",
         "dateEffective": "2025-04-19T14:00:00",
         "dateExpire": "2025-04-19T23:59:00",
         "upperVal": 31000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLC",
         "type": "SPACE OPERATIONS"
       }
     },
@@ -328,14 +328,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "SACRAMENTO, CA, Tuesday, April 22, 2025 through Thursday, April 24, 2025 Local",
+        "notam": "5_7305",
         "dateIssued": "2025-04-16T14:40:00",
         "dateEffective": "2025-04-23T01:05:00",
         "dateExpire": "2025-04-25T06:59:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZOA",
         "type": "SECURITY"
       }
     },
@@ -497,14 +497,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Boston, MA, Monday, April 21, 2025 Local",
+        "notam": "5_7240",
         "dateIssued": "2025-04-16T10:35:00",
         "dateEffective": "2025-04-21T09:30:00",
         "dateExpire": "2025-04-21T23:59:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -666,14 +666,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "East Rutherford, NJ, Saturday, April 19, 2025 Local",
+        "notam": "5_7238",
         "dateIssued": "2025-04-16T10:30:00",
         "dateEffective": "2025-04-19T12:00:00",
         "dateExpire": "2025-04-19T22:00:00",
         "upperVal": 400,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZNY",
         "type": "SECURITY"
       }
     },
@@ -835,14 +835,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "28NM NE ASHEVILLE, NC, Wednesday, April 16, 2025 through Wednesday, April 30, 2025 UTC",
+        "notam": "5_7194",
         "dateIssued": "2025-04-16T03:04:00",
         "dateEffective": "2025-04-16T12:00:00",
         "dateExpire": "2025-04-30T00:01:00",
         "upperVal": 6000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZTL",
         "type": "HAZARDS"
       }
     },
@@ -988,14 +988,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "BABBITT, MN, Thursday, April 17, 2025 UTC",
+        "notam": "5_6440",
         "dateIssued": "2025-04-15T15:03:00",
         "dateEffective": "2025-04-17T14:00:00",
         "dateExpire": "2025-04-17T17:00:00",
         "upperVal": 5500,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZMP",
         "type": "HAZARDS"
       }
     },
@@ -1157,14 +1157,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Abilene, TX, Thursday, April 17, 2025 through Sunday, April 20, 2025 UTC",
+        "notam": "5_6002",
         "dateIssued": "2025-04-14T14:21:00",
         "dateEffective": "2025-04-17T18:45:00",
         "dateExpire": "2025-04-20T22:00:00",
         "upperVal": 17000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZFW",
         "type": "AIR SHOWS/SPORTS"
       }
     },
@@ -1326,14 +1326,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "HOPKINGTON, MA, Monday, April 21, 2025 Local",
+        "notam": "5_6001",
         "dateIssued": "2025-04-14T14:20:00",
         "dateEffective": "2025-04-21T11:30:00",
         "dateExpire": "2025-04-21T16:00:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -1495,14 +1495,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Lexington, MA, Saturday, April 19, 2025 Local",
+        "notam": "5_5917",
         "dateIssued": "2025-04-14T00:47:00",
         "dateEffective": "2025-04-19T13:00:00",
         "dateExpire": "2025-04-19T21:30:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -1664,14 +1664,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Lexington, MA, Thursday, April 17, 2025 Local",
+        "notam": "5_5916",
         "dateIssued": "2025-04-14T00:46:00",
         "dateEffective": "2025-04-17T14:00:00",
         "dateExpire": "2025-04-17T16:00:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -1833,14 +1833,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Boston, MA, Thursday, April 17, 2025 Local",
+        "notam": "5_5914",
         "dateIssued": "2025-04-14T00:34:00",
         "dateEffective": "2025-04-17T19:00:00",
         "dateExpire": "2025-04-17T22:00:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -2002,14 +2002,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Concord, MA, Saturday, April 19, 2025 Local",
+        "notam": "5_5679",
         "dateIssued": "2025-04-12T17:05:00",
         "dateEffective": "2025-04-19T09:00:00",
         "dateExpire": "2025-04-19T21:00:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZBW",
         "type": "SECURITY"
       }
     },
@@ -2171,14 +2171,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "TAMPA, FL, Sunday, April 20, 2025 through Sunday, April 20, 2025 Local",
+        "notam": "5_5432",
         "dateIssued": "2025-04-11T16:12:00",
         "dateEffective": "2025-04-20T16:40:00",
         "dateExpire": "2025-04-21T00:10:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -2340,14 +2340,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "TAMPA, FL, Saturday, April 19, 2025 through Saturday, April 19, 2025 Local",
+        "notam": "5_5428",
         "dateIssued": "2025-04-11T16:10:00",
         "dateEffective": "2025-04-19T19:10:00",
         "dateExpire": "2025-04-20T02:40:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -2509,14 +2509,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "TAMPA, FL, Thursday, April 17, 2025 through Friday, April 18, 2025 Local",
+        "notam": "5_5422",
         "dateIssued": "2025-04-11T16:07:00",
         "dateEffective": "2025-04-17T22:05:00",
         "dateExpire": "2025-04-19T03:59:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -2678,14 +2678,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Indio, CA, Friday, April 18, 2025 through Sunday, April 20, 2025 Local",
+        "notam": "5_5356",
         "dateIssued": "2025-04-11T15:52:00",
         "dateEffective": "2025-04-18T07:01:00",
         "dateExpire": "2025-04-21T06:59:00",
         "upperVal": 400,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLA",
         "type": "SECURITY"
       }
     },
@@ -2847,14 +2847,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "FORT RANSOM, ND, Friday, April 11, 2025 through Thursday, May 8, 2025 UTC",
+        "notam": "5_5328",
         "dateIssued": "2025-04-11T15:18:00",
         "dateEffective": "2025-04-11T15:15:00",
         "dateExpire": "2025-05-08T21:45:00",
         "upperVal": 2500,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZMP",
         "type": "HAZARDS"
       }
     },
@@ -3016,14 +3016,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "18NM NORTH OF DILLON, MT, Saturday, April 19, 2025 UTC",
+        "notam": "5_4881",
         "dateIssued": "2025-04-10T15:56:00",
         "dateEffective": "2025-04-19T16:00:00",
         "dateExpire": "2025-04-19T23:00:00",
         "upperVal": 26000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLC",
         "type": "SPACE OPERATIONS"
       }
     },
@@ -3057,14 +3057,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "2.5NM SOUTHEAST OF RED FEATHER, CO, Friday, April 11, 2025 through Friday, April 18, 2025 UTC",
+        "notam": "5_3892",
         "dateIssued": "2025-04-08T19:24:00",
         "dateEffective": "2025-04-11T12:00:00",
         "dateExpire": "2025-04-18T03:00:00",
         "upperVal": 10000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZDV",
         "type": "HAZARDS"
       }
     },
@@ -3226,14 +3226,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "TAMPA, FL, Monday, April 14, 2025 through Wednesday, April 16, 2025 Local",
+        "notam": "5_3200",
         "dateIssued": "2025-04-07T18:02:00",
         "dateEffective": "2025-04-14T22:05:00",
         "dateExpire": "2025-04-17T03:59:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -3395,14 +3395,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Hilton Head, SC, Monday, April 14, 2025 through Sunday, April 20, 2025 Local",
+        "notam": "5_2986",
         "dateIssued": "2025-04-07T15:04:00",
         "dateEffective": "2025-04-14T12:00:00",
         "dateExpire": "2025-04-20T23:59:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -3476,14 +3476,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "DC, DC, Saturday, March 15, 2025 through Saturday, May 10, 2025 Local",
+        "notam": "5_3178",
         "dateIssued": "2025-03-14T19:01:00",
         "dateEffective": "2025-03-16T00:00:00",
         "dateExpire": "2025-05-10T23:59:00",
         "upperVal": 10000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZDC",
         "type": "HAZARDS"
       }
     },
@@ -3565,14 +3565,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Clear, AK, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0320",
         "dateIssued": "2025-03-06T21:39:00",
         "dateEffective": "2025-03-09T11:00:00",
         "dateExpire": "2025-11-02T10:00:00",
         "upperVal": 36000,
         "lowerVal": 1500,
-        "facility": null,
+        "facility": "ZAN",
         "type": "SECURITY"
       }
     },
@@ -3942,14 +3942,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Clear, AK, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0320",
         "dateIssued": "2025-03-06T21:39:00",
         "dateEffective": "2025-03-09T11:00:00",
         "dateExpire": "2025-11-02T10:00:00",
         "upperVal": 36000,
         "lowerVal": 1500,
-        "facility": null,
+        "facility": "ZAN",
         "type": "SECURITY"
       }
     },
@@ -4179,14 +4179,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Clear, AK, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0320",
         "dateIssued": "2025-03-06T21:39:00",
         "dateEffective": "2025-03-09T11:00:00",
         "dateExpire": "2025-11-02T10:00:00",
         "upperVal": 36000,
         "lowerVal": 1500,
-        "facility": null,
+        "facility": "ZAN",
         "type": "SECURITY"
       }
     },
@@ -4520,14 +4520,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Clear, AK, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0320",
         "dateIssued": "2025-03-06T21:39:00",
         "dateEffective": "2025-03-09T11:00:00",
         "dateExpire": "2025-11-02T10:00:00",
         "upperVal": 36000,
         "lowerVal": 1500,
-        "facility": null,
+        "facility": "ZAN",
         "type": "SECURITY"
       }
     },
@@ -4561,14 +4561,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Grand Forks AFB, ND, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0287",
         "dateIssued": "2025-03-06T20:54:00",
         "dateEffective": "2025-03-09T08:00:00",
         "dateExpire": "2025-11-02T06:59:00",
         "upperVal": 2400,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZMP",
         "type": "SECURITY"
       }
     },
@@ -4734,14 +4734,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Grand Forks AFB, ND, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0287",
         "dateIssued": "2025-03-06T20:54:00",
         "dateEffective": "2025-03-09T08:00:00",
         "dateExpire": "2025-11-02T06:59:00",
         "upperVal": 2400,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZMP",
         "type": "SECURITY"
       }
     },
@@ -4903,14 +4903,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Andersen AFB, GU, Monday, March 10, 2025 through Monday, November 3, 2025 Local",
+        "notam": "5_0285",
         "dateIssued": "2025-03-06T20:47:00",
         "dateEffective": "2025-03-09T16:00:00",
         "dateExpire": "2025-11-02T15:59:00",
         "upperVal": 20000,
         "lowerVal": 2600,
-        "facility": null,
+        "facility": "ZUA",
         "type": "SECURITY"
       }
     },
@@ -4944,14 +4944,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Andersen AFB, GU, Monday, March 10, 2025 through Monday, November 3, 2025 Local",
+        "notam": "5_0285",
         "dateIssued": "2025-03-06T20:47:00",
         "dateEffective": "2025-03-09T16:00:00",
         "dateExpire": "2025-11-02T15:59:00",
         "upperVal": 20000,
         "lowerVal": 2600,
-        "facility": null,
+        "facility": "ZUA",
         "type": "SECURITY"
       }
     },
@@ -4985,14 +4985,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Andersen AFB, GU, Monday, March 10, 2025 through Monday, November 3, 2025 Local",
+        "notam": "5_0285",
         "dateIssued": "2025-03-06T20:47:00",
         "dateEffective": "2025-03-09T16:00:00",
         "dateExpire": "2025-11-02T15:59:00",
         "upperVal": 20000,
         "lowerVal": 2600,
-        "facility": null,
+        "facility": "ZUA",
         "type": "SECURITY"
       }
     },
@@ -5154,14 +5154,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Beale AFB, CA, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_0284",
         "dateIssued": "2025-03-06T20:46:00",
         "dateEffective": "2025-03-09T09:00:00",
         "dateExpire": "2025-11-02T08:59:00",
         "upperVal": 18000,
         "lowerVal": 4100,
-        "facility": null,
+        "facility": "ZOA",
         "type": "SECURITY"
       }
     },
@@ -5391,14 +5391,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "CLEAR, AK, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_9907",
         "dateIssued": "2025-03-06T13:26:00",
         "dateEffective": "2025-03-09T10:00:00",
         "dateExpire": "2025-11-02T12:00:00",
         "upperVal": 2600,
         "lowerVal": 1000,
-        "facility": null,
+        "facility": "ZAN",
         "type": "SECURITY"
       }
     },
@@ -5560,14 +5560,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "KATY, TX, Tuesday, June 24, 2025 through Wednesday, June 25, 2025 UTC",
+        "notam": "5_9134",
         "dateIssued": "2025-03-04T19:29:00",
         "dateEffective": "2025-06-24T14:00:00",
         "dateExpire": "2025-06-25T06:00:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZHU",
         "type": "HAZARDS"
       }
     },
@@ -5729,14 +5729,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "HOUSTON, TX, Tuesday, June 24, 2025 through Wednesday, June 25, 2025 UTC",
+        "notam": "5_9126",
         "dateIssued": "2025-03-04T18:57:00",
         "dateEffective": "2025-06-24T14:00:00",
         "dateExpire": "2025-06-25T06:00:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZHU",
         "type": "HAZARDS"
       }
     },
@@ -5898,14 +5898,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "SAN ANGELO, TX, Sunday, March 9, 2025 through Sunday, November 2, 2025 Local",
+        "notam": "5_9052",
         "dateIssued": "2025-03-04T16:26:00",
         "dateEffective": "2025-03-09T11:00:00",
         "dateExpire": "2025-11-02T07:00:00",
         "upperVal": 18000,
         "lowerVal": 3500,
-        "facility": null,
+        "facility": "ZFW",
         "type": "SECURITY"
       }
     },
@@ -6067,14 +6067,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "VIEQUES, PR, Monday, January 13, 2025 through Friday, December 19, 2025 UTC",
+        "notam": "5_0633",
         "dateIssued": "2025-01-06T14:43:00",
         "dateEffective": "2025-01-13T11:00:00",
         "dateExpire": "2025-12-19T21:00:00",
         "upperVal": 5000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZSU",
         "type": "HAZARDS"
       }
     },
@@ -6108,14 +6108,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Coyote Wells, CA, Saturday, January 4, 2025 through Saturday, July 5, 2025 Local",
+        "notam": "5_0276",
         "dateIssued": "2025-01-02T19:07:00",
         "dateEffective": "2025-01-05T00:00:00",
         "dateExpire": "2025-07-05T23:59:00",
         "upperVal": 500,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLA",
         "type": "SECURITY"
       }
     },
@@ -6157,14 +6157,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Calexico, CA, Saturday, January 4, 2025 through Saturday, July 5, 2025 Local",
+        "notam": "5_0275",
         "dateIssued": "2025-01-02T19:04:00",
         "dateEffective": "2025-01-05T00:00:00",
         "dateExpire": "2025-07-05T23:59:00",
         "upperVal": 500,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLA",
         "type": "SECURITY"
       }
     },
@@ -6326,14 +6326,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "McGregor, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
+        "notam": "4_1529",
         "dateIssued": "2024-12-27T13:34:00",
         "dateEffective": "2025-01-01T00:00:00",
         "dateExpire": "2025-07-01T00:00:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZFW",
         "type": "SECURITY"
       }
     },
@@ -6495,14 +6495,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
+        "notam": "4_1526",
         "dateIssued": "2024-12-27T13:34:00",
         "dateEffective": "2025-01-01T00:00:00",
         "dateExpire": "2025-07-01T00:00:00",
         "upperVal": 2000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZHU",
         "type": "SECURITY"
       }
     },
@@ -6664,14 +6664,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Brownsville, TX, Tuesday, December 31, 2024 through Monday, June 30, 2025 Local",
+        "notam": "4_1525",
         "dateIssued": "2024-12-27T13:33:00",
         "dateEffective": "2025-01-01T00:00:00",
         "dateExpire": "2025-07-01T00:00:00",
         "upperVal": 10000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZHU",
         "type": "SECURITY"
       }
     },
@@ -6977,14 +6977,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), USA",
+        "notam": "4_9433",
         "dateIssued": "2024-09-03T20:52:00",
         "dateEffective": null,
-        "dateExpire": null,
+        "dateExpire": "PERM",
         "upperVal": 17999,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZDC",
         "type": "SECURITY"
       }
     },
@@ -7062,14 +7062,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "THE LEESBURG MANEUVERING AREA (LMA), USA",
+        "notam": "4_1789",
         "dateIssued": "2024-06-21T17:30:00",
         "dateEffective": null,
-        "dateExpire": null,
+        "dateExpire": "PERM",
         "upperVal": 17999,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZDC",
         "type": "SECURITY"
       }
     },
@@ -7231,14 +7231,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Mar A Lago, FL, Friday, May 31, 2024 through Saturday, May 31, 2025 Local",
+        "notam": "4_9417",
         "dateIssued": "2024-05-27T13:48:00",
         "dateEffective": "2024-06-01T03:59:00",
         "dateExpire": "2025-06-01T03:59:00",
         "upperVal": 1000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZMA",
         "type": "SECURITY"
       }
     },
@@ -7388,14 +7388,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "S. FINEGAYAN, GU, Wednesday, May 22, 2024 through Thursday, May 22, 2025 Local",
+        "notam": "4_7707",
         "dateIssued": "2024-05-21T21:39:00",
         "dateEffective": "2024-05-21T23:59:00",
         "dateExpire": "2025-05-22T00:01:00",
         "upperVal": 6000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZUA",
         "type": "SECURITY"
       }
     },
@@ -7557,14 +7557,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "DISNEYLAND THEME PARK, ANAHEIM, CA",
+        "notam": "4_3635",
         "dateIssued": "2014-10-27T15:50:00",
         "dateEffective": null,
-        "dateExpire": null,
+        "dateExpire": "PERM",
         "upperVal": 3000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZLA",
         "type": "SECURITY"
       }
     },
@@ -7726,14 +7726,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "DISNEY WORLD THEME PARK, ORLANDO, FL, Monday, October 27, 2014 UTC",
+        "notam": "4_3634",
         "dateIssued": "2014-10-27T14:57:00",
         "dateEffective": "2014-10-27T15:00:00",
-        "dateExpire": null,
+        "dateExpire": "PERM",
         "upperVal": 3000,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZJX",
         "type": "SECURITY"
       }
     },
@@ -7895,14 +7895,14 @@
         ]
       },
       "properties": {
-        "description": null,
-        "notam": null,
+        "description": "Dallas, TX",
+        "notam": "9_2934",
         "dateIssued": "2009-01-26T22:13:00",
         "dateEffective": null,
-        "dateExpire": null,
+        "dateExpire": "PERM",
         "upperVal": 1500,
         "lowerVal": 0,
-        "facility": null,
+        "facility": "ZFW",
         "type": "VIP"
       }
     }
