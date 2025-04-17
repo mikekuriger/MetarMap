@@ -490,12 +490,12 @@ fun determineTAFConditions(forecast: TAF): String {
 suspend fun getOrDownloadTfrs(filesDir: File): File? {
     val geoJsonCacheDir = File(filesDir, "geojson").apply { mkdirs() }
     val tfrFile = File(geoJsonCacheDir, "tfrs.geojson")
-    val maxAgeMillis = TimeUnit.HOURS.toMillis(1) // 1 hour threshold
-    println("✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: $geoJsonCacheDir")
+    val maxAgeMillis = TimeUnit.MINUTES.toMillis(30) // 30 minute threshold
+    Log.d("TFR", "✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: $geoJsonCacheDir")
 
     // Check if the cached file is valid
     if (tfrFile.exists() && tfrFile.length() > 0 && System.currentTimeMillis() - tfrFile.lastModified() < maxAgeMillis) {
-        println("✅ Using cached TFR GeoJSON: ${tfrFile.absolutePath}, size: ${tfrFile.length()} bytes")
+        Log.d("TFR", "✅ Using cached TFR GeoJSON: ${tfrFile.absolutePath}, size: ${tfrFile.length()} bytes")
         return tfrFile
     }
 
@@ -504,9 +504,9 @@ suspend fun getOrDownloadTfrs(filesDir: File): File? {
         println("🔄 Downloading new TFR GeoJSON...")
         downloadTfrData(geoJsonCacheDir)
     } catch (e: IOException) {
-        println("🚨 Failed to download TFR GeoJSON: ${e.message}")
+        Log.d("TFR", "🚨 Failed to download TFR GeoJSON: ${e.message}")
         if (tfrFile.exists() && tfrFile.length() > 0) {
-            println("⚠️ Using last cached version at ${tfrFile.absolutePath}")
+            Log.d("TFR", "⚠️ Using last cached version at ${tfrFile.absolutePath}")
             tfrFile
         } else {
             null // No valid file available
@@ -516,7 +516,7 @@ suspend fun getOrDownloadTfrs(filesDir: File): File? {
 suspend fun downloadTfrData(filesDir: File): File {
     return withContext(Dispatchers.IO) {
         try {
-//            val url = URL("https://raw.githubusercontent.com/airframesio/data/refs/heads/master/json/faa/tfrs.json")
+            //val url = URL("https://raw.githubusercontent.com/airframesio/data/refs/heads/master/json/faa/tfrs.json")
             val url = URL("https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
@@ -528,13 +528,13 @@ suspend fun downloadTfrData(filesDir: File): File {
 
             val inputStream: InputStream = connection.inputStream
             val outputFile = File(filesDir, "tfrs.geojson")
-            println("✅ downloadTfrData: ${outputFile}, ${outputFile.absolutePath}")
+            Log.d("TFR", "✅ downloadTfrData: ${outputFile}, ${outputFile.absolutePath}")
 
             FileOutputStream(outputFile).use { outputStream ->
                 inputStream.copyTo(outputStream)
             }
 
-            println("Downloaded TFR GeoJSON to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
+            Log.d("TFR", "Downloaded TFR GeoJSON to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
             outputFile
         } catch (e: Exception) {
             e.printStackTrace()
@@ -601,7 +601,7 @@ fun parseTFRGeoJson(file: File): List<TFRFeature> {
         }
     } catch (e: Exception) {
         e.printStackTrace()
-        println("Error parsing TFR GeoJSON: ${e.message}")
+        Log.d("TFR", "Error parsing TFR GeoJSON: ${e.message}")
     }
 
     return tfrFeatures
@@ -672,6 +672,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private lateinit var recorder: KMLRecorder
     private lateinit var trackFileLauncher: ActivityResultLauncher<Intent>
 
+    private var airspaceLoaded = false
+    private var tfrLoaded = false
+    private var metarLoaded = false
+    private var sectionalLoaded = false
     private var areTFRsVisible = true
     private var areAirspacesVisible = true
     private var areMetarsVisible = true
@@ -1128,7 +1132,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         mapFragment.getMapAsync(this)
 
         // load saved layers and preferences
-        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE) //works
+        val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
         currentLayerName = sharedPrefs.getString("selectedLayer", "FlightConditions") ?: "FlightConditions"
 
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
@@ -1488,18 +1492,32 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         showBottomProgressBar("🚨 Initializing all the things")
 
-        // ✅ Apply the custom dark mode style
+        // custom map styles
         try {
-            val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-            if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
-                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
-            } else {
-                //googleMap.setMapStyle(null)
-                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_apple))
-            }
+            val selectedStyle = MapStyleManager.getStyle(this)
+            Log.d("MapStyle", "Loading style: ${selectedStyle.name}")
+            googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, selectedStyle.rawResId))
         } catch (e: Resources.NotFoundException) {
             Log.e("MapStyle", "Can't find style. Error: ", e)
         }
+
+
+//        // ✅ Apply the custom dark mode style
+//        try {
+//            val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+//            if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+//                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
+//            } else {
+//                try {
+//                    val selectedStyle = MapStyleManager.getStyle(this)
+//                    googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, selectedStyle.rawResId))
+//                } catch (e: Resources.NotFoundException) {
+//                    Log.e("MapStyle", "Can't find style. Error: ", e)
+//                }
+//            }
+//        } catch (e: Resources.NotFoundException) {
+//            Log.e("MapStyle", "Can't find style. Error: ", e)
+//        }
 
         // Set listener for camera movement
         mMap.setOnCameraIdleListener {  //1
@@ -1546,76 +1564,85 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // **Load TFR GeoJSON**
-        loadAndDrawTFR()
+        if (!tfrLoaded) {
+            loadAndDrawTFR()
+            tfrLoaded = true
 
-        val tfrButton = binding.toggleTfrButton
-        var isTFRVisible = sharedPrefs.getBoolean("show_tfrs", true)
-        // toggle button state based on shared preferences
-        updateButtonState(tfrButton, isTFRVisible)
-        toggleTFRVisibility(isTFRVisible)
-
-        tfrButton.setOnClickListener {
-            isTFRVisible = !isTFRVisible
-            // toggle in savedprefs
-            sharedPrefs.edit().putBoolean("show_tfrs", isTFRVisible).apply()
-            toggleTFRVisibility(isTFRVisible)
+            val tfrButton = binding.toggleTfrButton
+            var isTFRVisible = sharedPrefs.getBoolean("show_tfrs", true)
+            // toggle button state based on shared preferences
             updateButtonState(tfrButton, isTFRVisible)
-        }
+            toggleTFRVisibility(isTFRVisible)
 
-        // Handle when user clicks on a TFR
-        mMap.setOnPolygonClickListener { polygon ->
-            val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+            tfrButton.setOnClickListener {
+                isTFRVisible = !isTFRVisible
+                // toggle in savedprefs
+                sharedPrefs.edit().putBoolean("show_tfrs", isTFRVisible).apply()
+                toggleTFRVisibility(isTFRVisible)
+                updateButtonState(tfrButton, isTFRVisible)
+            }
 
-            if (tfrList != null) {
-                if (tfrList.size == 1) {
-                    // ✅ Show single TFR pop-up
-                    showTfrPopup(this, tfrList[0])
-                } else {
-                    // ✅ Show list selection if multiple TFRs exist
-                    showTfrSelectionDialog(this, tfrList)
+            // Handle when user clicks on a TFR
+            mMap.setOnPolygonClickListener { polygon ->
+                val tfrList = tfrPolygonInfo[polygon]  // Get all TFRs for this polygon
+
+                if (tfrList != null) {
+                    if (tfrList.size == 1) {
+                        // ✅ Show single TFR pop-up
+                        showTfrPopup(this, tfrList[0])
+                    } else {
+                        // ✅ Show list selection if multiple TFRs exist
+                        showTfrSelectionDialog(this, tfrList)
+                    }
                 }
             }
         }
 
-        // **Load Airspace Boundaries**
-        loadAndDrawAirspace(mMap, this)
+        // ✅ Only load airspace once
+        if (!airspaceLoaded) {
+            loadAndDrawAirspace(mMap, this)
 
-        // Initialize the airspace toggle button
-        var isAirspaceVisible = sharedPrefs.getBoolean("show_airspace", true)
-        val airspaceButton = binding.toggleAirspaceButton
-        // toggle button state based on shared preferences
-        updateButtonState(airspaceButton, isAirspaceVisible)
-        toggleAirspace(isAirspaceVisible)
-
-        airspaceButton.setOnClickListener {
-            isAirspaceVisible = !isAirspaceVisible
-            // toggle saved prefs
-            sharedPrefs.edit().putBoolean("show_airspace", isAirspaceVisible).apply()
-            toggleAirspace(isAirspaceVisible)
+            // Initialize the airspace toggle button
+            var isAirspaceVisible = sharedPrefs.getBoolean("show_airspace", true)
+            val airspaceButton = binding.toggleAirspaceButton
+            // toggle button state based on shared preferences
             updateButtonState(airspaceButton, isAirspaceVisible)
+            toggleAirspace(isAirspaceVisible)
+
+            airspaceButton.setOnClickListener {
+                isAirspaceVisible = !isAirspaceVisible
+                // toggle saved prefs
+                sharedPrefs.edit().putBoolean("show_airspace", isAirspaceVisible).apply()
+                toggleAirspace(isAirspaceVisible)
+                updateButtonState(airspaceButton, isAirspaceVisible)
+            }
+            airspaceLoaded = true
         }
 
         // Sectionals
         // Initialize the tile overlay toggle
-        var isSectionalVisible: Boolean
-        val vfrSecButton = binding.toggleVfrsecButton
-        if (firstLaunch) {
-            isSectionalVisible = true
-            updateButtonState(vfrSecButton, isSectionalVisible)
-            sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
-            toggleSectionalOverlay(mMap,true)
-        } else {
-            isSectionalVisible = sharedPrefs.getBoolean("show_chart", true)
-            updateButtonState(vfrSecButton, isSectionalVisible)
-            toggleSectionalOverlay(mMap,isSectionalVisible)
-        }
-        vfrSecButton.setOnClickListener {
-            isSectionalVisible = !isSectionalVisible
-            // toggle in savedprefs
-            sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
-            prefsDump()
-            toggleSectionalOverlay(mMap,isSectionalVisible)
-            updateButtonState(vfrSecButton, isSectionalVisible)
+        if (!sectionalLoaded) {
+            var isSectionalVisible: Boolean
+            val vfrSecButton = binding.toggleVfrsecButton
+            if (firstLaunch) {
+                isSectionalVisible = true
+                updateButtonState(vfrSecButton, isSectionalVisible)
+                sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
+                toggleSectionalOverlay(mMap, true)
+            } else {
+                isSectionalVisible = sharedPrefs.getBoolean("show_chart", true)
+                updateButtonState(vfrSecButton, isSectionalVisible)
+                toggleSectionalOverlay(mMap, isSectionalVisible)
+            }
+            vfrSecButton.setOnClickListener {
+                isSectionalVisible = !isSectionalVisible
+                // toggle in savedprefs
+                sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
+                prefsDump()
+                toggleSectionalOverlay(mMap, isSectionalVisible)
+                updateButtonState(vfrSecButton, isSectionalVisible)
+            }
+            sectionalLoaded = true
         }
 
         // ✅ Handle flight plan waypoints
@@ -1630,47 +1657,43 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             updateMapWithWaypoints(waypoints)
         }
 
-//        intent.getStringArrayListExtra("WAYPOINTS")?.let { waypoints ->
-//            if (waypoints.isNotEmpty()) {
-//                updateMapWithWaypoints(waypoints)
-//            }
-//        }
-
-
         // Draw track line
         updateMapWithTrack()
 
         // **Load Metars**
-        loadAndDrawMetar()
+        if (!metarLoaded) {
+            loadAndDrawMetar()
+
+            // Initialize the metar toggle button
+            isMetarVisible = sharedPrefs.getBoolean("show_metars", true)
+            val metarButton = binding.toggleMetarButton
+            // toggle button state based on shared preferences
+            updateButtonState(metarButton, isMetarVisible)
+
+            metarButton.setOnClickListener {
+                isMetarVisible = !isMetarVisible
+                // toggle in savedprefs
+                sharedPrefs.edit().putBoolean("show_metars", isMetarVisible).apply()
+                toggleMetarVisibility(isMetarVisible)
+                updateButtonState(metarButton, isMetarVisible)
+            }
+
+            // Handle when user clicks on a metar marker
+            mMap.setOnMarkerClickListener { marker ->
+                val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
+                if (data != null) {
+                    showMetarDialog(data.metar, data.taf)
+                }
+                true
+            }
+            metarLoaded = true
+        }
 
         // ** try to refresh weather data every 15 mins
         startAutoRefresh(15) // testing seconds
 
         //read traffic preference
         isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
-
-        // Initialize the metar toggle button
-        isMetarVisible = sharedPrefs.getBoolean("show_metars", true)
-        val metarButton = binding.toggleMetarButton
-        // toggle button state based on shared preferences
-        updateButtonState(metarButton, isMetarVisible)
-
-        metarButton.setOnClickListener {
-            isMetarVisible = !isMetarVisible
-            // toggle in savedprefs
-            sharedPrefs.edit().putBoolean("show_metars", isMetarVisible).apply()
-            toggleMetarVisibility(isMetarVisible)
-            updateButtonState(metarButton, isMetarVisible)
-        }
-
-        // Handle when user clicks on a metar marker
-        mMap.setOnMarkerClickListener { marker ->
-            val data = marker.tag as? MetarTafData // ✅ Retrieve METAR & TAF together
-            if (data != null) {
-                showMetarDialog(data.metar, data.taf)
-            }
-            true
-        }
 
         if (::mMap.isInitialized) {
             checkLocationPermission()
@@ -2810,149 +2833,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     }
 
-
-    // Download airport databases (all of these are in DownloadActivity.kt)
-/*    private suspend fun syncAirportDatabases() {
-        val dbKeys = getDatabaseKeysFromManifest()
-        val prefs = getSharedPreferences("db_versions", MODE_PRIVATE)
-
-        for (key in dbKeys) {
-            val manifest = getDatabaseManifest() ?: continue
-            val dbInfo = manifest.getJSONObject(key)
-            val remoteVersion = dbInfo.getString("version")
-
-            val localVersion = prefs.getString("${key}_version", null)
-
-            if (localVersion == remoteVersion) {
-                Log.d("DBSync", "$key is up to date (version $localVersion)")
-                continue  // No need to re-download
-            }
-
-            Log.d("DBSync", "$key is outdated or missing, downloading...")
-            val downloadSuccess = downloadDatabaseFileFromManifest(key, dbInfo)
-
-            if (downloadSuccess) {
-                prefs.edit()
-                    .putString("${key}_version", remoteVersion)
-                    .putString("${key}_sha256", dbInfo.getString("sha256"))
-                    .apply()
-            } else {
-                Log.e("DBSync", "$key failed to download or verify")
-            }
-        }
-    }
-    private suspend fun getDatabaseManifest(): JSONObject? = withContext(Dispatchers.IO) {
-        try {
-            val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
-            val conn = URL(manifestUrl).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connect()
-
-            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
-                Log.e("DBManifest", "HTTP ${conn.responseCode} while fetching manifest")
-                return@withContext null
-            }
-
-            val response = conn.inputStream.bufferedReader().use { it.readText() }
-            return@withContext JSONObject(response)
-        } catch (e: Exception) {
-            Log.e("DBManifest", "Error fetching manifest: ${e.message}")
-            null
-        }
-    }
-    private suspend fun getDatabaseKeysFromManifest(): List<String> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
-                val connection = URL(manifestUrl).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connect()
-
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    Log.e("DBManifest", "Failed to fetch manifest: HTTP ${connection.responseCode}")
-                    return@withContext emptyList()
-                }
-
-                val manifestJson = connection.inputStream.bufferedReader().readText()
-                val manifest = JSONObject(manifestJson)
-
-                val keys = mutableListOf<String>()
-                val iterator = manifest.keys()
-                while (iterator.hasNext()) {
-                    keys.add(iterator.next())
-                }
-
-                Log.d("DBManifest", "Found keys: $keys")
-                keys
-            } catch (e: Exception) {
-                Log.e("DBManifest", "Error loading keys: ${e.message}")
-                emptyList()
-            }
-        }
-    }
-    private suspend fun downloadDatabaseFileFromManifest(key: String, dbInfo: JSONObject): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = dbInfo.getString("url")
-                val expectedHash = dbInfo.getString("sha256")
-                val fileName = "$key.db"
-                val dbFile = File(getDatabasePath(fileName).path)
-
-                if (dbFile.exists()) dbFile.delete()
-
-                val success = downloadFile(url, dbFile)
-                if (!success) return@withContext false
-
-                val actualHash = getFileSha256(dbFile)
-                val valid = actualHash == expectedHash
-
-                if (!valid) {
-                    Log.e("DBDownload", "Hash mismatch for $key: expected=$expectedHash actual=$actualHash")
-                    dbFile.delete()
-                }
-
-                return@withContext valid
-            } catch (e: Exception) {
-                Log.e("DBDownload", "Exception while downloading $key: ${e.message}")
-                false
-            }
-        }
-    }
-    private fun downloadFile(url: String, destination: File): Boolean {
-        return try {
-            val conn = URL(url).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connect()
-
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                conn.inputStream.use { input ->
-                    destination.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                Log.d("DBDownload", "Downloaded ${destination.name}")
-                true
-            } else {
-                Log.e("DBDownload", "HTTP ${conn.responseCode} for ${destination.name}")
-                false
-            }
-        } catch (e: Exception) {
-            Log.e("DBDownload", "Failed to download ${destination.name}: ${e.message}")
-            false
-        }
-    }
-    private fun getFileSha256(file: File): String {
-        val buffer = ByteArray(1024)
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { fis ->
-            var read = fis.read(buffer)
-            while (read != -1) {
-                digest.update(buffer, 0, read)
-                read = fis.read(buffer)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }*/
     private fun destinationPoint(start: LatLng, distanceNm: Double, bearingDeg: Double): LatLng {
         val earthRadiusNM = 3440.065
         val bearingRad = Math.toRadians(bearingDeg)
@@ -3041,7 +2921,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 try {
                     InetAddress.getByName("192.168.10.1").isReachable(1000)
                 } catch (e: Exception) {
-                    Log.e("Stratux", "Ping failed", e)
+                    //Log.e("Stratux", "Ping failed", e)
                     false
                 }
             }
@@ -3050,28 +2930,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 binding.stratuxButton.setColorFilter(Color.GRAY)
 
                 // enable GPS
-                StratuxManager.connectToGps { gps ->
-                    runOnUiThread {
-                        isStratuxGpsActive = true
-                        binding.gpsStatusIcon.setColorFilter(Color.GREEN)
+//                StratuxManager.connectToGps { gps ->
+//                    runOnUiThread {
+//                        isStratuxGpsActive = true
+//                        binding.gpsStatusIcon.setColorFilter(Color.GREEN)
+//
+//                        // Replace internal GPS
+//                        val fakeLocation = Location("Stratux").apply {
+//                            latitude = gps.latitude
+//                            longitude = gps.longitude
+//                            altitude = gps.altitudeFt / 3.28084
+//                            if (gps.heading in 0.0..360.0) {
+//                                bearing = gps.heading.toFloat()
+//                            }
+//                            speed = gps.speedKnots.toFloat() * 0.514444f  // knots to m/s
+//                            time = System.currentTimeMillis()
+//                        }
+//                        //lastKnownUserLocation = fakeLocation
+//                        handleNewLocation(fakeLocation)
+//                    }
+//                }
 
-                        // Replace internal GPS
-                        val fakeLocation = Location("Stratux").apply {
-                            latitude = gps.latitude
-                            longitude = gps.longitude
-                            altitude = gps.altitudeFt / 3.28084
-                            if (gps.heading in 0.0..360.0) {
-                                bearing = gps.heading.toFloat()
-                            }
-                            speed = gps.speedKnots.toFloat() * 0.514444f  // knots to m/s
-                            time = System.currentTimeMillis()
-                        }
-                        //lastKnownUserLocation = fakeLocation
-                        handleNewLocation(fakeLocation)
-                    }
-                }
-
-                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
+                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
                 if (isTrafficEnabled) {
                     Log.d(
                         "Stratux",

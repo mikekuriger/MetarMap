@@ -7,7 +7,6 @@ import android.util.Log
 import com.airportweather.map.Waypoint
 
 class AirportDatabaseHelper(context: Context) :
-//    SQLiteOpenHelper(context, "faa_airports.db", null, 1) {
     SQLiteOpenHelper(context, "faa_navigation.db", null, 1) {
 
     override fun onCreate(db: SQLiteDatabase?) {} // Not needed if you're using a prebuilt DB
@@ -95,73 +94,6 @@ class AirportDatabaseHelper(context: Context) :
         }
         return null
     }
-
-//old
-//    fun lookupWaypoint(code: String): Waypoint? {
-//        val db = readableDatabase
-//
-//        // Airport: ICAO_ID or ARPT_ID
-//        db.rawQuery(
-//            "SELECT LAT_DECIMAL, LONG_DECIMAL, ELEV FROM APT_BASE WHERE ICAO_ID = ? COLLATE NOCASE OR ARPT_ID = ? COLLATE NOCASE",
-//            arrayOf(code, code)
-//        ).use { cursor ->
-//            if (cursor.moveToFirst()) {
-//                val lat = cursor.getFloat(0)
-//                val lon = cursor.getFloat(1)
-//                val elev = cursor.getFloat(2)
-//                return Waypoint(code, "AIRPORT", lat, lon, elev)
-//            }
-//        }
-//
-//        // Navaid: NAV_ID
-//        db.rawQuery(
-//            "SELECT LAT_DECIMAL, LONG_DECIMAL FROM NAV_BASE WHERE NAV_ID = ? COLLATE NOCASE",
-//            arrayOf(code)
-//        ).use { cursor ->
-//            if (cursor.moveToFirst()) {
-//                val lat = cursor.getFloat(0)
-//                val lon = cursor.getFloat(1)
-//                return Waypoint(code, "NAVAID", lat, lon)
-//            }
-//        }
-//
-//        // Fix: FIX_ID
-//        db.rawQuery(
-//            "SELECT LAT_DECIMAL, LONG_DECIMAL FROM FIX_BASE WHERE FIX_ID = ? COLLATE NOCASE",
-//            arrayOf(code)
-//        ).use { cursor ->
-//            if (cursor.moveToFirst()) {
-//                val lat = cursor.getFloat(0)
-//                val lon = cursor.getFloat(1)
-//                return Waypoint(code, "FIX", lat, lon)
-//            }
-//        }
-//
-//        return null
-//    }
-
-//    fun lookupWaypoint(code: String): Waypoint? {
-//        val db = readableDatabase
-//        Triple("APT_BASE", "AIRPORT", "SELECT LAT_DECIMAL, LONG_DECIMAL, ELEV FROM APT_BASE WHERE ICAO_ID = ? OR ARPT_ID = ? COLLATE NOCASE"),
-//        Triple("NAV_BASE", "NAVAID", "SELECT LAT_DECIMAL, LONG_DECIMAL FROM NAV_BASE WHERE NAV_ID = ? COLLATE NOCASE"),
-//        Triple("FIX_BASE", "FIX", "SELECT LAT_DECIMAL, LONG_DECIMAL FROM FIX_BASE WHERE FIX_ID = ? COLLATE NOCASE")
-//        val queries = listOf(
-//
-//        )
-//
-//        for ((_, type, sql) in queries) {
-//            val cursor = db.rawQuery(sql, arrayOf(code, code))
-//            if (cursor.moveToFirst()) {
-//                val lat = cursor.getFloat(0)
-//                val lon = cursor.getFloat(1)
-//                val elev = if (cursor.columnCount > 2) cursor.getFloat(2) else 0f
-//                cursor.close()
-//                return Waypoint(code, type, lat, lon, elev)
-//            }
-//            cursor.close()
-//        }
-//        return null
-//    }
 
     // Airport stuff for flight plan search
     fun airportExists(code: String): Boolean {
@@ -286,12 +218,20 @@ class AirportDatabaseHelper(context: Context) :
     // Runway stuff
     fun getRunwaysForAirport(arptId: String): List<Runway> {
         val db = readableDatabase
+
+        // ✅ Remove leading 'K' if present
+        val searchId = if (arptId.startsWith("K", ignoreCase = true) && arptId.length == 4) {
+            arptId.substring(1)
+        } else {
+            arptId
+        }
+
         val cursor = db.rawQuery(
             """
             SELECT RWY_ID, RWY_END_ID, TRUE_ALIGNMENT, LAT_DECIMAL, LONG_DECIMAL, RIGHT_HAND_TRAFFIC_PAT_FLAG
             FROM APT_RWY_END
             WHERE ARPT_ID = ? COLLATE NOCASE
-        """.trimIndent(), arrayOf(arptId)
+        """.trimIndent(), arrayOf(searchId)
         )
 
         val runwayMap = mutableMapOf<String, MutableList<RunwayEnd>>()
