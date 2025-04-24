@@ -18,5 +18,8 @@ app/release/baselineProfiles/*
 scripts/build_tfrs/tfrs.geojson
 scripts/build_databases/db_manifest.json
 scripts/build_databases/deploy.log
+scripts/build_databases/alldata/
+scripts/build_databases/data/
+scripts/build_databases/zip/
 *.db
 *.log
