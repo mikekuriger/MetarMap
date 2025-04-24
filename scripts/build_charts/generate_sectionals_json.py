@@ -7,10 +7,10 @@ import json
 BASE_URL = "https://regiruk.netlify.app/zips/"
 
 # 🔹 Directory containing the ZIP files
-ZIP_DIRECTORY = "../metarmap/zips"
+ZIP_DIRECTORY = "/data/metarmap/zips"
 
 # 🔹 Output JSON file
-OUTPUT_JSON = "../metarmap/zips/sectionals.json"
+OUTPUT_JSON = "/data/metarmap/zips/sectionals.json"
 
 # 🔹 Input text file containing the allowed ZIP filenames
 ZIP_LIST_FILE = "sectionals.txt"
