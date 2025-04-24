@@ -1,17 +1,17 @@
 package com.airportweather.map
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class NavLogLegAdapter(private val legs: List<NavLogLeg>) :
+class NavLogLegAdapter(private val legs: List<FlightLeg>) :
     RecyclerView.Adapter<NavLogLegAdapter.LegViewHolder>() {
 
     class LegViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val from: TextView = view.findViewById(R.id.fromWaypoint)
-        //val to: TextView = view.findViewById(R.id.toWaypoint)
         val distance: TextView = view.findViewById(R.id.distance)
         val altitude: TextView = view.findViewById(R.id.altitude)
         val tas: TextView = view.findViewById(R.id.tas)
@@ -27,10 +27,10 @@ class NavLogLegAdapter(private val legs: List<NavLogLeg>) :
         return LegViewHolder(view)
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: LegViewHolder, position: Int) {
         val leg = legs[position]
-        holder.from.text = leg.from + " → " + leg.to
-        //holder.to.text = leg.to
+        holder.from.text = "${leg.from.name} → ${leg.to.name}"
         holder.distance.text = leg.distanceNM.toString()
         holder.altitude.text = leg.cruisingAltitude.toString()
         holder.tas.text = leg.tas.toString()

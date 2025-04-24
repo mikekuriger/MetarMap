@@ -7,9 +7,10 @@ import kotlinx.parcelize.Parcelize
 data class Waypoint(
     val name: String,
     val type: String,
-    val lat: Float,
-    val lon: Float,
+    val lat: Double,
+    val lon: Double,
     val elev: Float = 0f,
     val showDist: Boolean = true,
-    val visible: Boolean = true
+    val visible: Boolean = true,
+    val magVar: Double = 0.0
 ) : Parcelable

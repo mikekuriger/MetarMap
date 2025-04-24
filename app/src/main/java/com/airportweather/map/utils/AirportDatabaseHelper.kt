@@ -4,6 +4,8 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
+import androidx.core.database.getDoubleOrNull
+import androidx.core.database.getStringOrNull
 import com.airportweather.map.Waypoint
 
 class AirportDatabaseHelper(context: Context) :
@@ -52,14 +54,22 @@ class AirportDatabaseHelper(context: Context) :
     private fun lookupAirport(code: String): Waypoint? {
         val db = readableDatabase
         db.rawQuery(
-            "SELECT LAT_DECIMAL, LONG_DECIMAL, ELEV FROM APT_BASE WHERE ICAO_ID = ? COLLATE NOCASE OR ARPT_ID = ? COLLATE NOCASE",
+            "SELECT LAT_DECIMAL, LONG_DECIMAL, ELEV, MAG_VARN, MAG_HEMIS FROM APT_BASE WHERE ICAO_ID = ? COLLATE NOCASE OR ARPT_ID = ? COLLATE NOCASE",
             arrayOf(code, code)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
-                val lat = cursor.getFloat(0)
-                val lon = cursor.getFloat(1)
+                val lat = cursor.getDouble(0)
+                val lon = cursor.getDouble(1)
                 val elev = cursor.getFloat(2)
-                return Waypoint(code, "AIRPORT", lat, lon, elev)
+                val magVarRaw = cursor.getDouble(3)
+                val magHemis = cursor.getString(4)
+
+                val magVar = when (magHemis.uppercase()) {
+                    "E" -> -magVarRaw
+                    "W" -> magVarRaw
+                    else -> 0.0
+                }
+                return Waypoint(code, "AIRPORT", lat, lon, elev, magVar = magVar)
             }
         }
         return null
@@ -68,13 +78,22 @@ class AirportDatabaseHelper(context: Context) :
     private fun lookupNavaid(code: String): Waypoint? {
         val db = readableDatabase
         db.rawQuery(
-            "SELECT LAT_DECIMAL, LONG_DECIMAL FROM NAV_BASE WHERE NAV_ID = ? COLLATE NOCASE",
+            "SELECT LAT_DECIMAL, LONG_DECIMAL, MAG_VARN, MAG_VARN_HEMIS FROM NAV_BASE WHERE NAV_ID = ? COLLATE NOCASE",
             arrayOf(code)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
-                val lat = cursor.getFloat(0)
-                val lon = cursor.getFloat(1)
-                return Waypoint(code, "NAVAID", lat, lon)
+                val lat = cursor.getDouble(0)
+                val lon = cursor.getDouble(1)
+                val magVarRaw = cursor.getDoubleOrNull(2) ?: 0.0
+                val magHemis = cursor.getStringOrNull(3) ?: ""
+
+                val magVar = when (magHemis.uppercase()) {
+                    "E" -> -magVarRaw
+                    "W" -> magVarRaw
+                    else -> 0.0
+                }
+
+                return Waypoint(code, "NAVAID", lat, lon, magVar = magVar)
             }
         }
         return null
@@ -87,9 +106,9 @@ class AirportDatabaseHelper(context: Context) :
             arrayOf(code)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
-                val lat = cursor.getFloat(0)
-                val lon = cursor.getFloat(1)
-                return Waypoint(code, "FIX", lat, lon)
+                val lat = cursor.getDouble(0)
+                val lon = cursor.getDouble(1)
+                return Waypoint(code, "FIX", lat, lon, magVar = 0.0)
             }
         }
         return null

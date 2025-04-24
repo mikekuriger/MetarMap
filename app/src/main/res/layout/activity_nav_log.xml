@@ -21,6 +21,9 @@
         android:clipToPadding="false" />
 
     <!-- 🔹 TOTALS ROW -->
-    <include layout="@layout/navlog_totals_row" />
+<!--    <include layout="@layout/navlog_totals_row" />-->
+    <include
+        android:id="@+id/navlogTotalsRow"
+        layout="@layout/navlog_totals_row" />
 </LinearLayout>
 

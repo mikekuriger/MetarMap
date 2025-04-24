@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -100,10 +99,13 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.DatabaseSyncUtils
+import com.airportweather.map.utils.FlightPlanHolder
+import com.airportweather.map.utils.FlightPlanUtils
 import com.airportweather.map.utils.loadMetarDataFromCache
 import com.airportweather.map.utils.loadTafDataFromCache
 import com.airportweather.map.utils.saveMetarDataToCache
 import com.airportweather.map.utils.saveTafDataToCache
+import com.airportweather.map.utils.FlightPlanUtils.generateLegs
 import java.net.InetAddress
 import java.util.ArrayList
 
@@ -239,20 +241,6 @@ data class TrafficTarget(
     val lastUpdated: Long = System.currentTimeMillis(),
     var lastKnownPosition: LatLng = LatLng(lat, lon)
 )
-
-val test = FlightData(
-    wpLocation = LatLng(0.0, 0.0),
-    currentLeg = "TEST",
-    track = 0.0,
-    bearing = 0.0,
-    distance = 0.0,
-    groundSpeed = 0.0,
-    plannedAirSpeed = 100,
-    altitude = 0.0,
-    eta = "--:--",
-    waypoints = listOf(Waypoint("TEST", "FIX", 0f, 0f, 0f))
-)
-
 
 // METAR
 suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
@@ -733,79 +721,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-//    private val updateRunnable = object : Runnable {
-//        override fun run() {
-//            val now = System.currentTimeMillis()
-//
-//            if (isTrafficEnabled && lastKnownUserLocation != null) {
-//                lastKnownUserLocation?.let { location ->
-//                    for ((hex, marker) in aircraftMarkers) {
-//                        val target = trafficMap[hex] ?: continue
-//                        val elapsedSec = (now - target.lastUpdated) / 1000.0
-//                        if (elapsedSec > 10) continue  // skip stale
-//
-//                        val predicted = extrapolatePosition(target, elapsedSec)
-//                        val current = marker.position
-//                        val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
-//                        val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
-//                        val smoothed = LatLng(smoothLat, smoothLon)
-//
-//                        // Move the aircraft marker
-//                        marker.position = smoothed
-//
-//                        // Move the label markers (if present)
-//                        aircraftLabels[hex]?.position = smoothed
-//                        aircraftLabelsBottom[hex]?.position = smoothed
-//
-//                        // Update the marker visuals
-//                        updateAircraftMarker(target, location)
-//                    }
-//                }
-//            }
-//
-//            handler.postDelayed(this, 1000)
-//        }
-//    }
-
-
-
-    //    private val updateRunnable = object : Runnable {
-//        override fun run() {
-//            val now = System.currentTimeMillis()
-//            val cutoff = System.currentTimeMillis() - 30_000
-//
-//            for ((hex, marker) in aircraftMarkers) {
-//                val target = trafficMap[hex]
-//                if (target == null || target.lastUpdated < cutoff) {
-//                    // Don't update stale or missing targets
-//                    continue
-//                }
-//
-//                val elapsedSec = (now - target.lastUpdated) / 1000.0
-//                val predicted = extrapolatePosition(target, elapsedSec)
-//                val current = marker.position
-//                val smoothLat = (current.latitude * 0.7) + (predicted.latitude * 0.3)
-//                val smoothLon = (current.longitude * 0.7) + (predicted.longitude * 0.3)
-//                val smoothed = LatLng(smoothLat, smoothLon)
-//                // Move the aircraft marker
-//                marker.position = smoothed
-//                // ✅ Move the label marker (if present)
-//                aircraftLabels[hex]?.position = smoothed
-//                aircraftLabelsBottom[hex]?.position = smoothed
-//            }
-//            handler.postDelayed(this, 1000)  // keep looping every second
-//        }
-//    }
     private val trafficHandler = Handler(Looper.getMainLooper())
-    private val trafficRunnable = object : Runnable {
-        override fun run() {
-            val location = lastKnownUserLocation
-            if (location != null) {
-                checkStratuxAndConnectIfEnabled(location)
-            }
-            trafficHandler.postDelayed(this, 10000)  // run every 10 second
-        }
-    }
     private val pruneHandler = Handler(Looper.getMainLooper())
     private val pruneRunnable = object : Runnable {
         override fun run() {
@@ -816,6 +732,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var lastAltitude: Double? = null
     private var lastTime: Long? = null
     private var trackLine: Polyline? = null
+    private var stopStartTime: Long? = null  // for recorging tracks
+
 
 
     companion object {
@@ -835,7 +753,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         companion object {
             fun fromName(name: String): MapLayer {
-                return when(name) {
+                return when (name) {
                     "FlightConditions" -> FlightConditions
                     "Altimeter" -> Altimeter
                     "Temperature" -> Temperature
@@ -851,7 +769,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     // print out saved prefs
     private fun prefsDump() {
-        val prefNames = listOf("FlightPlanPrefs", "MapSettings", "AppPrefs", "SavedLocation", "db_versions")
+        val prefNames =
+            listOf("FlightPlanPrefs", "MapSettings", "AppPrefs", "SavedLocation", "db_versions")
         for (name in prefNames) {
             val prefs = getSharedPreferences(name, MODE_PRIVATE)
             for ((key, value) in prefs.all) {
@@ -888,7 +807,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // ✅ Download databases and load airports
         lifecycleScope.launch {
-            DatabaseSyncUtils.syncAirportDatabases(this@MainActivity, getSharedPreferences("db_versions", MODE_PRIVATE))
+            DatabaseSyncUtils.syncAirportDatabases(
+                this@MainActivity,
+                getSharedPreferences("db_versions", MODE_PRIVATE)
+            )
             //loadAirportsFromDatabase()
         }
 
@@ -898,14 +820,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         recordButton.setOnClickListener {
             if (!recorder.isRecording) {
                 recorder.start()
-                recordButton.setColorFilter(Color.RED)
-                Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
+                Log.d("KMLRecorder_main", "Button pressed — recording started")
             } else {
                 recorder.stop()
-                recordButton.setColorFilter(Color.BLACK)
-                Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
+                Log.d("KMLRecorder_main", "Button pressed — recording stopped")
             }
+
+            // ✅ Always reflect current state
+            val newColor = if (recorder.isRecording) Color.RED else Color.BLACK
+            recordButton.setColorFilter(newColor)
         }
+
 
         // ✅ Stratux Button
         val stratuxButton = binding.stratuxButton
@@ -921,14 +848,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             Log.d("FlightToggle", "Flight Plan button clicked")  // ✅ Log click event
 
             val isVisible = flightInfoLayout.visibility == View.VISIBLE
-            Log.d("FlightToggle", "Current visibility: $isVisible")  // ✅ Log visibility before toggle
+            Log.d(
+                "FlightToggle",
+                "Current visibility: $isVisible"
+            )  // ✅ Log visibility before toggle
 
             flightInfoLayout.visibility = if (isVisible) View.GONE else View.VISIBLE
 
             flightInfoLayout.bringToFront()
             flightInfoLayout.requestLayout()
 
-            Log.d("FlightToggle", "New visibility: ${flightInfoLayout.visibility}")  // ✅ Log visibility after toggle
+            Log.d(
+                "FlightToggle",
+                "New visibility: ${flightInfoLayout.visibility}"
+            )  // ✅ Log visibility after toggle
         }
 
         // ✅ NavLog Button
@@ -982,134 +915,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // ✅ Initialize Navigation Drawer
-        drawerLayout=binding.drawerLayout
-        navView=binding.navView
+        drawerLayout = binding.drawerLayout
+        navView = binding.navView
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         navView.setNavigationItemSelectedListener(this)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // location stuff
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 if (isStratuxGpsActive) return  // skip if Stratux is driving
                 locationResult.lastLocation?.let { handleNewLocation(it) }
             }
         }
-        // moved to new function
-//        locationCallback = object : LocationCallback() {
-//            override fun onLocationResult(locationResult: LocationResult) {
-//                if (!isStratuxGpsActive) {
-//                    locationResult.lastLocation?.let {
-//                        lastKnownUserLocation = it
-//                    }
-//                }
-//
-//                val location = lastKnownUserLocation ?: return
-//                val userLatLng = LatLng(location.latitude, location.longitude)
-//
-//                // Re-center if following
-//                if (isFollowingUser) {
-//                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
-//                }
-//
-//                // Start Stratux traffic / GPS
-//                checkStratuxAndConnectIfEnabled(location)
-//
-//                // ✈️ Auto-recording logic
-//                val currentTime = location.time
-//                val currentAltitude = location.altitude
-//                val speedKnots = location.speed * 1.94384
-//
-//                var verticalSpeedFpm = 0.0
-//                if (lastAltitude != null && lastTime != null) {
-//                    val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
-//                    val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
-//                    verticalSpeedFpm = verticalSpeedMps * 196.8504
-//                }
-//
-//                lastAltitude = currentAltitude
-//                lastTime = currentTime
-//
-//                if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
-//                    recorder.start()
-//                    recordButton.setColorFilter(Color.RED)
-//                    Log.d("KMLRecorder_main", "Takeoff detected")
-//                }
-//
-//                if (recorder.isRecording) {
-//                    recorder.logLocation(location)
-//                }
-//
-//                val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-//                if (waypoints.isNotEmpty()) {
-//                    val flightData = calculateFlightData(location, waypoints)
-//                    updateFlightInfo(flightData)
-//                }
-//            }
-//        }
-
-
-//        locationCallback = object : LocationCallback() {
-//            override fun onLocationResult(locationResult: LocationResult) {
-//                //Log.d("GPS", "🔥 locationCallback triggered")
-//
-//                locationResult.lastLocation?.let { location ->
-//                    val userLatLng = LatLng(location.latitude, location.longitude)
-//                    lastKnownUserLocation = location
-//                    //Log.d("GPS", "Location update: ${location.latitude}, ${location.longitude}")
-//
-//                    // Re-center if following
-//                    if (isFollowingUser) {
-//                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
-//                    }
-//
-//                    // Start Stratux traffic / GPS
-//                    checkStratuxAndConnectIfEnabled(location)
-//
-//                    // ✈️ Auto-recording logic
-//                    val currentTime = location.time
-//                    val currentAltitude = location.altitude
-//                    val speedKnots = location.speed * 1.94384
-//
-//                    var verticalSpeedFpm = 0.0
-//                    if (lastAltitude != null && lastTime != null) {
-//                        val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
-//                        val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
-//                        verticalSpeedFpm = verticalSpeedMps * 196.8504
-//                    }
-//
-//                    lastAltitude = currentAltitude
-//                    lastTime = currentTime
-//
-//                    if (!recorder.isRecording && speedKnots > 5 && verticalSpeedFpm > 100) {
-//                        recorder.start()
-//                        recordButton.setColorFilter(Color.RED)
-//                        Log.d("KMLRecorder_main", "Takeoff detected")
-//                    }
-//
-//                    if (recorder.isRecording) {
-//                        recorder.logLocation(location)
-//                    }
-//
-//                    // commented out so I can test on the ground
-////                    if (recorder.isRecording && speedKnots < 5 && verticalSpeedFpm < 100) {
-////                        recorder.stop()
-////                        recordButton.setColorFilter(Color.BLACK)
-////                        Log.d("KMLRecorder_main", "Landing detected")
-////                    }
-//
-//                    // Waypoint logic
-//                    val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-//                    if (waypoints.isEmpty()) {
-//                        Log.e("FlightData", "No waypoints available. Skipping calculation.")
-//                        return
-//                    } else {
-//                        val flightData = calculateFlightData(location, waypoints)
-//                        updateFlightInfo(flightData)
-//                    }
-//                }
-//            }
-//        }
 
         // location updates
         requestLocationUpdates()
@@ -1133,7 +951,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // load saved layers and preferences
         val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
-        currentLayerName = sharedPrefs.getString("selectedLayer", "FlightConditions") ?: "FlightConditions"
+        currentLayerName =
+            sharedPrefs.getString("selectedLayer", "FlightConditions") ?: "FlightConditions"
 
         Log.d("MapDebug", "Loaded layer: $currentLayerName")
 
@@ -1168,6 +987,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     refreshMarkers()
                 }
             }
+
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
@@ -1182,17 +1002,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         recorder = KMLRecorder(this)
 
 
-
         //KML files (for display)
-        trackFileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val filePath = result.data?.getStringExtra("selectedTrackFile")
-                if (filePath != null) {
-                    val file = File(filePath)
-                    loadTrackFromKml(file)
+        trackFileLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == RESULT_OK) {
+                    val filePath = result.data?.getStringExtra("selectedTrackFile")
+                    if (filePath != null) {
+                        val file = File(filePath)
+                        loadTrackFromKml(file)
+                    }
                 }
             }
-        }
     }
     // end of onCreate
 
@@ -1236,7 +1056,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         toggleMetarVisibility(showMetars)
         updateButtonState(binding.toggleMetarButton, showMetars)
 
-        toggleSectionalOverlay(mMap,showChart)
+        toggleSectionalOverlay(mMap, showChart)
         updateButtonState(binding.toggleVfrsecButton, showChart)
 
     }
@@ -1255,6 +1075,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         drawerLayout.closeDrawers() // ✅ Close drawer after selection
         return true
     }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
             drawerLayout.open()
@@ -1281,7 +1102,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             return
         }
 
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )
 
     }
 
@@ -1297,31 +1122,69 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
 
     // Handles All Calculations for flight planning (via db)
-    private fun calculateFlightData(location: Location, waypoints: ArrayList<Waypoint>?): FlightData {
+    private fun calculateFlightData(
+        location: Location,
+        flightPlan: FlightPlan
+    ): FlightData {
+        val userLatLng = LatLng(location.latitude, location.longitude)
+        val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
+        val altitude = location.altitude * 3.28084  // Convert to feet
+        val activeLeg = flightPlan.legs.firstOrNull { it.active } ?: return FlightData.empty()
+
+        val wpFrom = activeLeg.from
+        val wpTo = activeLeg.to
+
+        val fromLatLng = LatLng(wpFrom.lat, wpFrom.lon)
+        val toLatLng = LatLng(wpTo.lat, wpTo.lon)
+        val magVar = wpFrom.magVar
+
+        val track = location.bearing.toDouble()
+        val magneticTrack = (track + magVar + 360) % 360
+
+        //val bearingToWp = calculateBearing(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
+        val trueCourse = FlightPlanUtils.calculateTrueCourse(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
+        val bearingToWp = (trueCourse + magVar + 360) % 360
+        val distanceToWp = FlightPlanUtils.calculateDistance(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
+        val etaMinutes = calculateETA(distanceToWp, groundSpeed, plannedAirSpeed)
+        val eta = formatETA(etaMinutes)
+
+        return FlightData(
+            wpLocation = toLatLng,
+            currentLeg = "${wpFrom.name} → ${wpTo.name}",
+            track = magneticTrack,
+            bearing = bearingToWp,
+            distance = distanceToWp,
+            groundSpeed = groundSpeed,
+            plannedAirSpeed = plannedAirSpeed,
+            altitude = altitude,
+            eta = eta,
+            waypoints = listOf(wpTo) // or flightPlan.legs.map { it.to }
+        )
+    }
+
+    /*private fun calculateFlightData(
+        location: Location,
+        waypoints: List<Waypoint>?
+    ): FlightData {
         val dbHelper = AirportDatabaseHelper(this)
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
         val altitude = location.altitude * 3.28084  // Convert to feet
 
         val wpName: String = waypoints?.getOrNull(0)?.name ?: "direct"
-        val wp2Name: String = waypoints?.getOrNull(1)?.name ?: waypoints?.getOrNull(0)?.name ?: "----"
+        val wp2Name: String =
+            waypoints?.getOrNull(1)?.name ?: waypoints?.getOrNull(0)?.name ?: "----"
 
-        // in case we need the waypoint and not just the name
-        val defaultWp = Waypoint("direct", "NONE", 0f, 0f, 0f, false, false)
-        val fallbackWp = Waypoint("----", "NONE", 0f, 0f, 0f, false, false)
-
-//        if (waypoints.size > 1) {
-//            wpName = waypoints[0]
-//            wp2Name = waypoints[1]
-//        } else {
-//            wpName = "direct"
-//            wp2Name = waypoints.getOrNull(0) ?: "----"
-//        }
+        val wp2 = dbHelper.lookupWaypoint(wp2Name)
+        if (wp2 == null || wp2.type == "FIX") {
+            Log.i("FlightCalc", "Skipping airport check for FIX: $wp2Name")
+            return FlightData.empty()
+        }
 
         val airportInfo = dbHelper.getAirportInfo(wp2Name)
         if (airportInfo == null) {
             Log.e("FlightCalc", "No airport data for $wp2Name")
-            return FlightData.empty() // Replace with a valid fallback
+            return FlightData.empty()
         }
 
         val wpLocation = LatLng(airportInfo.lat, airportInfo.lon)
@@ -1354,10 +1217,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             eta = eta,
             waypoints = waypoints ?: emptyList()
         )
-    }
+    }*/
 
     // calculate bearing and distance to next waypoint
-    private fun calculateBearing(context: Context, currentLocation: LatLng, nextWaypoint: LatLng, airportId: String): Double {
+/*    private fun calculateBearing(
+        context: Context,
+        currentLocation: LatLng,
+        nextWaypoint: LatLng,
+        airportId: String
+    ): Double {
         val lat1 = Math.toRadians(currentLocation.latitude)
         val lon1 = Math.toRadians(currentLocation.longitude)
         val lat2 = Math.toRadians(nextWaypoint.latitude)
@@ -1373,8 +1241,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // magVar is negative if east, positive if west - calculated in AirportDatabaseHelper
         return (bearing + magVar + 360) % 360 // MagVar2
-    }
-    private fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
+    }*/
+
+/*    private fun calculateDistance(currentLocation: LatLng, nextWaypoint: LatLng): Double {
         val earthRadiusNM = 3440.065
         val lat1 = Math.toRadians(currentLocation.latitude)
         val lon1 = Math.toRadians(currentLocation.longitude)
@@ -1385,15 +1254,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val a = sin(dLat / 2).pow(2) + cos(lat1) * cos(lat2) * sin(dLon / 2).pow(2)
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return earthRadiusNM * c  // ✅ Distance in nautical miles (NM)
-    }
-    private fun calculateETA(distanceNM: Double, groundSpeedKnots: Double, plannedAirSpeed: Int): Double {
-        Log.d("ETA", "distanceNM: $distanceNM, groundSpeedKnots: $groundSpeedKnots, plannedAirSpeed: $plannedAirSpeed")
+    }*/
+
+    private fun calculateETA(
+        distanceNM: Double,
+        groundSpeedKnots: Double,
+        plannedAirSpeed: Int
+    ): Double {
+        Log.d(
+            "ETA",
+            "distanceNM: $distanceNM, groundSpeedKnots: $groundSpeedKnots, plannedAirSpeed: $plannedAirSpeed"
+        )
         return if (groundSpeedKnots > activeSpeed) {
             (distanceNM / groundSpeedKnots) * 60
         } else {
             (distanceNM / plannedAirSpeed) * 60
         }
     }
+
     @SuppressLint("DefaultLocale")
     private fun formatETA(etaMinutes: Double): String {
         return if (etaMinutes >= 60) {
@@ -1410,9 +1288,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         var totalDistance = 0.0
 
         for (i in 0 until waypoints.size - 1) {
-            val from = LatLng(waypoints[i].lat.toDouble(), waypoints[i].lon.toDouble())
-            val to = LatLng(waypoints[i + 1].lat.toDouble(), waypoints[i + 1].lon.toDouble())
-            totalDistance += calculateDistance(from, to)
+//            val from = LatLng(waypoints[i].lat, waypoints[i].lon)
+//            val to = LatLng(waypoints[i + 1].lat, waypoints[i + 1].lon)
+//            totalDistance += FlightPlanUtils.calculateDistance(from, to)
+            totalDistance += FlightPlanUtils.calculateDistance(waypoints[i].lat, waypoints[i].lon, waypoints[i + 1].lat, waypoints[i + 1].lon)
         }
 
         return totalDistance
@@ -1486,7 +1365,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // Handle Permissions
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED) {
+            == PackageManager.PERMISSION_GRANTED
+        ) {
             mMap.isMyLocationEnabled = true
         }
 
@@ -1496,7 +1376,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         try {
             val selectedStyle = MapStyleManager.getStyle(this)
             Log.d("MapStyle", "Loading style: ${selectedStyle.name}")
-            googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, selectedStyle.rawResId))
+            googleMap.setMapStyle(
+                MapStyleOptions.loadRawResourceStyle(
+                    this,
+                    selectedStyle.rawResId
+                )
+            )
         } catch (e: Resources.NotFoundException) {
             Log.e("MapStyle", "Can't find style. Error: ", e)
         }
@@ -1646,16 +1531,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // ✅ Handle flight plan waypoints
-        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableArrayListExtra("WAYPOINTS")
+        val flightPlan = FlightPlanHolder.currentPlan
+
+        if (flightPlan != null) {
+            updateMapWithFlightPlan(flightPlan)
         }
 
-        if (!waypoints.isNullOrEmpty()) {
-            updateMapWithWaypoints(waypoints)
-        }
+//        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+//            intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
+//        } else {
+//            @Suppress("DEPRECATION")
+//            intent.getParcelableArrayListExtra("WAYPOINTS")
+//        }
+
+//        if (!waypoints.isNullOrEmpty()) {
+//            updateMapWithWaypoints(waypoints)
+//        }
+
+//        val legs = generateLegs(this, waypoints, tas, fuelBurn, cruiseAltitude, windDir, windSpeed)
+//        val myFlightPlan = FlightPlan(legs.toMutableList())
+//        updateMapWithFlightPlan(myFlightPlan)
 
         // Draw track line
         updateMapWithTrack()
@@ -1735,6 +1630,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             checkLocationPermission()
         }
     }
+
     private fun moveToCurrentLocation() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
@@ -1748,23 +1644,34 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             e.printStackTrace()
         }
     }
+
     private fun moveToLastSavedLocationOrCurrent() {
         val prefs = getSharedPreferences("SavedLocation", MODE_PRIVATE)
         val savedLat = prefs.getFloat("lat", Float.MIN_VALUE)
         val savedLng = prefs.getFloat("lng", Float.MIN_VALUE)
         val savedZoom = prefs.getFloat("zoom", 10f) // Default zoom level
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             if (savedLat != Float.MIN_VALUE && savedLng != Float.MIN_VALUE &&
                 (savedLat != 0.0f || savedLng != 0.0f)
             ) {
                 // ✅ Move to last saved position
                 val lastLatLng = LatLng(savedLat.toDouble(), savedLng.toDouble())
-                Log.d("MapDebug", "Moving to saved position: lat=$savedLat, lng=$savedLng, zoom=$savedZoom")
+                Log.d(
+                    "MapDebug",
+                    "Moving to saved position: lat=$savedLat, lng=$savedLng, zoom=$savedZoom"
+                )
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastLatLng, savedZoom))
             } else {
                 // ✅ No saved position → Move to current location
-                Log.d("MapDebug", "No saved position, moving to current location: lat=$savedLat, lng=$savedLng, zoom=$savedZoom")
+                Log.d(
+                    "MapDebug",
+                    "No saved position, moving to current location: lat=$savedLat, lng=$savedLng, zoom=$savedZoom"
+                )
                 moveToCurrentLocation()
             }
         } else {
@@ -1772,6 +1679,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             checkLocationPermission()
         }
     }
+
     private fun saveMapPosition() {
         val prefs = getSharedPreferences("SavedLocation", MODE_PRIVATE)
         val editor = prefs.edit()
@@ -1781,8 +1689,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         editor.putFloat("zoom", mMap.cameraPosition.zoom)
         editor.apply()
         // ✅ Debugging: Check if values are saved
-        Log.d("MapDebug", "Saved Position: lat=${target.latitude}, lng=${target.longitude}, zoom=${mMap.cameraPosition.zoom}")
+        Log.d(
+            "MapDebug",
+            "Saved Position: lat=${target.latitude}, lng=${target.longitude}, zoom=${mMap.cameraPosition.zoom}"
+        )
     }
+
     private fun saveLayerSelection(layerName: String) {
         val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
         with(sharedPrefs.edit()) {
@@ -1792,7 +1704,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("MapDebug", "Saved layer: $layerName")
     }
 
-    private fun createDotBitmap(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): Bitmap {
+    private fun createDotBitmap(
+        size: Int,
+        fillColor: Int,
+        borderColor: Int,
+        borderWidth: Int
+    ): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint()
@@ -1818,13 +1735,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         return bitmap
     }
+
     private fun refreshMarkers() {
         metarMarkers.forEach { it.remove() }
         metarMarkers.clear()
 
         updateVisibleMarkers(metarData, tafData)
     }
-    private fun createTextBitmap(text: String, textColor: Int, bgColor: Int = Color.TRANSPARENT, size: Float = 40F): Bitmap {
+
+    private fun createTextBitmap(
+        text: String,
+        textColor: Int,
+        bgColor: Int = Color.TRANSPARENT,
+        size: Float = 40F
+    ): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = textColor
             textSize = size
@@ -1863,6 +1787,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         return bitmap
     }
+
     private fun startAutoRefresh(intervalMinutes: Long) {
         lifecycleScope.launch {
             while (true) {
@@ -1872,9 +1797,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     // Update markers based on visible map area
     fun Context.isInternetAvailable(): Boolean {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -1894,7 +1821,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             //Log.d("METAR_DEBUG", "Processing: ${metar.stationId} at $location")
 
             if (!visibleBounds.contains(location)) return@forEach
-                //Log.d("METAR_DEBUG", "Skipping ${metar.stationId}: Out of visible bounds")
+            //Log.d("METAR_DEBUG", "Skipping ${metar.stationId}: Out of visible bounds")
 
             val existingMarker = metarMarkers.find { it.position == location }
 
@@ -1930,7 +1857,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
-    private fun createDotMarker(metar: METAR, taf: TAF?, location: LatLng, style: MarkerStyle): Marker? {
+
+    private fun createDotMarker(
+        metar: METAR,
+        taf: TAF?,
+        location: LatLng,
+        style: MarkerStyle
+    ): Marker? {
         // Skip invalid color combinations
         if (style.fillColor == Color.WHITE) return null
 
@@ -1957,6 +1890,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             tag = MetarTafData(metar, taf) // Set tag on Marker, not Options
         }
     }
+
     private fun getFlightCategoryColor(category: String?): Int {
         return when (category?.uppercase()) {
             "VFR" -> Color.GREEN
@@ -1966,6 +1900,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             else -> Color.WHITE
         }
     }
+
     private fun createWindMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
         val windSpeed = metar.windSpeedKt ?: 0
         val windDir = metar.windDirDegrees
@@ -1988,15 +1923,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             tag = MetarTafData(metar, taf)
         }
     }
+
     private fun createFlightConditionMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
         val style = MarkerStyle(
-            size = 60,
+            size = 50,
             fillColor = getFlightCategoryColor(metar.flightCategory),
             borderColor = taf?.flightCategory?.let { getFlightCategoryColor(it) } ?: Color.WHITE,
             borderWidth = 13
         )
         return createDotMarker(metar, taf, location, style)
     }
+
     private fun createMetarDotForWindLayer(metar: METAR, location: LatLng): Marker? {
         val style = MarkerStyle(
             size = 50,
@@ -2010,20 +1947,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
         metar.tempC?.let {
             val tempColor = when {
-                it >= 32  -> Color.RED
-                it <= 2 -> Color.argb(255,50,100,255)
+                it >= 32 -> Color.RED
+                it <= 2 -> Color.argb(255, 50, 100, 255)
                 else -> Color.WHITE
             }
             //val bgColor = Color.argb(125, 0, 0, 0)
             val bgColor = Color.BLACK
             val bitmap = createTextBitmap("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
             //val bitmap = createTextBitmap("${it}°C", tempColor)
-            return mMap.addMarker(MarkerOptions()
-                .position(location)
-                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
-                .visible(areMetarsVisible)
+            return mMap.addMarker(
+                MarkerOptions()
+                    .position(location)
+                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .visible(areMetarsVisible)
 //                .anchor(0.5f, 0.5f))
-                .anchor(0.5f, 1.3f))
+                    .anchor(0.5f, 1.3f)
+            )
         }
         return null
     }
@@ -2062,41 +2001,49 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         metar.altimeterInHg?.let {
             val bgColor = Color.BLACK
             val bitmap = createTextBitmap("%.2f".format(it), Color.WHITE, bgColor)
-            return mMap.addMarker(MarkerOptions()
-                .position(location)
-                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
-                .visible(areMetarsVisible)
-                .anchor(0.5f, 1.3f))
+            return mMap.addMarker(
+                MarkerOptions()
+                    .position(location)
+                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .visible(areMetarsVisible)
+                    .anchor(0.5f, 1.3f)
+            )
         }
         return null
     }
+
     private fun createCloudMarker(metar: METAR, location: LatLng): Marker? {
         metar.skyCover1.let {
             val bgColor = Color.BLACK
             val bitmap = it?.let { it1 -> createTextBitmap(it1, Color.WHITE, bgColor) }
-            return mMap.addMarker(MarkerOptions()
-                .position(location)
-                .icon(bitmap?.let { it1 -> BitmapDescriptorFactory.fromBitmap(it1) })
-                .visible(areMetarsVisible)
-                .anchor(0.5f, 1.3f))
+            return mMap.addMarker(
+                MarkerOptions()
+                    .position(location)
+                    .icon(bitmap?.let { it1 -> BitmapDescriptorFactory.fromBitmap(it1) })
+                    .visible(areMetarsVisible)
+                    .anchor(0.5f, 1.3f)
+            )
         }
     }
+
     private fun createCeilingMarker(metar: METAR, location: LatLng): Marker? {
         metar.cloudBase1?.let {
             val bgColor = Color.BLACK
             val bitmap = createTextBitmap(it.toString(), Color.WHITE, bgColor)
-            return mMap.addMarker(MarkerOptions()
-                .position(location)
-                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
-                .visible(areMetarsVisible)
-                .anchor(0.5f, 1.3f))
+            return mMap.addMarker(
+                MarkerOptions()
+                    .position(location)
+                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .visible(areMetarsVisible)
+                    .anchor(0.5f, 1.3f)
+            )
         }
         return null
     }
 
     @SuppressLint("DefaultLocale")
     private fun celsiusToFahrenheit(celsius: Double): String {
-        return "%.0f".format(celsius * 9/5 + 32)
+        return "%.0f".format(celsius * 9 / 5 + 32)
     }
 
     // Format the weather details for the popup snippet
@@ -2104,12 +2051,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val ageInMinutes = calculateMetarAge(metars.observationTime)
         return """
         ${getCurrentTimeLocalFormat()} (${ageInMinutes} minutes old)
-        ${if (metars.windSpeedKt == 0 || metars.windSpeedKt == null) {
-            "Wind: Calm"
-        } else {
-            "Wind: ${metars.windDirDegrees ?: "VRB"}° @ ${metars.windSpeedKt} kt" +
-                    (if (metars.windGustKt != null && metars.windGustKt > 0) ", Gust ${metars.windGustKt} kt" else "")
-        }}
+        ${
+            if (metars.windSpeedKt == 0 || metars.windSpeedKt == null) {
+                "Wind: Calm"
+            } else {
+                "Wind: ${metars.windDirDegrees ?: "VRB"}° @ ${metars.windSpeedKt} kt" +
+                        (if (metars.windGustKt != null && metars.windGustKt > 0) ", Gust ${metars.windGustKt} kt" else "")
+            }
+        }
         Visibility: ${metars.visibility ?: "N/A"} sm
         Clouds: ${formatClouds(metars)}
         Temperature: ${metars.tempC ?: 0.0}°C (${celsiusToFahrenheit(metars.tempC ?: 0.0)}°F)
@@ -2120,7 +2069,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             if (metars.elevationM != null && metars.tempC != null && metars.altimeterInHg != null && metars.dewpointC != null) {
                 val elevationFeet = metersToFeet(metars.elevationM)
                 val humidity = calculateHumidity(metars.tempC, metars.dewpointC)
-                calculateDensityAltitude(elevationFeet, metars.tempC, metars.altimeterInHg, humidity.toDouble())
+                calculateDensityAltitude(
+                    elevationFeet,
+                    metars.tempC,
+                    metars.altimeterInHg,
+                    humidity.toDouble()
+                )
             } else {
                 "N/A"
             }
@@ -2128,7 +2082,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     """.trimIndent()
 
     }
-    private fun showBottomProgressBar(message: String, color: Int = ContextCompat.getColor(this@MainActivity, android.R.color.holo_blue_dark)) {
+
+    private fun showBottomProgressBar(
+        message: String,
+        color: Int = ContextCompat.getColor(
+            this@MainActivity,
+            android.R.color.holo_blue_dark
+        )
+    ) {
         val progressBar = binding.progressBottomBar
         val progressMessage = binding.progressMessageBottom
         if (progressMessage == null) {
@@ -2139,12 +2100,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         progressBar.visibility = View.VISIBLE
         progressBar.setBackgroundColor(color)
     }
+
     private fun hideBottomProgressBar() {
         val progressBar = binding.progressBottomBar
         val progressOverlay = binding.progressOverlay
         progressBar.visibility = View.GONE
         //progressOverlay.visibility = View.GONE
     }
+
     private fun updateButtonState(button: Button, isActive: Boolean) {
         // Change button color based on state
         if (isActive) {
@@ -2153,6 +2116,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             button.setTextColor(Color.GRAY)
         }
     }
+
     // TFR
     private fun loadAndDrawTFR() {
         lifecycleScope.launch {
@@ -2175,6 +2139,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     private fun drawTFRPolygons(map: GoogleMap, tfrFeatures: List<TFRFeature>) {
         val dateFormat = SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.US)
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
@@ -2218,6 +2183,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                             strokeColor = Color.argb(255, 255, 128, 0)
                             fillColor = Color.argb(64, 255, 128, 0)
                         }
+
                         else -> { // Current TFR
                             strokeColor = Color.argb(255, 255, 0, 0)
                             fillColor = Color.argb(64, 255, 0, 0)
@@ -2245,14 +2211,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     private fun formatAltitude(altitude: String): String {
         return when {
             altitude == "0" -> "Surface"  // ✅ Convert "0" to "Surface"
-            (altitude.replace(",", "").toIntOrNull() ?: 0) >= 90000 -> "Unlimited" // ✅ Convert 90,000+ to "Unlimited"
-            altitude.toIntOrNull() != null -> "%,d'".format(altitude.replace(",", "").toInt()) // ✅ Add comma + tick
+            (altitude.replace(",", "").toIntOrNull()
+                ?: 0) >= 90000 -> "Unlimited" // ✅ Convert 90,000+ to "Unlimited"
+            altitude.toIntOrNull() != null -> "%,d'".format(
+                altitude.replace(",", "").toInt()
+            ) // ✅ Add comma + tick
             else -> altitude // ✅ Keep text altitudes unchanged (e.g., "FL600")
         }
     }
+
     //light
     /*private fun showTfrPopup(context: Context, tfr: TFRProperties) {
 
@@ -2325,23 +2296,35 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         } else {
             tfr.dateEffective
         }
-        val startDate = try { dateFormat.parse(startDateString) } catch (e: Exception) { null }
-        val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
+        val startDate = try {
+            dateFormat.parse(startDateString)
+        } catch (e: Exception) {
+            null
+        }
+        val endDate = try {
+            dateFormat.parse(tfr.dateExpire)
+        } catch (e: Exception) {
+            null
+        }
 
         // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
         val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"
 
         // ✅ Check if the TFR is active
-        val status = if (endDate == null || (startDate != null && currentDate in startDate..endDate)) {
-            "Active"
-        } else {
-            "Inactive"
-        }
+        val status =
+            if (endDate == null || (startDate != null && currentDate in startDate..endDate)) {
+                "Active"
+            } else {
+                "Inactive"
+            }
 
         // **Set Custom Colors**
-        val activeColor = ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Red for Active
-        val inactiveColor = ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Green for Inactive
-        val altitudeColor = ContextCompat.getColor(context, android.R.color.holo_blue_dark) // Blue for altitude
+        val activeColor =
+            ContextCompat.getColor(context, android.R.color.holo_red_dark)  // Red for Active
+        val inactiveColor =
+            ContextCompat.getColor(context, android.R.color.holo_green_dark)  // Green for Inactive
+        val altitudeColor =
+            ContextCompat.getColor(context, android.R.color.holo_blue_dark) // Blue for altitude
         val defaultTextColor = Color.LTGRAY  // ✅ Light gray for regular text
 
         // **Create Spannable Title with Custom Colors**
@@ -2397,6 +2380,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         alertDialog.show()
     }
+
     private fun showTfrSelectionDialog(context: Context, tfrList: List<TFRProperties>) {
         val tfrTitles = tfrList.map { "${it.notam} - ${it.type}" }.toTypedArray()
 
@@ -2408,11 +2392,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .setNegativeButton("Cancel", null)
             .show()
     }
+
     private fun toggleTFRVisibility(visible: Boolean) {
         areTFRsVisible = visible
         tfrPolygons.forEach { it.isVisible = areTFRsVisible }
         Log.d("Toggle", "Saved TFR visibility - set to $areTFRsVisible")
     }
+
     // AIRSPACE
     private fun loadAndDrawAirspace(map: GoogleMap, context: Context) {
         if (airspacePolygons.isNotEmpty()) return
@@ -2433,7 +2419,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     val type = geometry.getString("type")
 
                     if (type == "Polygon") {
-                        val coordinates = extractPolygonCoordinates(geometry.getJSONArray("coordinates"))
+                        val coordinates =
+                            extractPolygonCoordinates(geometry.getJSONArray("coordinates"))
                         val polygonOptions = PolygonOptions().addAll(coordinates)
 
                         // Customize polygon style
@@ -2449,8 +2436,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                             when (airspaceClass) {
                                 "CLASS_B" -> polygonOptions.strokeColor(Color.argb(128, 0, 64, 255))
                                     .strokeWidth(8f)
+
                                 "CLASS_C" -> polygonOptions.strokeColor(Color.MAGENTA)
                                     .strokeWidth(4f)
+
                                 "CLASS_D", "CLASS_E4" -> polygonOptions.strokeColor(
                                     if (airspaceClass == "CLASS_D") Color.parseColor("#0080FF") else Color.parseColor(
                                         "#863F67"
@@ -2483,6 +2472,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     private fun extractPolygonCoordinates(coordinatesArray: JSONArray): List<LatLng> {
         val points = mutableListOf<LatLng>()
         for (j in 0 until coordinatesArray.length()) {
@@ -2494,12 +2484,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         return points
     }
+
     private fun toggleAirspace(visible: Boolean) {
         //areAirspacesVisible = !areAirspacesVisible
         areAirspacesVisible = visible
         airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
         Log.d("Toggle", "Airspace visibility set to $areAirspacesVisible")
     }
+
     // METAR
     private fun loadAndDrawMetar() {
 
@@ -2551,16 +2543,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     private fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
         val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
         newMetars.forEach { metar -> metarMap[metar.stationId] = metar } // Update with new data
         return metarMap.values.toList()
     }
+
     private fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
         val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
         newTafs.forEach { taf -> tafMap[taf.stationId] = taf } // Update with new data
         return tafMap.values.toList()
     }
+
     //light
     /*private fun showMetarDialog(metar: METAR, taf: TAF?) {
         val messageTextView = TextView(this).apply {
@@ -2683,6 +2678,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         alertDialog.show()
     }
+
     private fun toggleMetarVisibility(visible: Boolean) {
         areMetarsVisible = visible
         metarMarkers.forEach { marker ->
@@ -2690,6 +2686,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
     }
+
     private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
         // Skip calm winds or invalid data
         if (windSpeedKt < 4) return null
@@ -2798,8 +2795,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     // TILES (sectional charts)
-    private fun toggleSectionalOverlay(map: GoogleMap,visible: Boolean) {
+    private fun toggleSectionalOverlay(map: GoogleMap, visible: Boolean) {
         if (sectionalOverlay == null) {
             val sectionalTileProvider = SectionalTileProvider(this)
             val tileOverlayOptions = TileOverlayOptions()
@@ -2855,18 +2853,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // GPS source
     private fun handleNewLocation(location: Location) {
         lastKnownUserLocation = location
-
         val userLatLng = LatLng(location.latitude, location.longitude)
 
-        // Re-center if following
+        // ✅ Re-center if following
         if (isFollowingUser) {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom))
+            mMap.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom)
+            )
         }
 
-        // Start Stratux traffic / GPS
+        // ✅ Start Stratux traffic / GPS (non-blocking for now)
         checkStratuxAndConnectIfEnabled(location)
 
-        // Auto-recording logic
+        // ✅ Auto-recording logic (unchanged)
         val currentTime = location.time
         val currentAltitude = location.altitude
         val speedKnots = location.speed * 1.94384
@@ -2881,38 +2880,124 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lastAltitude = currentAltitude
         lastTime = currentTime
 
-        if (!recorder.isRecording && speedKnots > 15 && verticalSpeedFpm > 100) {
-            //recorder.start()
-            binding.recordButton.setColorFilter(Color.RED)
-            Log.d("KMLRecorder_main", "Takeoff detected")
-        }
-
+        // FIXME
+        // if recorder is ON, write our GPS position
         if (recorder.isRecording) {
-            //recorder.logLocation(location)
+            recorder.logLocation(location)
         }
 
+        // ✈️ Auto start recording on takeoff
+//        if (!recorder.isRecording && speedKnots > 15 && verticalSpeedFpm > 100) {
+        if (!recorder.isRecording && speedKnots > 10 ) {
+            recorder.start()
+            Log.d("KMLRecorder_main", "Takeoff detected — recording started")
+        }
+
+        // ✈️ Auto stop recording on landing
         if (recorder.isRecording && speedKnots < 15 && verticalSpeedFpm < 100) {
-            //recorder.stop()
-            binding.recordButton.setColorFilter(Color.BLACK)
-            Log.d("KMLRecorder_main", "Landing detected")
-        }
+            if (stopStartTime == null) {
+                stopStartTime = System.currentTimeMillis()
+            }
 
-        // Flight Plan waypoints
-        //val waypoints = intent.getStringArrayListExtra("WAYPOINTS") ?: return
-        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
+            val stoppedDuration = System.currentTimeMillis() - stopStartTime!!
+            if (stoppedDuration >= 10_000) {  // 30 seconds
+                recorder.stop()
+                Log.d("KMLRecorder_main", "Stopped for 10s — recording stopped")
+                stopStartTime = null
+            }
         } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableArrayListExtra("WAYPOINTS")
+            // Moving again, reset stop timer
+            stopStartTime = null
         }
 
-        if (waypoints != null) {
-            if (waypoints.isNotEmpty()) {
-                val flightData = calculateFlightData(location, waypoints)
+        // ✅ Always reflect current state
+        val newColor = if (recorder.isRecording) Color.RED else Color.BLACK
+        val recordButton = binding.recordButton
+        recordButton.setColorFilter(newColor)
+
+        // ✅ Flight plan leg advancement
+        val flightPlan = FlightPlanHolder.currentPlan
+        if (flightPlan != null) {
+            val advanced = flightPlan.advanceLegIfPast(userLatLng)
+            if (advanced) {
+                Log.i("FlightPlan", "Leg advanced near $userLatLng")
+                updateMapWithFlightPlan(flightPlan)
+            }
+
+            val activeLeg = flightPlan.legs.firstOrNull { it.active && !it.completed }
+            if (activeLeg != null) {
+//                val flightData = calculateFlightData(location, listOf(activeLeg.from, activeLeg.to))
+                val flightData = calculateFlightData(location, flightPlan)
                 updateFlightInfo(flightData)
             }
         }
     }
+
+//    private fun handleNewLocation(location: Location) {
+//        lastKnownUserLocation = location
+//
+//        val userLatLng = LatLng(location.latitude, location.longitude)
+//
+//        // Re-center if following
+//        if (isFollowingUser) {
+//            mMap.animateCamera(
+//                CameraUpdateFactory.newLatLngZoom(
+//                    userLatLng,
+//                    mMap.cameraPosition.zoom
+//                )
+//            )
+//        }
+//
+//        // Start Stratux traffic / GPS
+//        checkStratuxAndConnectIfEnabled(location)
+//
+//        // Auto-recording logic
+//        val currentTime = location.time
+//        val currentAltitude = location.altitude
+//        val speedKnots = location.speed * 1.94384
+//
+//        var verticalSpeedFpm = 0.0
+//        if (lastAltitude != null && lastTime != null) {
+//            val timeDelta = (currentTime - lastTime!!).coerceAtLeast(1)
+//            val verticalSpeedMps = (currentAltitude - lastAltitude!!) / (timeDelta / 1000.0)
+//            verticalSpeedFpm = verticalSpeedMps * 196.8504
+//        }
+//
+//        lastAltitude = currentAltitude
+//        lastTime = currentTime
+//
+//        if (!recorder.isRecording && speedKnots > 15 && verticalSpeedFpm > 100) {
+//            //recorder.start()
+//            binding.recordButton.setColorFilter(Color.RED)
+//            Log.d("KMLRecorder_main", "Takeoff detected")
+//        }
+//
+//        if (recorder.isRecording) {
+//            //recorder.logLocation(location)
+//        }
+//
+//        if (recorder.isRecording && speedKnots < 15 && verticalSpeedFpm < 100) {
+//            //recorder.stop()
+//            binding.recordButton.setColorFilter(Color.BLACK)
+//            Log.d("KMLRecorder_main", "Landing detected")
+//        }
+//
+//        // Flight Plan waypoints
+//        val waypoints: ArrayList<Waypoint>? =
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+//                intent.getParcelableArrayListExtra("WAYPOINTS", Waypoint::class.java)
+//            } else {
+//                @Suppress("DEPRECATION")
+//                intent.getParcelableArrayListExtra("WAYPOINTS")
+//            }
+//
+//        if (waypoints != null) {
+//            if (waypoints.isNotEmpty()) {
+//                val flightData = calculateFlightData(location, waypoints)
+//                updateFlightInfo(flightData)
+//            }
+//        }
+//    }
 
     //Traffic markers (stratux)
     private fun checkStratuxAndConnectIfEnabled(loc: Location) {
@@ -3025,6 +3110,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             trafficMap.clear()
         }
     }
+
     private fun extrapolatePosition(target: TrafficTarget, seconds: Double): LatLng {
         val earthRadiusNM = 3440.065
         val distanceNm = (target.speedKts / 3600.0) * seconds
@@ -3044,6 +3130,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         return LatLng(Math.toDegrees(newLat), Math.toDegrees(newLon))
     }
+
     private fun updateAircraftMarker(target: TrafficTarget, location: Location) {
 
         val position = LatLng(target.lat, target.lon)
@@ -3062,7 +3149,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val labelBitmapTop = createTextBitmap(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
 
         val labelTextBottom = "${target.tail}  ${target.speedKts}kt"
-        val labelBitmapBottom = createTextBitmap(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
+        val labelBitmapBottom =
+            createTextBitmap(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
 
         val marker = aircraftMarkers[target.hex]
         val labelMarker = aircraftLabels[target.hex]
@@ -3107,23 +3195,36 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
         }
     }
+
     private fun pruneStaleAircraft() {
         val cutoff = System.currentTimeMillis() - 1000 * staleTimeout
         val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
-        Log.d("TrafficPrune", "Total aircraft: ${aircraftMarkers.size}, Stale aircraft: ${staleTargets.size}")
+        Log.d(
+            "TrafficPrune",
+            "Total aircraft: ${aircraftMarkers.size}, Stale aircraft: ${staleTargets.size}"
+        )
 
         if (!DEBUG_LOGGING_ENABLED) {
             Log.d("TrafficPrune", "Total aircraft: ${aircraftMarkers.size}")
             Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
-            Log.d("TrafficPrune", "Markers: ${aircraftMarkers.size}, Labels: ${aircraftLabels.size}, Bottom Labels: ${aircraftLabelsBottom.size}")
+            Log.d(
+                "TrafficPrune",
+                "Markers: ${aircraftMarkers.size}, Labels: ${aircraftLabels.size}, Bottom Labels: ${aircraftLabelsBottom.size}"
+            )
 
 
             staleTargets.forEach { (hex, target) ->
-                Log.d("TrafficPrune", "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+                Log.d(
+                    "TrafficPrune",
+                    "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago"
+                )
             }
 
             trafficMap.forEach { (hex, target) ->
-                Log.d("TrafficPrune", "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
+                Log.d(
+                    "TrafficPrune",
+                    "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago"
+                )
             }
         }
 
@@ -3138,43 +3239,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             trafficMap.remove(hex)
         }
     }
-
-
-//    private fun pruneStaleAircraft() {
-//        val cutoff = System.currentTimeMillis() - 10_000  // 30 seconds stale
-//        val allTargets = trafficMap
-//        val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
-//
-//        if (DEBUG_LOGGING_ENABLED) {
-//            Log.d("TrafficPrune", "Total aircraft: ${allTargets.size}")
-//            Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
-//            Log.d("TrafficPrune", "Markers: ${aircraftMarkers.size}, Labels: ${aircraftLabels.size}, Bottom Labels: ${aircraftLabelsBottom.size}")
-//
-//
-//            staleTargets.forEach { (hex, target) ->
-//                Log.d("TrafficPrune", "🗑 Stale: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
-//            }
-//
-//            allTargets.forEach { (hex, target) ->
-//                Log.d("TrafficPrune", "🛩 Active: $hex (${target.tail}) last seen ${System.currentTimeMillis() - target.lastUpdated}ms ago")
-//            }
-//        }
-//
-//        for ((hex, _) in staleTargets) {
-//            Log.d("TrafficPrune", "Remaining markers after prune: ${aircraftMarkers.size}")
-//
-//            aircraftMarkers[hex]?.remove()
-//            aircraftLabels[hex]?.remove()
-//            aircraftLabelsBottom[hex]?.remove()
-//
-//            aircraftMarkers.remove(hex)
-//            aircraftLabels.remove(hex)
-//            aircraftLabelsBottom.remove(hex)
-//            trafficMap.remove(hex)
-//        }
-//    }
-
-
 
     private fun vectorToBitmap(context: Context, vectorResId: Int): BitmapDescriptor {
         val vectorDrawable = ContextCompat.getDrawable(context, vectorResId)!!
@@ -3234,267 +3298,437 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-
-    //Flight plan markers
-    @SuppressLint("MissingPermission")
-    /*    private fun updateMapWithWaypoints(waypoints: List<Waypoint>) {
-            val dbHelper = AirportDatabaseHelper(this)
-
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                val latLngList = mutableListOf<LatLng>()
-                val waypointNames = mutableListOf<String>()
-
-                // ✅ Start from user's location if only one waypoint
-                if (waypoints.size == 1 && location != null) {
-                    val userLatLng = LatLng(location.latitude, location.longitude)
-                    latLngList.add(userLatLng)
-                }
-
-                // ✅ Add all waypoints from the database
-                for (waypoint in waypoints) {
-                    val info = dbHelper.getAirportInfo(waypoint)
-                    if (info != null) {
-                        latLngList.add(LatLng(info.lat, info.lon))
-                        waypointNames.add(info.icaoId.ifEmpty { info.airportId })
-                    } else {
-                        Log.w("MapUpdate", "No coordinates found for $waypoint")
-                    }
-                }*/
-
-    private fun updateMapWithWaypoints(waypoints: List<Waypoint>) {
+    //Flight plan markers, waypoints, LEGS
+    private fun updateMapWithFlightPlan(flightPlan: FlightPlan) {
         val latLngList = mutableListOf<LatLng>()
         val waypointNames = mutableListOf<String>()
         val dbHelper = AirportDatabaseHelper(this)
-//        val userAircraftCallSign = sharedPrefs.getString("user_aircraft_callsign", null)
 
-        // If only one waypoint and user location is available, use user location as start
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (waypoints.size == 1 && location != null) {
-                val userLatLng = LatLng(location.latitude, location.longitude)
-                latLngList.add(userLatLng)
-                //waypointNames.add(userAircraftCallSign)
-                waypointNames.add(".")
+        // If there are no legs but only one waypoint, treat it as a direct-to flight
+//        if (ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_FINE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_COARSE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED
+//        ) {
+//            return
+//        }
 
+        for (leg in flightPlan.legs) {
+            val fromLatLng =  LatLng(leg.from.lat, leg.from.lon)
+            val toLatLng = LatLng(leg.to.lat, leg.to.lon)
+
+            // Draw each leg individually
+            val legColor = when {
+                leg.completed -> Color.LTGRAY
+                leg.active -> Color.MAGENTA
+                else -> Color.CYAN
             }
 
-            //waypointNames.add("You")
+            val legLine = PolylineOptions()
+                .add(fromLatLng, toLatLng)
+                .color(legColor)
+                .width(10f)
+                .zIndex(2f)
 
-            for (wp in waypoints) {
-                latLngList.add(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
-                waypointNames.add(wp.name)
-                if (wp.type == "NAVAID" || wp.type == "FIX") {
-                    val style = MarkerStyle(
-                        size = 40,  // smaller than METAR
-                        fillColor = if (wp.type == "NAVAID") Color.CYAN else Color.LTGRAY,
-                        borderColor = Color.WHITE,
-                        borderWidth = 6
-                    )
-                    val dotBitmap = createDotBitmap(
-                        size = style.size,
-                        fillColor = style.fillColor,
-                        borderColor = style.borderColor,
-                        borderWidth = style.borderWidth
-                    )
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
-                            .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
-                            .anchor(0.5f, 0.5f)
-                            .zIndex(2f)
-                            .visible(true)
-                    )
-                }
-            }
+            val legBorder = PolylineOptions()
+                .add(fromLatLng, toLatLng)
+                .color(Color.BLACK)
+                .width(12f)
+                .zIndex(1f)
 
-            // ✅ Draw magenta line between active waypoints, blue between inactive waypoints
-            for (i in 0 until latLngList.size - 1) {
-                val from = latLngList[i]
-                val to = latLngList[i + 1]
+            mMap.addPolyline(legBorder)
+            mMap.addPolyline(legLine)
 
-                val legColor = when (i) {
-                    0 -> Color.argb(255, 255, 0, 255) // Magenta for legs
-                    else -> Color.argb(255, 0, 230, 255) // BLUE for planning
-                }
-                val legLine = PolylineOptions()
-                    .add(from, to)
-                    .color(legColor)
-                    .width(10f)
-                    .zIndex(2f)
-
-                val legBorder = PolylineOptions()
-                    .add(from, to)
-                    .color(Color.BLACK)
-                    .width(12f)
-                    .zIndex(1f)
-
-                mMap.addPolyline(legBorder)
-                mMap.addPolyline(legLine)
-            }
-
-            // Draw waypoint names
-            for (i in latLngList.indices) {
-                val position = latLngList[i]
-                val label = waypointNames.getOrNull(i) ?: "WP$i"
-                val labelBitmap = createTextBitmap(
-                    label,
-                    Color.WHITE,
-                    Color.argb(180, 0, 0, 0)
-                ) // white on semi-transparent black
+            // Draw waypoint dots
+            for (wp in listOf(leg.from, leg.to)) {
+                val style = MarkerStyle(
+                    size = 40,
+                    fillColor = if (wp.type == "NAVAID") Color.CYAN else if (wp.type == "FIX") Color.YELLOW else Color.LTGRAY,
+                    borderColor = Color.WHITE,
+                    borderWidth = 6
+                )
+                val dotBitmap = createDotBitmap(
+                    size = style.size,
+                    fillColor = style.fillColor,
+                    borderColor = style.borderColor,
+                    borderWidth = style.borderWidth
+                )
                 mMap.addMarker(
                     MarkerOptions()
-                        .position(position)
-                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
-                        .anchor(-0.1f, 0.5f) // center and slightly right
-                        .zIndex(3f)
-                )
-            }
-
-            // Extended Runway Centerlines
-            //val destination = waypoints.lastOrNull() ?: return@addOnSuccessListener
-            val destination = waypoints.lastOrNull()?.name ?: return@addOnSuccessListener
-            val runways = dbHelper.getRunwaysForAirport(destination)
-            val extensionLengthNm = 5.0  // Or whatever you want
-            for (rwy in runways) {
-                val end1LatLng = LatLng(rwy.end1.lat, rwy.end1.lon)
-                val end2LatLng = LatLng(rwy.end2.lat, rwy.end2.lon)
-
-                val ext2 = destinationPoint(end1LatLng, extensionLengthNm, rwy.end1.heading)
-                val ext1 = destinationPoint(end2LatLng, extensionLengthNm, rwy.end2.heading)
-
-                // draw runway
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end1LatLng, end2LatLng)
-                        .color(Color.WHITE)
-                        .width(20f)
-                        .zIndex(3f)
-                )
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end1LatLng, end2LatLng)
-                        .color(Color.BLACK)
-                        .width(10f)
-                        .zIndex(3.1f)
-                )
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end1LatLng, end2LatLng)
-                        .color(Color.WHITE)
-                        .width(5f)
-                        .zIndex(3.2f)
-                )
-
-                // draw extended centerline #1
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end1LatLng, ext1)
-                        .color(Color.WHITE)
-                        .width(20f)
-                        .zIndex(3f)
-                )
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end1LatLng, ext1)
-                        .color(Color.BLACK)
-                        .width(10f)
-                        .zIndex(3.1f)
-                )
-
-                // draw extended centerline #2
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end2LatLng, ext2)
-                        .color(Color.WHITE)
-                        .width(20f)
-                        .zIndex(3f)
-                )
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .add(end2LatLng, ext2)
-                        .color(Color.BLACK)
-                        .width(10f)
-                        .zIndex(3.1f)
-                )
-
-                // Optionally label the runway ends
-                val offsetNm1 = when (rwy.end1.endId.lastOrNull()) {
-                    'L' -> 0.5
-                    'R' -> -0.5
-                    'C' -> 0.0
-                    else -> 0.15
-                }
-                val labelPos1 = destinationPoint(
-                    ext1,
-                    offsetNm1,
-                    (rwy.end1.heading + 180 + 90) % 360  // approach direction + right
-                )
-                val labelBitmap1 = if (rwy.end1.rhtp == "Y") {
-                    createTextBitmap("${rwy.end1.endId} ⤵", Color.WHITE, Color.RED)
-                } else {
-                    createTextBitmap(rwy.end1.endId, Color.WHITE, Color.BLACK)
-                }
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(labelPos1)
-                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap1))
+                        .position(LatLng(wp.lat, wp.lon))
+                        .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
                         .anchor(0.5f, 0.5f)
-                        //.rotation(((rwy.end1.heading + 90) % 360).toFloat())  // align with approach
-                        .flat(true)
-                        .zIndex(6f)
-                )
-
-                //end2
-
-                val offsetNm2 = when (rwy.end2.endId.lastOrNull()) {
-                    'L' -> 0.5
-                    'R' -> -0.5
-                    'C' -> 0.0
-                    else -> 0.15
-                }
-                val labelPos2 = destinationPoint(
-                    ext2,
-                    offsetNm2,
-                    (rwy.end2.heading + 180 + 90) % 360  // approach direction + right
-                )
-                val labelBitmap2 = if (rwy.end2.rhtp == "Y") {
-                    createTextBitmap("${rwy.end2.endId} ⤵", Color.WHITE, Color.RED)
-                } else {
-                    createTextBitmap(rwy.end2.endId, Color.WHITE, Color.BLACK)
-                }
-
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(labelPos2)
-                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap2))
-                        .anchor(0.5f, 0.5f)
-                        //.rotation(((rwy.end2.heading + 90) % 360).toFloat())  // align with approach
-                        .flat(true)
-                        .zIndex(6f)
+                        .zIndex(2f)
+                        .visible(true)
                 )
             }
 
-            // ✅ Adjust camera to show route or fallback to user location
-            if (latLngList.isNotEmpty()) {
-                val boundsBuilder = LatLngBounds.builder()
-                latLngList.forEach { boundsBuilder.include(it) }
-                val bounds = boundsBuilder.build()
-                val padding = 100
-                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
-            } else if (location != null) {
-                val userLatLng = LatLng(location.latitude, location.longitude)
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
+            if (latLngList.isEmpty()) {
+                latLngList.add(fromLatLng)
+                waypointNames.add(leg.from.name)
             }
-
-            // ✅ Show flight info layouts
-            val hasMultipleWaypoints = waypoints.size > 1
-            binding.flightInfoLayout.visibility = View.VISIBLE
-            binding.flightInfoLayout2.visibility = if (hasMultipleWaypoints) View.VISIBLE else View.GONE
-            binding.flightInfoLayout.bringToFront()
-            binding.flightInfoLayout.requestLayout()
+            latLngList.add(toLatLng)
+            waypointNames.add(leg.to.name)
         }
-    }
 
+        // Draw waypoint labels
+        for (i in latLngList.indices) {
+            val position = latLngList[i]
+            val label = waypointNames.getOrNull(i) ?: "WP$i"
+            val labelBitmap = createTextBitmap(label, Color.WHITE, Color.argb(180, 0, 0, 0))
+            mMap.addMarker(
+                MarkerOptions()
+                    .position(position)
+                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
+                    .anchor(-0.1f, 0.5f)
+                    .zIndex(3f)
+            )
+        }
+
+        // Draw runways at destination
+        val destination = flightPlan.legs.lastOrNull()?.to?.name ?: return
+        val runways = dbHelper.getRunwaysForAirport(destination)
+        val extensionLengthNm = 5.0
+        for (rwy in runways) {
+            val end1LatLng = LatLng(rwy.end1.lat, rwy.end1.lon)
+            val end2LatLng = LatLng(rwy.end2.lat, rwy.end2.lon)
+            val ext2 = destinationPoint(end1LatLng, extensionLengthNm, rwy.end1.heading)
+            val ext1 = destinationPoint(end2LatLng, extensionLengthNm, rwy.end2.heading)
+
+            // Runway body
+            mMap.addPolyline(
+                PolylineOptions().add(end1LatLng, end2LatLng).color(Color.WHITE).width(20f)
+                    .zIndex(3f)
+            )
+            mMap.addPolyline(
+                PolylineOptions().add(end1LatLng, end2LatLng).color(Color.BLACK).width(10f)
+                    .zIndex(3.1f)
+            )
+            mMap.addPolyline(
+                PolylineOptions().add(end1LatLng, end2LatLng).color(Color.WHITE).width(5f)
+                    .zIndex(3.2f)
+            )
+
+            // Extended centerlines
+            mMap.addPolyline(
+                PolylineOptions().add(end1LatLng, ext1).color(Color.WHITE).width(20f).zIndex(3f)
+            )
+            mMap.addPolyline(
+                PolylineOptions().add(end1LatLng, ext1).color(Color.BLACK).width(10f)
+                    .zIndex(3.1f)
+            )
+            mMap.addPolyline(
+                PolylineOptions().add(end2LatLng, ext2).color(Color.WHITE).width(20f).zIndex(3f)
+            )
+            mMap.addPolyline(
+                PolylineOptions().add(end2LatLng, ext2).color(Color.BLACK).width(10f)
+                    .zIndex(3.1f)
+            )
+
+            // Runway end labels
+            val offsetNm1 = when (rwy.end1.endId.lastOrNull()) {
+                'L' -> 0.5; 'R' -> -0.5; 'C' -> 0.0; else -> 0.15
+            }
+            val offsetNm2 = when (rwy.end2.endId.lastOrNull()) {
+                'L' -> 0.5; 'R' -> -0.5; 'C' -> 0.0; else -> 0.15
+            }
+            val labelPos1 =
+                destinationPoint(ext1, offsetNm1, (rwy.end1.heading + 180 + 90) % 360)
+            val labelPos2 =
+                destinationPoint(ext2, offsetNm2, (rwy.end2.heading + 180 + 90) % 360)
+
+            val labelBitmap1 = if (rwy.end1.rhtp == "Y") {
+                createTextBitmap("${rwy.end1.endId} ⤵", Color.WHITE, Color.RED)
+            } else {
+                createTextBitmap(rwy.end1.endId, Color.WHITE, Color.BLACK)
+            }
+            val labelBitmap2 = if (rwy.end2.rhtp == "Y") {
+                createTextBitmap("${rwy.end2.endId} ⤵", Color.WHITE, Color.RED)
+            } else {
+                createTextBitmap(rwy.end2.endId, Color.WHITE, Color.BLACK)
+            }
+
+            mMap.addMarker(
+                MarkerOptions()
+                    .position(labelPos1)
+                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap1))
+                    .anchor(0.5f, 0.5f)
+                    .flat(true)
+                    .zIndex(6f)
+            )
+            mMap.addMarker(
+                MarkerOptions()
+                    .position(labelPos2)
+                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap2))
+                    .anchor(0.5f, 0.5f)
+                    .flat(true)
+                    .zIndex(6f)
+            )
+        }
+
+        // ✅ Adjust camera
+        if (latLngList.isNotEmpty()) {
+            val boundsBuilder = LatLngBounds.builder()
+            latLngList.forEach { boundsBuilder.include(it) }
+            val bounds = boundsBuilder.build()
+            val padding = 100
+            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+        }
+
+        // ✅ Show flight info
+        val hasMultipleWaypoints = flightPlan.legs.size > 1
+        binding.flightInfoLayout.visibility = View.VISIBLE
+        binding.flightInfoLayout2.visibility =
+            if (hasMultipleWaypoints) View.VISIBLE else View.GONE
+        binding.flightInfoLayout.bringToFront()
+        binding.flightInfoLayout.requestLayout()
+    }
 }
+
+
+
+//    private fun updateMapWithWaypoints(waypoints: List<Waypoint>) {
+//        val latLngList = mutableListOf<LatLng>()
+//        val waypointNames = mutableListOf<String>()
+//        val dbHelper = AirportDatabaseHelper(this)
+//
+//        // If only one waypoint and user location is available, use user location as start
+//        if (ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_FINE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_COARSE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED
+//        ) {
+//            return
+//        }
+//        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+//            if (waypoints.size == 1 && location != null) {
+//                val userLatLng = LatLng(location.latitude, location.longitude)
+//                latLngList.add(userLatLng)
+//                //waypointNames.add(userAircraftCallSign)
+//                waypointNames.add(".")
+//
+//            }
+//
+//            for (wp in waypoints) {
+//                latLngList.add(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
+//                waypointNames.add(wp.name)
+//                if (wp.type == "NAVAID" || wp.type == "FIX") {
+//                    val style = MarkerStyle(
+//                        size = 40,  // smaller than METAR
+//                        fillColor = if (wp.type == "NAVAID") Color.CYAN else Color.LTGRAY,
+//                        borderColor = Color.WHITE,
+//                        borderWidth = 6
+//                    )
+//                    val dotBitmap = createDotBitmap(
+//                        size = style.size,
+//                        fillColor = style.fillColor,
+//                        borderColor = style.borderColor,
+//                        borderWidth = style.borderWidth
+//                    )
+//                    mMap.addMarker(
+//                        MarkerOptions()
+//                            .position(LatLng(wp.lat.toDouble(), wp.lon.toDouble()))
+//                            .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+//                            .anchor(0.5f, 0.5f)
+//                            .zIndex(2f)
+//                            .visible(true)
+//                    )
+//                }
+//            }
+//
+//            // ✅ Draw magenta line between active waypoints, blue between inactive waypoints
+//            for (i in 0 until latLngList.size - 1) {
+//                val from = latLngList[i]
+//                val to = latLngList[i + 1]
+//
+//                val legColor = when (i) {
+//                    0 -> Color.argb(255, 255, 0, 255) // Magenta for legs
+//                    else -> Color.argb(255, 0, 230, 255) // BLUE for planning
+//                }
+//                val legLine = PolylineOptions()
+//                    .add(from, to)
+//                    .color(legColor)
+//                    .width(10f)
+//                    .zIndex(2f)
+//
+//                val legBorder = PolylineOptions()
+//                    .add(from, to)
+//                    .color(Color.BLACK)
+//                    .width(12f)
+//                    .zIndex(1f)
+//
+//                mMap.addPolyline(legBorder)
+//                mMap.addPolyline(legLine)
+//            }
+//
+//            // Draw waypoint names
+//            for (i in latLngList.indices) {
+//                val position = latLngList[i]
+//                val label = waypointNames.getOrNull(i) ?: "WP$i"
+//                val labelBitmap = createTextBitmap(
+//                    label,
+//                    Color.WHITE,
+//                    Color.argb(180, 0, 0, 0)
+//                ) // white on semi-transparent black
+//                mMap.addMarker(
+//                    MarkerOptions()
+//                        .position(position)
+//                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
+//                        .anchor(-0.1f, 0.5f) // center and slightly right
+//                        .zIndex(3f)
+//                )
+//            }
+//
+//            // Extended Runway Centerlines
+//            val destination = waypoints.lastOrNull()?.name ?: return@addOnSuccessListener
+//            val runways = dbHelper.getRunwaysForAirport(destination)
+//            val extensionLengthNm = 5.0  // Or whatever you want
+//            for (rwy in runways) {
+//                val end1LatLng = LatLng(rwy.end1.lat, rwy.end1.lon)
+//                val end2LatLng = LatLng(rwy.end2.lat, rwy.end2.lon)
+//
+//                val ext2 = destinationPoint(end1LatLng, extensionLengthNm, rwy.end1.heading)
+//                val ext1 = destinationPoint(end2LatLng, extensionLengthNm, rwy.end2.heading)
+//
+//                // draw runway
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end1LatLng, end2LatLng)
+//                        .color(Color.WHITE)
+//                        .width(20f)
+//                        .zIndex(3f)
+//                )
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end1LatLng, end2LatLng)
+//                        .color(Color.BLACK)
+//                        .width(10f)
+//                        .zIndex(3.1f)
+//                )
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end1LatLng, end2LatLng)
+//                        .color(Color.WHITE)
+//                        .width(5f)
+//                        .zIndex(3.2f)
+//                )
+//
+//                // draw extended centerline #1
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end1LatLng, ext1)
+//                        .color(Color.WHITE)
+//                        .width(20f)
+//                        .zIndex(3f)
+//                )
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end1LatLng, ext1)
+//                        .color(Color.BLACK)
+//                        .width(10f)
+//                        .zIndex(3.1f)
+//                )
+//
+//                // draw extended centerline #2
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end2LatLng, ext2)
+//                        .color(Color.WHITE)
+//                        .width(20f)
+//                        .zIndex(3f)
+//                )
+//                mMap.addPolyline(
+//                    PolylineOptions()
+//                        .add(end2LatLng, ext2)
+//                        .color(Color.BLACK)
+//                        .width(10f)
+//                        .zIndex(3.1f)
+//                )
+//
+//                // Optionally label the runway ends
+//                val offsetNm1 = when (rwy.end1.endId.lastOrNull()) {
+//                    'L' -> 0.5
+//                    'R' -> -0.5
+//                    'C' -> 0.0
+//                    else -> 0.15
+//                }
+//                val labelPos1 = destinationPoint(
+//                    ext1,
+//                    offsetNm1,
+//                    (rwy.end1.heading + 180 + 90) % 360  // approach direction + right
+//                )
+//                val labelBitmap1 = if (rwy.end1.rhtp == "Y") {
+//                    createTextBitmap("${rwy.end1.endId} ⤵", Color.WHITE, Color.RED)
+//                } else {
+//                    createTextBitmap(rwy.end1.endId, Color.WHITE, Color.BLACK)
+//                }
+//                mMap.addMarker(
+//                    MarkerOptions()
+//                        .position(labelPos1)
+//                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap1))
+//                        .anchor(0.5f, 0.5f)
+//                        //.rotation(((rwy.end1.heading + 90) % 360).toFloat())  // align with approach
+//                        .flat(true)
+//                        .zIndex(6f)
+//                )
+//
+//                //end2
+//
+//                val offsetNm2 = when (rwy.end2.endId.lastOrNull()) {
+//                    'L' -> 0.5
+//                    'R' -> -0.5
+//                    'C' -> 0.0
+//                    else -> 0.15
+//                }
+//                val labelPos2 = destinationPoint(
+//                    ext2,
+//                    offsetNm2,
+//                    (rwy.end2.heading + 180 + 90) % 360  // approach direction + right
+//                )
+//                val labelBitmap2 = if (rwy.end2.rhtp == "Y") {
+//                    createTextBitmap("${rwy.end2.endId} ⤵", Color.WHITE, Color.RED)
+//                } else {
+//                    createTextBitmap(rwy.end2.endId, Color.WHITE, Color.BLACK)
+//                }
+//
+//                mMap.addMarker(
+//                    MarkerOptions()
+//                        .position(labelPos2)
+//                        .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap2))
+//                        .anchor(0.5f, 0.5f)
+//                        //.rotation(((rwy.end2.heading + 90) % 360).toFloat())  // align with approach
+//                        .flat(true)
+//                        .zIndex(6f)
+//                )
+//            }
+//
+//            // ✅ Adjust camera to show route or fallback to user location
+//            if (latLngList.isNotEmpty()) {
+//                val boundsBuilder = LatLngBounds.builder()
+//                latLngList.forEach { boundsBuilder.include(it) }
+//                val bounds = boundsBuilder.build()
+//                val padding = 100
+//                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+//            } else if (location != null) {
+//                val userLatLng = LatLng(location.latitude, location.longitude)
+//                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 10f))
+//            }
+//
+//            // ✅ Show flight info layouts
+//            val hasMultipleWaypoints = waypoints.size > 1
+//            binding.flightInfoLayout.visibility = View.VISIBLE
+//            binding.flightInfoLayout2.visibility = if (hasMultipleWaypoints) View.VISIBLE else View.GONE
+//            binding.flightInfoLayout.bringToFront()
+//            binding.flightInfoLayout.requestLayout()
+//        }
+//    }
+//}
 
 abstract class BaseTileProvider(
     protected val context: Context,

@@ -1,7 +1,9 @@
 package com.airportweather.map
 
+import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.Spannable
@@ -13,16 +15,24 @@ import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Color
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import com.airportweather.map.utils.AirportDatabaseHelper
+import com.airportweather.map.utils.FlightPlanHolder
+import com.airportweather.map.utils.buildFlightPlanFromText
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 
 class FlightPlanActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFlightPlanBinding
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // ✅ Initialize View Binding
         binding = ActivityFlightPlanBinding.inflate(layoutInflater)
@@ -33,9 +43,6 @@ class FlightPlanActivity : AppCompatActivity() {
 
         // ✅ Load the "current" flight plan when opening the page
         loadFlightPlan()
-
-        // ✅ Example: Change text programmatically
-        //binding.flightPlanText.text = "Flight Plan"
 
         // ✅ Listen for text input in flightPlanEdit
         binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
@@ -101,7 +108,6 @@ class FlightPlanActivity : AppCompatActivity() {
 
 
         // BUTTONS
-
         // ✅ When "Reverse Flight Plan" button is clicked
         binding.reverseFlightPlanButton.setOnClickListener {
             val currentPlan = binding.flightPlanEdit.text.toString().trim()
@@ -171,24 +177,49 @@ class FlightPlanActivity : AppCompatActivity() {
                 .show()
         }
 
-        // ✅ When "Activate Flight Plan" button is clicked, send waypoints to MainActivity
+        // ✅ When "Activate Flight Plan" button is clicked
         // it might also be an exit button
         binding.activateFlightPlanButton.setOnClickListener {
             val rawText = binding.flightPlanEdit.text.toString().trim()
-            if (rawText.isEmpty()) {
-                binding.flightPlanEdit.text.clear()
+            if (rawText.isBlank()) {
+                // Clear any existing flight plan and go back to map
+                FlightPlanHolder.currentPlan = null
                 sharedPreferences.edit().remove("WAYPOINTS").apply()
-                sendWaypointsToMap(emptyList())
+
+                val intent = Intent(this, MainActivity::class.java)
+                startActivity(intent)
                 return@setOnClickListener
             }
 
-            //val waypoints = rawText.split("\\s+".toRegex())
-            val dbHelper = AirportDatabaseHelper(this)
-            val codes = rawText.split("\\s+".toRegex())
-            val waypoints = codes.mapNotNull { dbHelper.lookupWaypoint(it) }
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ){
+                Toast.makeText(this, "Location permission not granted", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
-            sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
-            sendWaypointsToMap(waypoints)
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                val flightPlan = buildFlightPlanFromText(this, rawText, currentLocation = location)
+
+                if (flightPlan != null) {
+                    val intent = Intent(this, MainActivity::class.java)
+                    intent.putParcelableArrayListExtra(
+                        "WAYPOINTS",
+                        ArrayList(flightPlan.legs.flatMap { listOf(it.from, it.to) }.distinctBy { it.name })
+                    )
+
+                    FlightPlanHolder.currentPlan = flightPlan
+                    sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
+                    startActivity(intent)
+                } else {
+                    Toast.makeText(this, "Invalid flight plan", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         // ✅ When "Clear Flight Plan" button is clicked, remove waypoints
@@ -207,14 +238,28 @@ class FlightPlanActivity : AppCompatActivity() {
 
     // current flight plan
     private fun loadFlightPlan() {
-        val currentFlightPlan = sharedPreferences.getString("WAYPOINTS", "")
-        binding.flightPlanEdit.setText(currentFlightPlan)
-        if (currentFlightPlan != null) {
-            if (currentFlightPlan.isNotEmpty()) {
-                binding.activateFlightPlanButton.text = "Activate"
-            }
-        }
+        val rawText = sharedPreferences.getString("WAYPOINTS", "") ?: ""
+        binding.flightPlanEdit.setText(rawText)
+        binding.activateFlightPlanButton.text = if (rawText.isNotBlank()) "Activate" else "Exit"
+
+//        Log.d("FlightPlanActivity", "Loaded rawText: '$rawText'")
+//        val flightPlan = buildFlightPlanFromText(this, rawText)
+//        Log.d("FlightPlanActivity", "Flight plan built: ${flightPlan != null}")
+
+//        // Manually check and update the button label
+//        if (rawText.isNotBlank()) {
+//            val flightPlan = buildFlightPlanFromText(this, rawText)
+//            if (flightPlan != null) {
+//                FlightPlanHolder.currentPlan = flightPlan
+//                binding.activateFlightPlanButton.text = "Activate"
+//            } else {
+//                binding.activateFlightPlanButton.text = "Exit"
+//            }
+//        } else {
+//            binding.activateFlightPlanButton.text = "Exit"
+//        }
     }
+
 
     // saved flight plans
     private fun deleteNamedFlightPlan(name: String) {
@@ -248,13 +293,6 @@ class FlightPlanActivity : AppCompatActivity() {
         for (wp in waypoints) {
             Log.d("FlightPlan", "→ ${wp.name} (${wp.lat}, ${wp.lon})")
         }
-
         startActivity(intent)
     }
-
-//    private fun sendWaypointsToMap(waypoints: List<String>) {
-//        val intent = Intent(this, MainActivity::class.java)
-//        intent.putStringArrayListExtra("WAYPOINTS", ArrayList(waypoints))
-//        startActivity(intent)
-//    }
 }
