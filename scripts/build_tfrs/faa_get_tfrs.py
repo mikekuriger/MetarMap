@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 
 import requests
 import json
@@ -30,17 +30,26 @@ def fetch_tfr_list():
         return None
     return response.json()
 
-def extract_notam_ids(tfr_list_json):
-    """Extract NOTAM IDs from the TFR list JSON"""
-    notam_ids = []
+def extract_notam_metadata(tfr_list_json):
+    """Return a list of dicts with metadata for each NOTAM"""
+    metadata = []
     for tfr in tfr_list_json:
-        notam_id = tfr.get('notam_id') or tfr.get('notamNumber')
+        notam_id = tfr.get('notam_id') or None
+        type = tfr.get('type') or None
+        facility = tfr.get('facility') or None
+        description = tfr.get('description') or None
+
         if notam_id:
-            # Convert NOTAM ID to the format used in detail URLs
             match = re.match(r'(\d+)/(\d+)', notam_id)
             if match:
-                notam_ids.append(f"{match.group(1)}_{match.group(2)}")
-    return notam_ids
+                metadata.append({
+                    "notam": f"{match.group(1)}_{match.group(2)}",
+                    "type": type,
+                    "facility": facility,
+                    "short_description": description
+                })
+    return metadata
+
 
 def fetch_tfr_detail(notam_id):
     """Fetch detailed TFR data for a given NOTAM ID"""
@@ -69,12 +78,16 @@ def parse_tfr_xml(xml_data, tfr_metadata):
     for notam in root.findall(".//Not"):
         tfr = {
             "notam": tfr_metadata.get("notam", None),
-            "facility": notam.findtext(".//codeFacility"),
-            "type": notam.findtext(".//TfrNot/codeType"),
-            "short_description": notam.findtext(".//txtDescrTraditional"),
+            "type": tfr_metadata.get("type"),
+            "facility": tfr_metadata.get("facility"),
+            "short_description": tfr_metadata.get("short_description"),
+            #"facility": notam.findtext(".//codeFacility"),
+            #"type": notam.findtext(".//TfrNot/codeType"),
+            #"short_description": notam.findtext(".//txtDescrTraditional"),
             "dateIssued": notam.findtext(".//NotUid/dateIssued"),
             "dateEffective": notam.findtext(".//dateEffective"),
-            "dateExpire": "PERM",  # New XML doesn't seem to have an explicit expire field
+            #"dateExpire": "PERM",  # New XML doesn't seem to have an explicit expire field
+            "dateExpire": notam.findtext(".//dateExpire", "PERM"),
             "upperVal": None,
             "lowerVal": None,
             "area_group": {"boundary_areas": []}
@@ -157,17 +170,16 @@ def main():
     tfr_list_json = fetch_tfr_list()
 
     # Step 2: Extract NOTAM IDs
-    notam_ids = extract_notam_ids(tfr_list_json)
+    metadata_list = extract_notam_metadata(tfr_list_json)
 
     # Step 3: Fetch detailed data for each NOTAM ID
     full_tfrs = []
-    for notam_id in notam_ids:
-        detail_data = fetch_tfr_detail(notam_id)
+    for metadata in metadata_list:
+        detail_data = fetch_tfr_detail(metadata["notam"])
         if detail_data:
-            full_tfrs.extend(parse_tfr_xml(detail_data, {"notam": notam_id}))
+            full_tfrs.extend(parse_tfr_xml(detail_data, metadata))
 
     save_geojson(args.output_file, full_tfrs)
 
 if __name__ == "__main__":
     main()
-
