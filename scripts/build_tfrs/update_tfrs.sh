@@ -1,5 +1,12 @@
 #!/bin/bash
 
+I=`whoami`
+if [[ "$I" != "mk7193" ]]; then
+  echo "must be mk7193"
+  exit 1
+fi
+
+
 export HOME="/Users/mk7193"
 export PATH="/usr/local/bin:/usr/bin:/bin"
 export DATE=$(date "+%y%m%d_%H%M%S")
