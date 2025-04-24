@@ -16,5 +16,7 @@
 local.properties
 app/release/baselineProfiles/*
 scripts/build_tfrs/tfrs.geojson
+scripts/build_databases/db_manifest.json
+scripts/build_databases/deploy.log
 *.db
 *.log
