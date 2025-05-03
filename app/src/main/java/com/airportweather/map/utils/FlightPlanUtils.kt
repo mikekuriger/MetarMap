@@ -5,7 +5,6 @@ import android.content.Context
 import android.location.Location
 import com.airportweather.map.FlightLeg
 import com.airportweather.map.FlightPlan
-import com.airportweather.map.Waypoint
 import kotlin.math.*
 
 object FlightPlanHolder {

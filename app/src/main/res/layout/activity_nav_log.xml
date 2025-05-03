@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#dd000000"
+    android:fitsSystemWindows="true"
     android:padding="0dp">
 
     <!-- 🔹 HEADER ROW -->

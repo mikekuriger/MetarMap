@@ -6,7 +6,6 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import androidx.core.database.getDoubleOrNull
 import androidx.core.database.getStringOrNull
-import com.airportweather.map.Waypoint
 
 class AirportDatabaseHelper(context: Context) :
     SQLiteOpenHelper(context, "faa_navigation.db", null, 1) {

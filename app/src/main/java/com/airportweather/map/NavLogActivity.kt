@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.core.view.WindowCompat
 import com.airportweather.map.databinding.ActivityNavLogBinding
 import com.airportweather.map.utils.FlightPlanHolder
 
@@ -17,6 +18,10 @@ class NavLogActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Respect system UI insets
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
         binding = ActivityNavLogBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

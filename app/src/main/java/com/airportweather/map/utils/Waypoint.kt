@@ -1,4 +1,4 @@
-package com.airportweather.map
+package com.airportweather.map.utils
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize

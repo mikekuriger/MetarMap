@@ -16,9 +16,11 @@ import android.graphics.Color
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import androidx.core.view.WindowCompat
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.FlightPlanHolder
+import com.airportweather.map.utils.Waypoint
 import com.airportweather.map.utils.buildFlightPlanFromText
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -32,6 +34,10 @@ class FlightPlanActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Respect system UI insets
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // ✅ Initialize View Binding

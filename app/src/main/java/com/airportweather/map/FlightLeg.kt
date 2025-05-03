@@ -1,6 +1,7 @@
 package com.airportweather.map
 
 import com.airportweather.map.utils.FlightPlanUtils
+import com.airportweather.map.utils.Waypoint
 import com.google.android.gms.maps.model.LatLng
 
 data class FlightLeg(

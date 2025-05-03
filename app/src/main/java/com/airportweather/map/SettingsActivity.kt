@@ -10,6 +10,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import com.airportweather.map.databinding.ActivitySettingsBinding
 
 lateinit var sharedPrefs: SharedPreferences
@@ -20,6 +21,9 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Respect system UI insets
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -81,12 +85,14 @@ class SettingsActivity : AppCompatActivity() {
         val showMetars = binding.toggleMetarButton
         val showChart = binding.toggleChartsButton
         val showTraffic = binding.toggleTrafficButton
+        val hideDistantTraffic = binding.hideDistantTraffic
 
         showAirspace.isChecked = sharedPrefs.getBoolean("show_airspace", true)
         showTfrs.isChecked = sharedPrefs.getBoolean("show_tfrs", true)
         showMetars.isChecked = sharedPrefs.getBoolean("show_metars", true)
         showChart.isChecked = sharedPrefs.getBoolean("show_chart", true)
         showTraffic.isChecked = sharedPrefs.getBoolean("show_traffic", true)
+        hideDistantTraffic.isChecked = sharedPrefs.getBoolean("hide_distant_traffic", true)
 
         showAirspace.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("show_airspace", isChecked).apply()
@@ -106,6 +112,10 @@ class SettingsActivity : AppCompatActivity() {
 
         showTraffic.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("show_traffic", isChecked).apply()
+        }
+
+        hideDistantTraffic.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("hide_distant_traffic", isChecked).apply()
         }
     }
 }
