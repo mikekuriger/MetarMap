@@ -1,0 +1,11 @@
+cd /data/chartmaker/
+conda activate gdal-env
+# Sectional
+time node make -full-single=0 
+# Terminal
+time node make -full-single=2
+# Grand Canyon
+time node make -full-single=1
+# Enroute Low
+time node make -full-single=4
+
