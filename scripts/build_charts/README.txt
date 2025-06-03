@@ -1,13 +1,7 @@
+Run these scripts one at a time, in a screen session.
 
 The actual chart data is generated in chartmaker...
-become root, run "go" to enter the docker container
-cd chartmaker
-node make
 
-# you want to build all sectionals, and all terminals.  i will script it someday
-
-then go here and make zips:
-/data/metarmap/make_zips.py
 * Wall - 5 6 7
 * Sectional - 8 9 10 11 
 * Terminal - 10 11 12 13
