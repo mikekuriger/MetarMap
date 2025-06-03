@@ -1,5 +1,12 @@
 #!/bin/bash
 
+I=`whoami`
+if [[ "$I" != "mk7193" ]]; then
+  echo "must be mk7193"
+  exit 1
+fi
+
+
 date=$(date +%Y-%m-%d-%H:%M:%S)
 #BASE="$BASE"
 BASE="/data/build_databases"

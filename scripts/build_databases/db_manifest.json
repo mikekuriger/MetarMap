@@ -1,22 +1,22 @@
 {
   "faa_navigation": {
-    "version": "2025-04-24",
+    "version": "2025-05-15",
     "url": "https://regiruk.netlify.app/sqlite/faa_navigation.db",
-    "sha256": "fba6c7e04f5c2888a1e4c4553a99336762032124380893e4b8f7ed1c04802837"
+    "sha256": "0fc82ef370a2db0acd26faf5ca453a3b278ed1e9cc69415a31f0a7776b4cd135"
   },
   "faa_airports": {
-    "version": "2025-04-24",
+    "version": "2025-05-15",
     "url": "https://regiruk.netlify.app/sqlite/faa_airports.db",
-    "sha256": "5c12b45e20d82ddd4fa4f3f3738ed08f40c3a49c9bceed35669a20e6f94409ce"
+    "sha256": "7f569e7c9306e939baa9ec4072d5a92d7614b9fe42df70710dbad5aae66e888b"
   },
   "faa_fixes": {
-    "version": "2025-04-24",
+    "version": "2025-05-15",
     "url": "https://regiruk.netlify.app/sqlite/faa_fixes.db",
-    "sha256": "ad1dd180b92663349090b4414ca7ddcc94f420fdb2e35acfa16a192b2f42c662"
+    "sha256": "3b5db751f4d3ddab5c731de71c37713728492baa63923581e6681e6cd0c63435"
   },
   "faa_frequencies": {
-    "version": "2025-04-24",
+    "version": "2025-05-15",
     "url": "https://regiruk.netlify.app/sqlite/faa_frequencies.db",
-    "sha256": "f41646926b3a6b123c523edabb0546d9a7a5f7e37a2be0151e349fd8a6624569"
+    "sha256": "b3f6ce0eb1ad0847108a344ae52e874905bc46b03a25b0609e5bfdd6f5136eec"
   }
 }
