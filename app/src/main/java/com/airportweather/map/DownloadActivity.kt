@@ -64,16 +64,15 @@ class DownloadActivity : AppCompatActivity() {
 
     @SuppressLint("NotifyDataSetChanged")
     fun loadSectionalList() {
-
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val sectionalJsonString =
-                    URL("https://regiruk.netlify.app/zips/sectionals.json").readText()
-                val sectionalArray = JSONArray(sectionalJsonString)
+                val allChartsJsonString = URL("https://regiruk.netlify.app/zips/all_charts.json").readText()
+                val allChartsObject = JSONObject(allChartsJsonString)
 
-                val terminalJsonString =
-                    URL("https://regiruk.netlify.app/zips2/terminals.json").readText()
-                val terminalArray = JSONArray(terminalJsonString)
+                val sectionalArray = allChartsObject.getJSONObject("Sectional").getJSONArray("charts")
+                val terminalArray = allChartsObject.getJSONObject("Terminal").getJSONArray("charts")
+                val enrouteArray = allChartsObject.getJSONObject("Enroute_Low").getJSONArray("charts")
+                val seriesVersion = allChartsObject.getJSONObject("Sectional").getString("series")
 
                 val sectionalMap = mutableMapOf<String, JSONObject>()
                 val terminalMap = mutableMapOf<String, JSONObject>()
@@ -82,7 +81,6 @@ class DownloadActivity : AppCompatActivity() {
                     val obj = sectionalArray.getJSONObject(i)
                     sectionalMap[obj.getString("name")] = obj
                 }
-
                 for (i in 0 until terminalArray.length()) {
                     val obj = terminalArray.getJSONObject(i)
                     terminalMap[obj.getString("name")] = obj
@@ -93,23 +91,15 @@ class DownloadActivity : AppCompatActivity() {
 
                 val charts = mutableListOf<SectionalChart>()
 
-                // ✅ Process Sectionals, Adding Terminal Info if Available
                 for ((name, sectionalObj) in sectionalMap) {
                     val fileName = sectionalObj.getString("fileName")
-                    val sectionalSize =
-                        sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt()
-                            ?: 0
+                    val sectionalSize = sectionalObj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
 
                     val terminalObj = terminalMap[name]
-                    val terminalSize =
-                        terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt()
-                            ?: 0
+                    val terminalSize = terminalObj?.getString("size")?.replace(" MB", "")?.toFloatOrNull()?.toInt() ?: 0
                     val totalSize = sectionalSize + terminalSize
 
-                    val chartType = when {
-                        terminalObj != null -> "🟠 Sectional + TAC"
-                        else -> "🟢 Sectional"
-                    }
+                    val chartType = if (terminalObj != null) "🟠 Sectional + TAC" else "🟢 Sectional"
 
                     val chart = SectionalChart(
                         name = name,
@@ -135,17 +125,38 @@ class DownloadActivity : AppCompatActivity() {
                     charts.add(chart)
                 }
 
-                // ✅ Add Terminal-Only Charts Correctly
+                // ✅ Add Enroute charts as "🔵 IFR"
+                for (i in 0 until enrouteArray.length()) {
+                    val obj = enrouteArray.getJSONObject(i)
+                    val name = obj.getString("name")
+                    val fileName = obj.getString("fileName") + "_IFR"
+                    val sizeMb = obj.getString("size").replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
+
+                    val chart = SectionalChart(
+                        name = name,
+                        url = obj.getString("url"),
+                        fileSize = "${sizeMb} MB",
+                        totalSize = "${sizeMb} MB - 🔵 IFR",
+                        isInstalled = installedSet.contains(fileName),
+                        isDownloading = false,
+                        fileName = fileName,
+                        terminal = null,
+                        terminalFileName = null,
+                        hasTerminal = false
+                    )
+
+                    charts.add(chart)
+                }
+
                 for ((name, terminalObj) in terminalMap) {
-                    if (!sectionalMap.containsKey(name)) {  // ✅ Terminal-only charts
-                        val terminalSize =
-                            terminalObj.getString("size").replace(" MB", "").toFloat()
+                    if (!sectionalMap.containsKey(name)) {
+                        val terminalSize = terminalObj.getString("size").replace(" MB", "").toFloatOrNull() ?: 0f
 
                         val chart = SectionalChart(
                             name = name,
                             url = terminalObj.getString("url"),
-                            fileSize = "${terminalSize} MB",
-                            totalSize = "${terminalSize} MB - 🔵 VFR Aeronautical",
+                            fileSize = "${terminalSize.toInt()} MB",
+                            totalSize = "${terminalSize.toInt()} MB - \uD83D\uDFE4 VFR Aeronautical",
                             isInstalled = installedSet.contains(terminalObj.getString("fileName")),
                             isDownloading = false,
                             fileName = terminalObj.getString("fileName"),
@@ -163,25 +174,30 @@ class DownloadActivity : AppCompatActivity() {
                         charts.add(chart)
                     }
                 }
-                Log.d("Debug", "Installed set from SharedPreferences: $installedSet")
+
+                charts.sortBy { it.name.lowercase() }
+
+                Log.d("Debug", "Series version: $seriesVersion")
 
                 withContext(Dispatchers.Main) {
                     sectionalList.clear()
                     sectionalList.addAll(charts)
                     adapter.notifyDataSetChanged()
                 }
+
             } catch (e: Exception) {
-                Log.e("DownloadPage", "Error fetching sectionals: ${e.message}")
+                Log.e("DownloadPage", "Error fetching charts: ${e.message}")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         this@DownloadActivity,
-                        "Failed to load sectionals",
+                        "Failed to load charts",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             }
         }
     }
+
 
     @SuppressLint("MutatingSharedPrefs")
     private fun markSectionalAsInstalled(fileName: String) {
@@ -221,7 +237,6 @@ class DownloadActivity : AppCompatActivity() {
                 var entry: ZipEntry?
                 while (zis.nextEntry.also { entry = it } != null) {
                     val extractedFile = File(targetDirectory, entry!!.name)
-                    //Log.d("Unzip", "Extracting: ${entry!!.name} -> ${extractedFile.absolutePath}")
 
                     if (entry!!.isDirectory) {
                         if (!extractedFile.exists()) {
@@ -312,7 +327,6 @@ class DownloadActivity : AppCompatActivity() {
                     progressBar.visibility = View.VISIBLE
                     progressBar.progress = 0
                     statusText.visibility = View.VISIBLE
-//                    statusText.text = "Starting Download..."
                 }
 
                 var totalBytesRead = 0L
@@ -345,7 +359,8 @@ class DownloadActivity : AppCompatActivity() {
 
                 // ✅ Download Sectional Chart (if available)
                 if (hasSectional) {
-                    withContext(Dispatchers.Main) { statusText.text = "Downloading Sectional" }
+                    val downloadTyp = if (chart.fileName.endsWith("_IFR")) "Downloading IFR Chart" else "Downloading VFR Chart"
+                    withContext(Dispatchers.Main) { statusText.text = downloadTyp }
                     Log.d("DownloadPage", "Starting download: Sectional ${chart.fileName}")
 
                     val sectionalFile = File(getDownloadStorageDir(), chart.fileName)
@@ -359,9 +374,12 @@ class DownloadActivity : AppCompatActivity() {
                     )
 
                     totalBytesRead += sectionalSizeBytes  // ✅ Preserve progress for terminal download
-
-                    withContext(Dispatchers.Main) { statusText.text = "Installing Sectional" }
-                    unzipFile(sectionalFile, getTileStorageDir("Sectional"))
+                    val installTyp = if (chart.fileName.endsWith("_IFR")) "Installing IFR Chart" else "Installing VFR Chart"
+                    withContext(Dispatchers.Main) { statusText.text = installTyp }
+                    val targetDir = if (chart.fileName.endsWith("_IFR")) "IFR" else "Sectional"
+                    unzipFile(sectionalFile, getTileStorageDir(targetDir))
+//                    withContext(Dispatchers.Main) { statusText.text = "Installing Sectional" }
+//                    unzipFile(sectionalFile, getTileStorageDir("Sectional"))
                     sectionalFile.delete()
                     markSectionalAsInstalled(chart.fileName)
                 }
