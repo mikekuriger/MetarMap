@@ -1080,47 +1080,6 @@
         "coordinates": [
           [
             [
-              -121.02972222,
-              39.5325
-            ],
-            [
-              -121.01972222,
-              39.43805556
-            ],
-            [
-              -120.98472222,
-              39.43805556
-            ],
-            [
-              -120.97222222,
-              39.53027778
-            ],
-            [
-              -121.02972222,
-              39.5325
-            ]
-          ]
-        ]
-      },
-      "properties": {
-        "description": "Nelson Mill, CA, Saturday, December 27, 2025 through Sunday, December 28, 2025 Local",
-        "notam": "5_3194",
-        "dateIssued": "2025-12-27T13:07:00",
-        "dateEffective": "2025-12-27T16:00:00",
-        "dateExpire": "2025-12-29T01:00:00",
-        "upperVal": 400,
-        "lowerVal": 0,
-        "facility": "ZOA",
-        "type": "HAZARDS"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
               -117.18972222,
               33.03244946
             ],
