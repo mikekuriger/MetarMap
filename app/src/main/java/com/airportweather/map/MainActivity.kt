@@ -607,37 +607,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var stopStartTime: Long? = null  // for recorging tracks
     private val recentRedTargets = mutableMapOf<String, Long>()  // hex → timestamp when red was last true
     private var autoRefreshJob: Job? = null
-
-    // Cache BitmapDescriptors so panning the map reuses a single descriptor per visual style
-    // instead of allocating a fresh bitmap per marker. Cleared in onDestroy.
-    private data class DotKey(val size: Int, val fillColor: Int, val borderColor: Int, val borderWidth: Int)
-    private data class TextKey(val text: String, val textColor: Int, val bgColor: Int, val size: Float)
-    private data class BarbKey(val speed: Int, val dir: Int?)
-    private val dotDescriptorCache = mutableMapOf<DotKey, BitmapDescriptor>()
-    private val textDescriptorCache = mutableMapOf<TextKey, BitmapDescriptor>()
-    private val barbDescriptorCache = mutableMapOf<BarbKey, BitmapDescriptor>()
-
-    private fun getDotDescriptor(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): BitmapDescriptor {
-        return dotDescriptorCache.getOrPut(DotKey(size, fillColor, borderColor, borderWidth)) {
-            BitmapDescriptorFactory.fromBitmap(createDotBitmap(size, fillColor, borderColor, borderWidth))
-        }
-    }
-
-    private fun getTextDescriptor(text: String, textColor: Int, bgColor: Int = Color.TRANSPARENT, size: Float = 40F): BitmapDescriptor {
-        return textDescriptorCache.getOrPut(TextKey(text, textColor, bgColor, size)) {
-            BitmapDescriptorFactory.fromBitmap(createTextBitmap(text, textColor, bgColor, size))
-        }
-    }
-
-    private fun getBarbDescriptor(speed: Int, dir: Int?): BitmapDescriptor? {
-        val key = BarbKey(speed, dir)
-        barbDescriptorCache[key]?.let { return it }
-        val bmp = createWindBarbBitmap(speed, dir) ?: return null
-        val desc = BitmapDescriptorFactory.fromBitmap(bmp)
-        barbDescriptorCache[key] = desc
-        return desc
-    }
-
+    private lateinit var markerFactory: MarkerFactory
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -935,9 +905,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         trafficHandler.removeCallbacksAndMessages(null)
         autoRefreshJob?.cancel()
         autoRefreshJob = null
-        dotDescriptorCache.clear()
-        textDescriptorCache.clear()
-        barbDescriptorCache.clear()
+        if (::markerFactory.isInitialized) markerFactory.dispose()
         super.onDestroy()
         StratuxManager.disconnectAll()
     }
@@ -1267,6 +1235,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     override fun onMapReady(googleMap: GoogleMap) {
 
         mMap = googleMap
+        markerFactory = MarkerFactory(mMap, ::formatAirportDetails).also {
+            it.areMetarsVisible = areMetarsVisible
+        }
         mMap.mapType = GoogleMap.MAP_TYPE_NORMAL // Options: NORMAL, SATELLITE, TERRAIN, HYBRID
         //mMap.isTrafficEnabled = false
         mMap.uiSettings.isTiltGesturesEnabled = false
@@ -1618,89 +1589,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         Log.d("MapDebug", "Saved layer: $layerName")
     }
 
-    private fun createDotBitmap(
-        size: Int,
-        fillColor: Int,
-        borderColor: Int,
-        borderWidth: Int
-    ): Bitmap {
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint()
-        paint.isAntiAlias = true
-
-        // Draw the border
-        paint.color = Color.BLACK
-        if (borderColor == Color.WHITE || borderColor == fillColor) {
-            canvas.drawCircle(size / 2f, size / 2f, (size / 2f) - borderWidth + 1, paint) // small
-        } else {
-            canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint) // big
-        }
-
-        // Draw the TAF (outer circle)
-        if (borderColor != Color.WHITE && borderColor != fillColor) {
-            paint.color = borderColor
-            canvas.drawCircle(size / 2f, size / 2f, (size / 2f) - 1, paint)
-        }
-
-        // Draw the METAR (filled inner circle)
-        paint.color = fillColor
-        canvas.drawCircle(size / 2f, size / 2f, (size / 2f) - borderWidth, paint)
-
-        return bitmap
-    }
-
     private fun refreshMarkers() {
         metarMarkers.forEach { it.remove() }
         metarMarkers.clear()
 
         updateVisibleMarkers(metarData, tafData)
     }
-
-    private fun createTextBitmap(
-        text: String,
-        textColor: Int,
-        bgColor: Int = Color.TRANSPARENT,
-        size: Float = 40F
-    ): Bitmap {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = textColor
-            textSize = size
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.LEFT
-        }
-
-        // Measure text bounds
-        val bounds = Rect()
-        paint.getTextBounds(text, 0, text.length, bounds)
-
-        val padding = 10 // Add a small padding around the text
-        val width = bounds.width() + 2 * padding
-        val height = bounds.height() + 2 * padding
-
-        // Create bitmap with the exact size needed
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        // Draw background if needed
-        if (bgColor != Color.TRANSPARENT) {
-            val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = bgColor
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-        }
-
-        // Draw text centered within the background
-        val textHeight = bounds.height()
-        //val adjustedY = height / 2f + textHeight / 2f + paint.descent()
-        val adjustedY = height / 2f + textHeight / 2f - paint.descent() / 3
-
-        // Draw text
-        canvas.drawText(text, padding.toFloat(), adjustedY, paint)
-
-        return bitmap
-    }
+    // createDotBitmap, createTextBitmap moved to BitmapHelpers.kt
 
     private fun startAutoRefresh(intervalMinutes: Long) {
         autoRefreshJob?.cancel()
@@ -1749,206 +1644,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 val taf = tafs.find { it.stationId == metar.stationId }
                 val currentLayer = MapLayer.fromName(currentLayerName)
                 val marker = when (currentLayer) {
-                    MapLayer.FlightConditions -> createFlightConditionMarker(metar, taf, location)
-                    MapLayer.Wind -> createMetarDotForWindLayer(metar, location)
-                    MapLayer.Temperature -> createTemperatureMarker(metar, location)
-                    MapLayer.Altimeter -> createAltimeterMarker(metar, location)
-                    MapLayer.Ceiling -> createCeilingMarker(metar, location)
-                    MapLayer.Clouds -> createCloudMarker(metar, location)
+                    MapLayer.FlightConditions -> markerFactory.createFlightConditionMarker(metar, taf, location)
+                    MapLayer.Wind -> markerFactory.createMetarDotForWindLayer(metar, location)
+                    MapLayer.Temperature -> markerFactory.createTemperatureMarker(metar, location)
+                    MapLayer.Altimeter -> markerFactory.createAltimeterMarker(metar, location)
+                    MapLayer.Ceiling -> markerFactory.createCeilingMarker(metar, location)
+                    MapLayer.Clouds -> markerFactory.createCloudMarker(metar, location)
                     MapLayer.None -> null
                 }
 
-                // Add the marker from the `when` clause if it's not null
                 marker?.let { metarMarkers.add(it) }
 
-                // Add the wind dot for all layers except FlightConditions
                 if (currentLayer != MapLayer.FlightConditions && currentLayer != MapLayer.None) {
-                    createMetarDotForWindLayer(metar, location)?.let { metarMarkers.add(it) }
+                    markerFactory.createMetarDotForWindLayer(metar, location)?.let { metarMarkers.add(it) }
                 }
 
-                // ✅ Add wind barb only when "Wind Barbs" layer is selected
                 if (currentLayer == MapLayer.Wind) {
-                    createWindMarker(metar, taf, location)?.let { metarMarkers.add(it) }
+                    markerFactory.createWindMarker(metar, taf, location)?.let { metarMarkers.add(it) }
                 }
             }
         }
     }
 
-    private fun createDotMarker(
-        metar: METAR,
-        taf: TAF?,
-        location: LatLng,
-        style: MarkerStyle
-    ): Marker? {
-        // Skip invalid color combinations
-        if (style.fillColor == Color.WHITE) return null
-
-        val dotDescriptor = getDotDescriptor(
-            size = style.size,
-            fillColor = style.fillColor,
-            borderColor = style.borderColor,
-            borderWidth = style.borderWidth
-        )
-
-        return mMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .icon(dotDescriptor)
-                .anchor(0.5f, 0.5f)
-                .visible(areMetarsVisible)
-                .title(
-                    "${metar.stationId} - ${metar.flightCategory}" +
-                            (taf?.flightCategory?.takeIf { it != metar.flightCategory }
-                                ?.let { " (TAF = $it)" } ?: "")
-                )
-                .snippet(formatAirportDetails(metar))
-        )?.apply {
-            tag = MetarTafData(metar, taf) // Set tag on Marker, not Options
-        }
-    }
-
-    private fun getFlightCategoryColor(category: String?): Int {
-        return when (category?.uppercase()) {
-            "VFR" -> Color.GREEN
-            "MVFR" -> Color.parseColor("#0080FF")
-            "IFR" -> Color.RED
-            "LIFR" -> Color.parseColor("#FF00FF")
-            else -> Color.WHITE
-        }
-    }
-
-    private fun createWindMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
-        val windSpeed = metar.windSpeedKt ?: 0
-        val windDir = metar.windDirDegrees
-        if (windSpeed <= 4) return null
-
-        val barbDescriptor = getBarbDescriptor(windSpeed, windDir) ?: return null
-        return mMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .icon(barbDescriptor)
-                .anchor(0.5f, 0.5f)
-                .visible(areMetarsVisible)
-                .title(
-                    "${metar.stationId} - ${metar.flightCategory}" +
-                            (taf?.flightCategory?.takeIf { it != metar.flightCategory }
-                                ?.let { " (TAF = $it)" } ?: "")
-                )
-                .snippet(formatAirportDetails(metar))
-        )?.apply {
-            tag = MetarTafData(metar, taf)
-        }
-    }
-
-    private fun createFlightConditionMarker(metar: METAR, taf: TAF?, location: LatLng): Marker? {
-        val style = MarkerStyle(
-            size = 50,
-            fillColor = getFlightCategoryColor(metar.flightCategory),
-            borderColor = taf?.flightCategory?.let { getFlightCategoryColor(it) } ?: Color.WHITE,
-            borderWidth = 13
-        )
-        return createDotMarker(metar, taf, location, style)
-    }
-
-    private fun createMetarDotForWindLayer(metar: METAR, location: LatLng): Marker? {
-        val style = MarkerStyle(
-            size = 50,
-            fillColor = getFlightCategoryColor(metar.flightCategory),
-            borderColor = Color.WHITE, // ✅ White border to "skip" the TAF border effect
-            borderWidth = 13
-        )
-        return createDotMarker(metar, null, location, style) // No TAF border
-    }
-
-    private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
-        metar.tempC?.let {
-            val tempColor = when {
-                it >= 32 -> Color.RED
-                it <= 2 -> Color.argb(255, 50, 100, 255)
-                else -> Color.WHITE
-            }
-            val bgColor = Color.BLACK
-            val descriptor = getTextDescriptor("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
-            return mMap.addMarker(
-                MarkerOptions()
-                    .position(location)
-                    .icon(descriptor)
-                    .visible(areMetarsVisible)
-                    .anchor(0.5f, 1.3f)
-            )
-        }
-        return null
-    }
-
-    /*private fun createTemperatureMarker(metar: METAR, location: LatLng): Marker? {
-        metar.tempC?.let {
-            val tempColor = when {
-                it >= 27 -> Color.RED
-                it <= 5 -> Color.BLUE
-                else -> Color.WHITE
-            }
-
-            // Create an IconGenerator instance
-            val iconGenerator = IconGenerator(this)
-            // Customize background, padding, and text style
-            iconGenerator.setStyle(IconGenerator.STYLE_BLUE)
-            iconGenerator.setContentPadding(20, 10, 20, 10)
-            // Optionally set a custom text appearance here
-
-            // Generate the bitmap with your desired text
-            val text = "${celsiusToFahrenheit(it)}°F"
-            val bitmap = iconGenerator.makeIcon(text)
-
-            // Optionally, if you need to scale the bitmap, you can do so:
-            // val scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
-
-            return mMap.addMarker(MarkerOptions()
-                .position(location)
-                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
-                .visible(areMetarsVisible)
-                .anchor(.5f, 1.2f))
-        }
-        return null
-    }*/
-    private fun createAltimeterMarker(metar: METAR, location: LatLng): Marker? {
-        metar.altimeterInHg?.let {
-            val descriptor = getTextDescriptor("%.2f".format(it), Color.WHITE, Color.BLACK)
-            return mMap.addMarker(
-                MarkerOptions()
-                    .position(location)
-                    .icon(descriptor)
-                    .visible(areMetarsVisible)
-                    .anchor(0.5f, 1.3f)
-            )
-        }
-        return null
-    }
-
-    private fun createCloudMarker(metar: METAR, location: LatLng): Marker? {
-        val cover = metar.skyCover1 ?: return null
-        val descriptor = getTextDescriptor(cover, Color.WHITE, Color.BLACK)
-        return mMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .icon(descriptor)
-                .visible(areMetarsVisible)
-                .anchor(0.5f, 1.3f)
-        )
-    }
-
-    private fun createCeilingMarker(metar: METAR, location: LatLng): Marker? {
-        metar.cloudBase1?.let {
-            val descriptor = getTextDescriptor(it.toString(), Color.WHITE, Color.BLACK)
-            return mMap.addMarker(
-                MarkerOptions()
-                    .position(location)
-                    .icon(descriptor)
-                    .visible(areMetarsVisible)
-                    .anchor(0.5f, 1.3f)
-            )
-        }
-        return null
-    }
+    // Marker creation methods moved to MarkerFactory.kt
+    // celsiusToFahrenheit (returning String) used only by formatAirportDetails below.
 
     @SuppressLint("DefaultLocale")
     private fun celsiusToFahrenheit(celsius: Double): String {
@@ -2590,120 +2309,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     private fun toggleMetarVisibility(visible: Boolean) {
         areMetarsVisible = visible
+        if (::markerFactory.isInitialized) markerFactory.areMetarsVisible = visible
         metarMarkers.forEach { marker ->
             marker.isVisible = areMetarsVisible
         }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
     }
 
-    private fun createWindBarbBitmap(windSpeedKt: Int, windDirDegrees: Int?): Bitmap? {
-        // Skip calm winds or invalid data
-        if (windSpeedKt < 4) return null
-        //if (windSpeedKt < 4 || windDirDegrees == null) return null
-
-        // Special case: Variable wind (use 360 as magic number)
-        val isVariable = windDirDegrees == null
-
-        // Fixed size bitmap (adjust as needed)
-        val size = 150
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint().apply {
-            color = Color.BLACK
-            style = Paint.Style.STROKE
-            strokeWidth = 6f
-            isAntiAlias = true
-            strokeCap = Paint.Cap.ROUND
-        }
-
-        return when {
-            // Variable wind indicator
-            isVariable -> {
-                // Draw compass rose circle
-                canvas.drawCircle(size / 2f, size / 2f, 40f, paint)
-
-                // Add arrows in 4 cardinal directions
-                listOf(0f, 90f, 180f, 270f).forEach { angle ->
-                    canvas.save()
-                    canvas.rotate(angle, size / 2f, size / 2f)
-                    canvas.drawLine(size / 2f, 30f, size / 2f, 50f, paint) // Short arrows
-                    canvas.restore()
-                }
-
-                // Add wind speed at bottom
-                paint.style = Paint.Style.FILL
-                paint.textSize = 24f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("${windSpeedKt}kt", size / 2f, size - 20f, paint)
-                bitmap
-            }
-
-            // Normal wind direction (0-359 degrees)
-            //windDirDegrees in 0..360 -> {
-            else -> {
-
-                val centerX = size / 2f
-                val centerY = size / 2f
-                val staffLength = size * 0.4f  // Length of main line
-
-                // Rotate canvas to wind direction (wind comes FROM this direction)
-                canvas.save()
-                if (windDirDegrees != null) {
-                    canvas.rotate(windDirDegrees.toFloat(), centerX, centerY)
-                }
-
-                // Draw main staff line (center to edge)
-                canvas.drawLine(
-                    centerX, centerY,
-                    centerX, centerY - staffLength,
-                    paint
-                )
-
-                var remainingKts = windSpeedKt
-                val flags = remainingKts / 50
-                remainingKts %= 50
-                val fullLines = remainingKts / 10
-                remainingKts %= 10
-                val halfLines = remainingKts / 5
-
-                // Start drawing symbols at staff end
-                var currentY = centerY - staffLength
-
-                // Draw flags (50kt) - right side triangles
-                repeat(flags) {
-                    canvas.drawLine(
-                        centerX, currentY,
-                        centerX + 30f, currentY - 30f, // Right-leaning flag
-                        paint
-                    )
-                    currentY += 30f  // Move toward station
-                }
-
-                // Draw full lines (10kt) - right side
-                repeat(fullLines) {
-                    canvas.drawLine(
-                        centerX, currentY,
-                        centerX + 30f, currentY, // Right horizontal line
-                        paint
-                    )
-                    currentY += 20f
-                }
-
-                // Draw half lines (5kt) - right side
-                repeat(halfLines) {
-                    canvas.drawLine(
-                        centerX, currentY,
-                        centerX + 15f, currentY, // Shorter right line
-                        paint
-                    )
-                    currentY += 20f
-                }
-
-                canvas.restore()
-                return bitmap
-            }
-        }
-    }
+    // createWindBarbBitmap moved to BitmapHelpers.kt
 
     // TILES (sectional charts)
     private fun toggleSectionalOverlay(map: GoogleMap, visible: Boolean) {
@@ -3390,16 +3003,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     borderColor = Color.WHITE,
                     borderWidth = 6
                 )
-                val dotDescriptor = getDotDescriptor(
-                    size = style.size,
-                    fillColor = style.fillColor,
-                    borderColor = style.borderColor,
-                    borderWidth = style.borderWidth
-                )
                 mMap.addMarker(
                     MarkerOptions()
                         .position(LatLng(wp.lat, wp.lon))
-                        .icon(dotDescriptor)
+                        .icon(markerFactory.createDotDescriptor(style))
                         .anchor(0.5f, 0.5f)
                         .zIndex(2f)
                         .visible(true)
@@ -3418,11 +3025,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         for (i in latLngList.indices) {
             val position = latLngList[i]
             val label = waypointNames.getOrNull(i) ?: "WP$i"
-            val labelDescriptor = getTextDescriptor(label, Color.WHITE, Color.argb(180, 0, 0, 0))
+            val labelBitmap = createTextBitmap(label, Color.WHITE, Color.argb(180, 0, 0, 0))
             mMap.addMarker(
                 MarkerOptions()
                     .position(position)
-                    .icon(labelDescriptor)
+                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
                     .anchor(-0.1f, 0.5f)
                     .zIndex(3f)
             )
