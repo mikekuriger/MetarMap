@@ -232,11 +232,24 @@ class DownloadActivity : AppCompatActivity() {
             Log.d("Unzip", "Created directory: ${targetDirectory.absolutePath}")
         }
 
+        // Resolve once so every entry can be checked against the canonical target root.
+        // Defends against zip-slip attacks: entries like "../../etc/passwd" would otherwise
+        // escape the target directory.
+        val targetRoot = targetDirectory.canonicalFile
+        val targetRootPath = targetRoot.path + File.separator
+
         try {
             ZipInputStream(FileInputStream(zipFile)).use { zis ->
                 var entry: ZipEntry?
                 while (zis.nextEntry.also { entry = it } != null) {
-                    val extractedFile = File(targetDirectory, entry!!.name)
+                    val extractedFile = File(targetRoot, entry!!.name).canonicalFile
+
+                    if (extractedFile != targetRoot &&
+                        !extractedFile.path.startsWith(targetRootPath)
+                    ) {
+                        Log.e("Unzip", "Skipping unsafe zip entry: ${entry!!.name}")
+                        continue
+                    }
 
                     if (entry!!.isDirectory) {
                         if (!extractedFile.exists()) {
@@ -283,6 +296,8 @@ class DownloadActivity : AppCompatActivity() {
         Log.d("DownloadPage", "File Size: ${fileSizeBytes / 1048576} MB")
 
         val urlConnection = URL(url).openConnection() as HttpURLConnection
+        urlConnection.connectTimeout = 15_000
+        urlConnection.readTimeout = 60_000
         urlConnection.connect()
 
         urlConnection.inputStream.use { input ->

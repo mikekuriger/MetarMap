@@ -66,7 +66,9 @@ import com.google.android.gms.maps.model.TileOverlayOptions
 import com.google.android.gms.maps.model.TileProvider
 import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
@@ -506,6 +508,8 @@ suspend fun downloadTfrData(filesDir: File): File {
             val url = URL("https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
             connection.connect()
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
@@ -733,6 +737,37 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var trackLine: Polyline? = null
     private var stopStartTime: Long? = null  // for recorging tracks
     private val recentRedTargets = mutableMapOf<String, Long>()  // hex → timestamp when red was last true
+    private var autoRefreshJob: Job? = null
+
+    // Cache BitmapDescriptors so panning the map reuses a single descriptor per visual style
+    // instead of allocating a fresh bitmap per marker. Cleared in onDestroy.
+    private data class DotKey(val size: Int, val fillColor: Int, val borderColor: Int, val borderWidth: Int)
+    private data class TextKey(val text: String, val textColor: Int, val bgColor: Int, val size: Float)
+    private data class BarbKey(val speed: Int, val dir: Int?)
+    private val dotDescriptorCache = mutableMapOf<DotKey, BitmapDescriptor>()
+    private val textDescriptorCache = mutableMapOf<TextKey, BitmapDescriptor>()
+    private val barbDescriptorCache = mutableMapOf<BarbKey, BitmapDescriptor>()
+
+    private fun getDotDescriptor(size: Int, fillColor: Int, borderColor: Int, borderWidth: Int): BitmapDescriptor {
+        return dotDescriptorCache.getOrPut(DotKey(size, fillColor, borderColor, borderWidth)) {
+            BitmapDescriptorFactory.fromBitmap(createDotBitmap(size, fillColor, borderColor, borderWidth))
+        }
+    }
+
+    private fun getTextDescriptor(text: String, textColor: Int, bgColor: Int = Color.TRANSPARENT, size: Float = 40F): BitmapDescriptor {
+        return textDescriptorCache.getOrPut(TextKey(text, textColor, bgColor, size)) {
+            BitmapDescriptorFactory.fromBitmap(createTextBitmap(text, textColor, bgColor, size))
+        }
+    }
+
+    private fun getBarbDescriptor(speed: Int, dir: Int?): BitmapDescriptor? {
+        val key = BarbKey(speed, dir)
+        barbDescriptorCache[key]?.let { return it }
+        val bmp = createWindBarbBitmap(speed, dir) ?: return null
+        val desc = BitmapDescriptorFactory.fromBitmap(bmp)
+        barbDescriptorCache[key] = desc
+        return desc
+    }
 
 
     companion object {
@@ -1026,7 +1061,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(updateRunnable)
         pruneHandler.removeCallbacks(pruneRunnable)
+        trafficHandler.removeCallbacksAndMessages(null)
+        autoRefreshJob?.cancel()
+        autoRefreshJob = null
+        dotDescriptorCache.clear()
+        textDescriptorCache.clear()
+        barbDescriptorCache.clear()
         super.onDestroy()
         StratuxManager.disconnectAll()
     }
@@ -1792,11 +1834,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun startAutoRefresh(intervalMinutes: Long) {
-        lifecycleScope.launch {
-            while (true) {
-                delay(intervalMinutes * 60 * 1000) // ✅ Wait before updating
+        autoRefreshJob?.cancel()
+        autoRefreshJob = lifecycleScope.launch {
+            while (isActive) {
+                delay(intervalMinutes * 60 * 1000)
+                if (!isActive) break
                 Log.d("AUTO_REFRESH", "Refreshing Weather data")
-                loadAndDrawMetar() // ✅ Re-fetch and update data
+                loadAndDrawMetar()
             }
         }
     }
@@ -1870,7 +1914,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // Skip invalid color combinations
         if (style.fillColor == Color.WHITE) return null
 
-        val dotBitmap = createDotBitmap(
+        val dotDescriptor = getDotDescriptor(
             size = style.size,
             fillColor = style.fillColor,
             borderColor = style.borderColor,
@@ -1880,7 +1924,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return mMap.addMarker(
             MarkerOptions()
                 .position(location)
-                .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                .icon(dotDescriptor)
                 .anchor(0.5f, 0.5f)
                 .visible(areMetarsVisible)
                 .title(
@@ -1909,11 +1953,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val windDir = metar.windDirDegrees
         if (windSpeed <= 4) return null
 
-        val barbBitmap = createWindBarbBitmap(windSpeed, windDir)
+        val barbDescriptor = getBarbDescriptor(windSpeed, windDir) ?: return null
         return mMap.addMarker(
             MarkerOptions()
                 .position(location)
-                .icon(barbBitmap?.let { BitmapDescriptorFactory.fromBitmap(it) })
+                .icon(barbDescriptor)
                 .anchor(0.5f, 0.5f)
                 .visible(areMetarsVisible)
                 .title(
@@ -1954,16 +1998,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 it <= 2 -> Color.argb(255, 50, 100, 255)
                 else -> Color.WHITE
             }
-            //val bgColor = Color.argb(125, 0, 0, 0)
             val bgColor = Color.BLACK
-            val bitmap = createTextBitmap("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
-            //val bitmap = createTextBitmap("${it}°C", tempColor)
+            val descriptor = getTextDescriptor("${celsiusToFahrenheit(it)}°F", tempColor, bgColor)
             return mMap.addMarker(
                 MarkerOptions()
                     .position(location)
-                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .icon(descriptor)
                     .visible(areMetarsVisible)
-//                .anchor(0.5f, 0.5f))
                     .anchor(0.5f, 1.3f)
             )
         }
@@ -2002,12 +2043,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }*/
     private fun createAltimeterMarker(metar: METAR, location: LatLng): Marker? {
         metar.altimeterInHg?.let {
-            val bgColor = Color.BLACK
-            val bitmap = createTextBitmap("%.2f".format(it), Color.WHITE, bgColor)
+            val descriptor = getTextDescriptor("%.2f".format(it), Color.WHITE, Color.BLACK)
             return mMap.addMarker(
                 MarkerOptions()
                     .position(location)
-                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .icon(descriptor)
                     .visible(areMetarsVisible)
                     .anchor(0.5f, 1.3f)
             )
@@ -2016,27 +2056,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun createCloudMarker(metar: METAR, location: LatLng): Marker? {
-        metar.skyCover1.let {
-            val bgColor = Color.BLACK
-            val bitmap = it?.let { it1 -> createTextBitmap(it1, Color.WHITE, bgColor) }
-            return mMap.addMarker(
-                MarkerOptions()
-                    .position(location)
-                    .icon(bitmap?.let { it1 -> BitmapDescriptorFactory.fromBitmap(it1) })
-                    .visible(areMetarsVisible)
-                    .anchor(0.5f, 1.3f)
-            )
-        }
+        val cover = metar.skyCover1 ?: return null
+        val descriptor = getTextDescriptor(cover, Color.WHITE, Color.BLACK)
+        return mMap.addMarker(
+            MarkerOptions()
+                .position(location)
+                .icon(descriptor)
+                .visible(areMetarsVisible)
+                .anchor(0.5f, 1.3f)
+        )
     }
 
     private fun createCeilingMarker(metar: METAR, location: LatLng): Marker? {
         metar.cloudBase1?.let {
-            val bgColor = Color.BLACK
-            val bitmap = createTextBitmap(it.toString(), Color.WHITE, bgColor)
+            val descriptor = getTextDescriptor(it.toString(), Color.WHITE, Color.BLACK)
             return mMap.addMarker(
                 MarkerOptions()
                     .position(location)
-                    .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                    .icon(descriptor)
                     .visible(areMetarsVisible)
                     .anchor(0.5f, 1.3f)
             )
@@ -3484,7 +3521,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     borderColor = Color.WHITE,
                     borderWidth = 6
                 )
-                val dotBitmap = createDotBitmap(
+                val dotDescriptor = getDotDescriptor(
                     size = style.size,
                     fillColor = style.fillColor,
                     borderColor = style.borderColor,
@@ -3493,7 +3530,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 mMap.addMarker(
                     MarkerOptions()
                         .position(LatLng(wp.lat, wp.lon))
-                        .icon(BitmapDescriptorFactory.fromBitmap(dotBitmap))
+                        .icon(dotDescriptor)
                         .anchor(0.5f, 0.5f)
                         .zIndex(2f)
                         .visible(true)
@@ -3512,11 +3549,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         for (i in latLngList.indices) {
             val position = latLngList[i]
             val label = waypointNames.getOrNull(i) ?: "WP$i"
-            val labelBitmap = createTextBitmap(label, Color.WHITE, Color.argb(180, 0, 0, 0))
+            val labelDescriptor = getTextDescriptor(label, Color.WHITE, Color.argb(180, 0, 0, 0))
             mMap.addMarker(
                 MarkerOptions()
                     .position(position)
-                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
+                    .icon(labelDescriptor)
                     .anchor(-0.1f, 0.5f)
                     .zIndex(3f)
             )
@@ -3667,6 +3704,8 @@ abstract class BaseTileProvider(
         return try {
             val connection = URL(tileUrl).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 15_000
             connection.connect()
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
@@ -3692,6 +3731,8 @@ abstract class BaseTileProvider(
         return try {
             val connection = URL(tileUrl).openConnection() as HttpURLConnection
             connection.requestMethod = "HEAD" // Use HEAD to check if file exists without downloading
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 15_000
             connection.connect()
             connection.responseCode == HttpURLConnection.HTTP_OK
         } catch (e: Exception) {

@@ -7,21 +7,43 @@ import okhttp3.*
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.concurrent.TimeUnit
 
 object StratuxManager {
 
-    private val client = OkHttpClient()
-    private var gpsSocket: WebSocket? = null
-    private var trafficSocket: WebSocket? = null
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.SECONDS) // websocket: read times out via pings, not stream idle
+        .pingInterval(10, TimeUnit.SECONDS)
+        .build()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     // === GPS === (for display only right now - need to build a module to use this)
+    private var gpsSocket: WebSocket? = null
+    private var gpsConnected = false
+    private var gpsShouldStayConnected = false
+    private var gpsReconnectPending = false
+
     fun connectToGps(onUpdate: (GpsData) -> Unit) {
         Log.d("Stratux", "📡 GPS connectToGps triggered")
+        gpsShouldStayConnected = true
+        if (gpsConnected) return  // already have a live socket
+
+        // Close any stale socket before opening a new one (prevents leaks on reconnect)
+        gpsSocket?.close(1000, "reconnect")
+        gpsSocket = null
+
         val request = Request.Builder()
             .url("ws://192.168.10.1/situation")
             .build()
 
         gpsSocket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i("Stratux", "✅ GPS WebSocket connected")
+                gpsConnected = true
+            }
+
             override fun onMessage(webSocket: WebSocket, text: String) {
                 Log.d("Stratux", "📡 GPS Raw: $text")  // 🔍 Log raw message first
 
@@ -44,33 +66,40 @@ object StratuxManager {
                         verticalSpeed = json.optDouble("BaroVerticalSpeed")
                     )
                     Log.d("Stratux", "✅ Parsed GPS: $gps")
-                    onUpdate(gps)
+                    mainHandler.post { onUpdate(gps) }
                 } catch (e: Exception) {
                     Log.e("Stratux", "GPS parse error: ${e.message}")
                 }
             }
 
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i("Stratux", "✅ GPS WebSocket connected")
-            }
-
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("Stratux", "GPS socket failure: ${t.message}")
+                gpsConnected = false
+                gpsSocket = null
                 reconnectGps(onUpdate)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w("Stratux", "GPS socket closed: $reason")
+                gpsConnected = false
+                gpsSocket = null
                 reconnectGps(onUpdate)
             }
         })
     }
+
     fun reconnectGps(onUpdate: (GpsData) -> Unit) {
-        Handler(Looper.getMainLooper()).postDelayed({
-            connectToGps(onUpdate)
+        if (!gpsShouldStayConnected || gpsReconnectPending) return
+        gpsReconnectPending = true
+        mainHandler.postDelayed({
+            gpsReconnectPending = false
+            if (gpsShouldStayConnected) connectToGps(onUpdate)
         }, 2000)
     }
+
     fun disconnectGps() {
+        gpsShouldStayConnected = false
+        gpsConnected = false
         gpsSocket?.close(1000, "User exit")
         gpsSocket = null
     }
@@ -78,20 +107,26 @@ object StratuxManager {
     // === TRAFFIC ===
     private val trafficSubscribers = mutableListOf<(TrafficTarget) -> Unit>()
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
+    private var trafficSocket: WebSocket? = null
     private var trafficConnected = false
+    private var trafficShouldStayConnected = false
+    private var trafficReconnectPending = false
+
     fun connectToTraffic(onUpdate: (TrafficTarget) -> Unit) {
         Log.d("Stratux", "📡 Traffic connectToTraffic triggered")
+        trafficShouldStayConnected = true
 
         trafficSubscribers += onUpdate
 
         // 🔥 Immediately send current list to the new subscriber
         trafficMap.values.forEach { target ->
-            Handler(Looper.getMainLooper()).post {
-                onUpdate(target)
-            }
+            mainHandler.post { onUpdate(target) }
         }
 
         if (trafficConnected) return  // Already connected
+
+        trafficSocket?.close(1000, "reconnect")
+        trafficSocket = null
 
         val url = "ws://192.168.10.1/traffic"
         val request = Request.Builder().url(url).build()
@@ -132,9 +167,7 @@ object StratuxManager {
 
                     trafficMap[icao] = target
 
-                    Handler(Looper.getMainLooper()).post {
-                        onUpdate(target)
-                    }
+                    mainHandler.post { onUpdate(target) }
 
                 } catch (e: Exception) {
                     Log.e("Stratux", "Traffic parse error: ${e.message}")
@@ -144,25 +177,36 @@ object StratuxManager {
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("Stratux", "Traffic socket failure: ${t.message}")
                 trafficConnected = false
+                trafficSocket = null
                 reconnectTraffic(onUpdate)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w("Stratux", "Traffic socket closed: $reason")
                 trafficConnected = false
+                trafficSocket = null
                 reconnectTraffic(onUpdate)
             }
         })
     }
+
     fun reconnectTraffic(onUpdate: (TrafficTarget) -> Unit) {
-        Handler(Looper.getMainLooper()).postDelayed({
-            connectToTraffic(onUpdate)
+        if (!trafficShouldStayConnected || trafficReconnectPending) return
+        trafficReconnectPending = true
+        mainHandler.postDelayed({
+            trafficReconnectPending = false
+            if (trafficShouldStayConnected) connectToTraffic(onUpdate)
         }, 2000)
     }
+
     fun getAllTraffic(): List<TrafficTarget> = trafficMap.values.toList()
+
     fun disconnectTraffic() {
+        trafficShouldStayConnected = false
+        trafficConnected = false
         trafficSocket?.close(1000, "User exit")
         trafficSocket = null
+        trafficSubscribers.clear()
     }
 
     // === CLEANUP ===
