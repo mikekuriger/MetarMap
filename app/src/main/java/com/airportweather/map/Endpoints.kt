@@ -27,6 +27,16 @@ object Endpoints {
     const val TFR_GEOJSON =
         "https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson"
 
+    // ---- Special Use Airspace (FAA ArcGIS REST → GeoJSON) ----
+    // Filtered server-side to MOA, Restricted, Prohibited. Reduced coordinate
+    // precision (~10m) keeps the response ~1.4 MB gzipped.
+    // Add other TYPE_CODE values (W, A, CFA, NSA) by extending the IN(...) clause.
+    const val SUA_GEOJSON =
+        "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/Special_Use_Airspace/FeatureServer/0/query" +
+            "?where=TYPE_CODE+IN+%28%27MOA%27%2C%27R%27%2C%27P%27%29" +
+            "&outFields=NAME%2CTYPE_CODE%2CUPPER_DESC%2CLOWER_DESC%2CTIMESOFUSE%2CCONT_AGENT" +
+            "&f=geojson&geometryPrecision=4&outSR=4326&resultRecordCount=2000"
+
     // ---- Charts & airport DB (regiruk.netlify.app) ----
     private const val CHARTS_HOST = "https://regiruk.netlify.app"
     const val SECTIONAL_TILES = "$CHARTS_HOST/Sectional/30"

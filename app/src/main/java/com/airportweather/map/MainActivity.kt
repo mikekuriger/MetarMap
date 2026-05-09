@@ -237,6 +237,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var isFollowingUser = false
     private val tfrPolygons = mutableListOf<Polygon>()
     private val airspacePolygons = mutableListOf<Polygon>()
+    private val suaPolygons = mutableListOf<Polygon>()
     // Markers keyed by stationId so updateVisibleMarkers can diff incrementally
     // (skip stations whose data hasn't changed) instead of clearing and re-adding
     // every marker on every call. The signature captures everything that affects
@@ -1081,6 +1082,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // ✅ Only load airspace once
         if (!airspaceLoaded) {
             loadAndDrawAirspace(mMap, this)
+            loadAndDrawSua()
 
             // Initialize the airspace toggle button
             var isAirspaceVisible = sharedPrefs.getBoolean("show_airspace", true)
@@ -1818,10 +1820,70 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun toggleAirspace(visible: Boolean) {
-        //areAirspacesVisible = !areAirspacesVisible
         areAirspacesVisible = visible
-        airspacePolygons.forEach { it.isVisible = areAirspacesVisible }
-        Log.d("Toggle", "Airspace visibility set to $areAirspacesVisible")
+        airspacePolygons.forEach { it.isVisible = visible }
+        suaPolygons.forEach { it.isVisible = visible }
+        Log.d("Toggle", "Airspace visibility set to $visible")
+    }
+
+    // Special Use Airspace (MOA, Restricted, Prohibited). Mirrors loadAndDrawTFR:
+    // ViewModel triggers refresh; we read the resulting StateFlow value and draw.
+    private fun loadAndDrawSua() {
+        lifecycleScope.launch {
+            try {
+                viewModel.refreshSua().join()
+                drawSuaPolygons(mMap, viewModel.sua.value)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "SUA refresh failed: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun drawSuaPolygons(map: GoogleMap, features: List<SuaFeature>) {
+        // Wipe any prior SUA polygons before redrawing
+        suaPolygons.forEach { it.remove() }
+        suaPolygons.clear()
+
+        for (feature in features) {
+            val rings = feature.coordinates
+            if (rings.isEmpty()) continue
+            val outer = rings.first().map { LatLng(it[1], it[0]) }
+            val holes = rings.drop(1).map { ring -> ring.map { LatLng(it[1], it[0]) } }
+
+            val opts = PolygonOptions().addAll(outer)
+            holes.forEach { opts.addHole(it) }
+
+            // FAA chart conventions, adapted for a Google Maps polygon (no hatching).
+            // MOA = magenta dashed boundary, no fill.
+            // Restricted = solid blue boundary, faint blue fill.
+            // Prohibited = bold red boundary, faint red fill.
+            when (feature.properties.typeCode) {
+                "MOA" -> opts
+                    .strokeColor(Color.argb(220, 199, 21, 133)) // medium violet red
+                    .strokeWidth(4f)
+                    .strokePattern(listOf(Dash(20f), Gap(10f)))
+                    .fillColor(Color.TRANSPARENT)
+                "R" -> opts
+                    .strokeColor(Color.argb(220, 0, 90, 200))
+                    .strokeWidth(4f)
+                    .fillColor(Color.argb(40, 0, 90, 200))
+                "P" -> opts
+                    .strokeColor(Color.argb(230, 200, 30, 30))
+                    .strokeWidth(6f)
+                    .fillColor(Color.argb(50, 200, 30, 30))
+                else -> opts
+                    .strokeColor(Color.GRAY)
+                    .strokeWidth(2f)
+                    .fillColor(Color.TRANSPARENT)
+            }
+            opts.zIndex(0.5f) // under TFRs (which sit higher) but over the basemap
+
+            val polygon = map.addPolygon(opts)
+            polygon.tag = feature.properties
+            polygon.isVisible = areAirspacesVisible
+            suaPolygons += polygon
+        }
+        Log.d("SUA", "Drew ${suaPolygons.size} SUA polygons")
     }
 
     // METAR

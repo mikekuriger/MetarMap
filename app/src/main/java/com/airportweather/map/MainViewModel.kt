@@ -19,10 +19,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val weatherRepo = WeatherRepository(application.filesDir)
     private val tfrRepo = TfrRepository(application.filesDir)
+    private val suaRepo = SuaRepository(application.filesDir)
     private val trafficRepo = TrafficRepository()
 
     val weather: StateFlow<WeatherSnapshot> = weatherRepo.snapshot
     val tfrs: StateFlow<List<TFRFeature>> = tfrRepo.tfrs
+    val sua: StateFlow<List<SuaFeature>> = suaRepo.sua
     val traffic: StateFlow<Map<String, TrafficTarget>> = trafficRepo.targets
 
     private var autoRefreshJob: Job? = null
@@ -37,6 +39,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshTfrs() = viewModelScope.launch {
         tfrRepo.refresh()
+    }
+
+    fun refreshSua() = viewModelScope.launch {
+        suaRepo.refresh()
     }
 
     fun startAutoRefresh(intervalMinutes: Long) {
