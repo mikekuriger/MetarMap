@@ -122,6 +122,28 @@ private val METAR_TIME_PATTERNS = listOf(
     "yyyy-MM-dd'T'HH:mm:ss'Z'",
 )
 
+// TFR GeoJSON dates currently arrive as "2026-05-08T20:05:29" (no zone, no millis),
+// but the upstream is a third-party feed and could drift. Accept the common variants.
+private val TFR_DATE_PATTERNS = listOf(
+    "yyyy-MM-dd'T'HH:mm:ss",
+    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+    "yyyy-MM-dd'T'HH:mm:ss.SSS",
+    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+)
+
+fun parseTfrDate(value: String?): Date? {
+    if (value.isNullOrBlank() || value == "null") return null
+    for (pattern in TFR_DATE_PATTERNS) {
+        try {
+            return SimpleDateFormat(pattern, Locale.US).parse(value)
+        } catch (_: Exception) {
+            // try next pattern
+        }
+    }
+    Log.w("TFR_DATE", "Could not parse date='$value'")
+    return null
+}
+
 fun calculateMetarAge(observationTime: String?): Int? {
     if (observationTime.isNullOrBlank()) return null
     val now = System.currentTimeMillis()
@@ -1606,26 +1628,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     @SuppressLint("SetTextI18n")
     private fun showTfrPopup(context: Context, tfr: TFRProperties) {
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
         val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
         val currentDate = Date()
 
-        // ✅ Ensure `dateEffective` and `dateExpire` are used for date parsing
         val startDateString = if (tfr.dateEffective.isEmpty() || tfr.dateEffective == "null") {
             tfr.dateIssued
         } else {
             tfr.dateEffective
         }
-        val startDate = try {
-            dateFormat.parse(startDateString)
-        } catch (e: Exception) {
-            null
-        }
-        val endDate = try {
-            dateFormat.parse(tfr.dateExpire)
-        } catch (e: Exception) {
-            null
-        }
+        val startDate = parseTfrDate(startDateString)
+        val endDate = parseTfrDate(tfr.dateExpire)
 
         // ✅ Ensure `altitudeMin` and `altitudeMax` are treated correctly
         val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"

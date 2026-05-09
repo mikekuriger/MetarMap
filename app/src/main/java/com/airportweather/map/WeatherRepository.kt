@@ -5,6 +5,7 @@ import com.airportweather.map.utils.loadMetarDataFromCache
 import com.airportweather.map.utils.loadTafDataFromCache
 import com.airportweather.map.utils.saveMetarDataToCache
 import com.airportweather.map.utils.saveTafDataToCache
+import com.opencsv.CSVReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,26 +114,34 @@ class WeatherRepository(private val filesDir: File) {
         }
     }
 
+    // RFC-4180 CSV parsing via opencsv: handles commas inside quoted raw_text
+    // (METAR remarks like "CB N,W TEMPO ..." used to silently drop those rows
+    // because line.split(",") shifted every subsequent column).
     private fun parseMetarCsv(file: File): List<METAR> {
-        return file.bufferedReader().useLines { lines ->
-            lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") }
-                .drop(1)
-                .mapNotNull { line ->
-                    try {
-                        parseMetarLine(line)
+        val out = mutableListOf<METAR>()
+        file.bufferedReader().use { reader ->
+            CSVReader(reader).use { csv ->
+                csv.readNext() // discard header row
+                while (true) {
+                    val fields = try {
+                        csv.readNext() ?: break
                     } catch (e: Exception) {
-                        Log.e("METAR_PARSE", "Error parsing line: $line", e)
-                        null
+                        Log.w("METAR_PARSE", "CSV read error, stopping", e)
+                        break
                     }
+                    parseMetarRow(fields)?.let { out += it }
                 }
-                .toList()
+            }
         }
+        return out
     }
 
-    private fun parseMetarLine(line: String): METAR? {
-        val fields = line.split(",")
-        if (fields.size < 43) {
-            Log.e("METAR_PARSE", "Skipping line, insufficient fields: $line")
+    private fun parseMetarRow(fields: Array<String>): METAR? {
+        // Need 44 columns to safely access fields[43] (elevation_m). Was < 43,
+        // which let rows with exactly 43 fields throw IndexOutOfBoundsException
+        // and get silently dropped by the catch below.
+        if (fields.size < 44) {
+            Log.w("METAR_PARSE", "Skipping row, only ${fields.size} fields")
             return null
         }
         return try {
@@ -162,40 +171,55 @@ class WeatherRepository(private val filesDir: File) {
                 elevationM = fields[43].toIntOrNull()
             )
         } catch (e: Exception) {
-            Log.e("METAR_PARSE", "Failed to parse line: $line", e)
+            Log.w("METAR_PARSE", "Failed to parse row for ${fields.getOrNull(1)}", e)
             null
         }
     }
 
     private fun parseTafCsv(file: File): List<TAF> {
-        return file.bufferedReader().useLines { lines ->
-            lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") }
-                .drop(1)
-                .mapNotNull { line ->
-                    val fields = line.split(",")
-                    try {
-                        val taf = TAF(
-                            stationId = fields[1],
-                            visibility = fields.getOrNull(21),
-                            skyCover = listOf(
-                                fields.getOrNull(26),
-                                fields.getOrNull(29),
-                                fields.getOrNull(32)
-                            ),
-                            cloudBase = listOf(
-                                fields.getOrNull(27)?.toIntOrNull(),
-                                fields.getOrNull(30)?.toIntOrNull(),
-                                fields.getOrNull(33)?.toIntOrNull()
-                            ),
-                        )
-                        taf.flightCategory = determineTafConditions(taf)
-                        taf
+        val out = mutableListOf<TAF>()
+        file.bufferedReader().use { reader ->
+            CSVReader(reader).use { csv ->
+                csv.readNext() // discard header row
+                while (true) {
+                    val fields = try {
+                        csv.readNext() ?: break
                     } catch (e: Exception) {
-                        Log.e("TAF_PARSE", "Error parsing TAF line: $line", e)
-                        null
+                        Log.w("TAF_PARSE", "CSV read error, stopping", e)
+                        break
                     }
+                    parseTafRow(fields)?.let { out += it }
                 }
-                .toList()
+            }
+        }
+        return out
+    }
+
+    private fun parseTafRow(fields: Array<String>): TAF? {
+        if (fields.size < 34) {
+            Log.w("TAF_PARSE", "Skipping row, only ${fields.size} fields")
+            return null
+        }
+        return try {
+            val taf = TAF(
+                stationId = fields[1],
+                visibility = fields.getOrNull(21),
+                skyCover = listOf(
+                    fields.getOrNull(26),
+                    fields.getOrNull(29),
+                    fields.getOrNull(32),
+                ),
+                cloudBase = listOf(
+                    fields.getOrNull(27)?.toIntOrNull(),
+                    fields.getOrNull(30)?.toIntOrNull(),
+                    fields.getOrNull(33)?.toIntOrNull(),
+                ),
+            )
+            taf.flightCategory = determineTafConditions(taf)
+            taf
+        } catch (e: Exception) {
+            Log.w("TAF_PARSE", "Failed to parse row for ${fields.getOrNull(1)}", e)
+            null
         }
     }
 
