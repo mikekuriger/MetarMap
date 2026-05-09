@@ -210,7 +210,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var isFollowingUser = false
     private val tfrPolygons = mutableListOf<Polygon>()
     private val airspacePolygons = mutableListOf<Polygon>()
-    private val metarMarkers = mutableListOf<Marker>()
+    // Markers keyed by stationId so updateVisibleMarkers can diff incrementally
+    // (skip stations whose data hasn't changed) instead of clearing and re-adding
+    // every marker on every call. The signature captures everything that affects
+    // visual output — if it matches what's already drawn, the marker is left alone.
+    private data class MarkerSignature(val layer: String, val metar: METAR, val taf: TAF?)
+    private val markersByStation = mutableMapOf<String, List<Marker>>()
+    private val signaturesByStation = mutableMapOf<String, MarkerSignature>()
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
@@ -1256,9 +1262,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun refreshMarkers() {
-        metarMarkers.forEach { it.remove() }
-        metarMarkers.clear()
-
+        markersByStation.values.flatten().forEach { it.remove() }
+        markersByStation.clear()
+        signaturesByStation.clear()
         updateVisibleMarkers(metarData, tafData)
     }
     // createDotBitmap, createTextBitmap moved to BitmapHelpers.kt
@@ -1294,49 +1300,54 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun updateVisibleMarkers(metars: List<METAR>, tafs: List<TAF>) {
+        if (!::mMap.isInitialized) return
         val visibleBounds = mMap.projection.visibleRegion.latLngBounds
-        metarMarkers.forEach { it.remove() }
-        metarMarkers.clear()
+        val currentLayer = MapLayer.fromName(currentLayerName)
+        val layerName = currentLayer::class.simpleName ?: "Unknown"
+        val tafByStation = tafs.associateBy { it.stationId }
 
-        //Log.d("DEBUG", "Total METARs loaded: ${metars.size}")
+        // What we WANT to be drawn this pass: visible stations keyed by id, with full signature
+        val desired: Map<String, MarkerSignature> = metars.asSequence()
+            .filter { visibleBounds.contains(LatLng(it.latitude, it.longitude)) }
+            .associate { metar ->
+                metar.stationId to MarkerSignature(layerName, metar, tafByStation[metar.stationId])
+            }
 
-        metars.forEach { metar ->
-            val location = LatLng(metar.latitude, metar.longitude)
+        // Drop stations no longer visible OR whose signature changed (data update / layer change)
+        val obsolete = signaturesByStation.keys.filter { id -> desired[id] != signaturesByStation[id] }
+        obsolete.forEach { id ->
+            markersByStation[id]?.forEach { it.remove() }
+            markersByStation.remove(id)
+            signaturesByStation.remove(id)
+        }
 
-            // ✅ Log every airport (before filtering)
-            //Log.d("METAR_DEBUG", "Processing: ${metar.stationId} at $location")
+        // Add stations that aren't drawn yet (or were just dropped because signature changed)
+        desired.forEach { (id, sig) ->
+            if (signaturesByStation[id] == sig) return@forEach
+            val location = LatLng(sig.metar.latitude, sig.metar.longitude)
+            val markers = mutableListOf<Marker>()
 
-            if (!visibleBounds.contains(location)) return@forEach
-            //Log.d("METAR_DEBUG", "Skipping ${metar.stationId}: Out of visible bounds")
+            val primary = when (currentLayer) {
+                MapLayer.FlightConditions -> markerFactory.createFlightConditionMarker(sig.metar, sig.taf, location)
+                MapLayer.Wind -> markerFactory.createMetarDotForWindLayer(sig.metar, location)
+                MapLayer.Temperature -> markerFactory.createTemperatureMarker(sig.metar, location)
+                MapLayer.Altimeter -> markerFactory.createAltimeterMarker(sig.metar, location)
+                MapLayer.Ceiling -> markerFactory.createCeilingMarker(sig.metar, location)
+                MapLayer.Clouds -> markerFactory.createCloudMarker(sig.metar, location)
+                MapLayer.None -> null
+            }
+            primary?.let { markers.add(it) }
 
-            val existingMarker = metarMarkers.find { it.position == location }
+            if (currentLayer != MapLayer.FlightConditions && currentLayer != MapLayer.None) {
+                markerFactory.createMetarDotForWindLayer(sig.metar, location)?.let { markers.add(it) }
+            }
+            if (currentLayer == MapLayer.Wind) {
+                markerFactory.createWindMarker(sig.metar, sig.taf, location)?.let { markers.add(it) }
+            }
 
-            if (existingMarker != null) {
-                // 🔹 Just update visibility, don't recreate
-                existingMarker.isVisible = areMetarsVisible
-            } else {
-
-                val taf = tafs.find { it.stationId == metar.stationId }
-                val currentLayer = MapLayer.fromName(currentLayerName)
-                val marker = when (currentLayer) {
-                    MapLayer.FlightConditions -> markerFactory.createFlightConditionMarker(metar, taf, location)
-                    MapLayer.Wind -> markerFactory.createMetarDotForWindLayer(metar, location)
-                    MapLayer.Temperature -> markerFactory.createTemperatureMarker(metar, location)
-                    MapLayer.Altimeter -> markerFactory.createAltimeterMarker(metar, location)
-                    MapLayer.Ceiling -> markerFactory.createCeilingMarker(metar, location)
-                    MapLayer.Clouds -> markerFactory.createCloudMarker(metar, location)
-                    MapLayer.None -> null
-                }
-
-                marker?.let { metarMarkers.add(it) }
-
-                if (currentLayer != MapLayer.FlightConditions && currentLayer != MapLayer.None) {
-                    markerFactory.createMetarDotForWindLayer(metar, location)?.let { metarMarkers.add(it) }
-                }
-
-                if (currentLayer == MapLayer.Wind) {
-                    markerFactory.createWindMarker(metar, taf, location)?.let { metarMarkers.add(it) }
-                }
+            if (markers.isNotEmpty()) {
+                markersByStation[id] = markers
+                signaturesByStation[id] = sig
             }
         }
     }
@@ -1941,9 +1952,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun toggleMetarVisibility(visible: Boolean) {
         areMetarsVisible = visible
         if (::markerFactory.isInitialized) markerFactory.areMetarsVisible = visible
-        metarMarkers.forEach { marker ->
-            marker.isVisible = areMetarsVisible
-        }
+        markersByStation.values.flatten().forEach { it.isVisible = visible }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
     }
 
