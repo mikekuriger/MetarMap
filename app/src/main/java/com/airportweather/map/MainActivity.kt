@@ -65,10 +65,12 @@ import com.google.android.gms.maps.model.TileOverlay
 import com.google.android.gms.maps.model.TileOverlayOptions
 import com.google.android.gms.maps.model.TileProvider
 import com.google.android.material.navigation.NavigationView
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
@@ -271,10 +273,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var trackLine: Polyline? = null
     private var stopStartTime: Long? = null  // for recorging tracks
     private val recentRedTargets = mutableMapOf<String, Long>()  // hex → timestamp when red was last true
-    private var autoRefreshJob: Job? = null
+    private val viewModel: MainViewModel by viewModels()
     private lateinit var markerFactory: MarkerFactory
-    private lateinit var weatherRepo: WeatherRepository
-    private lateinit var tfrRepo: TfrRepository
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -335,9 +335,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // ✅ Initialize View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        weatherRepo = WeatherRepository(filesDir)
-        tfrRepo = TfrRepository(filesDir)
 
         // grab preferences
         sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
@@ -573,8 +570,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         handler.removeCallbacks(updateRunnable)
         pruneHandler.removeCallbacks(pruneRunnable)
         trafficHandler.removeCallbacksAndMessages(null)
-        autoRefreshJob?.cancel()
-        autoRefreshJob = null
         if (::markerFactory.isInitialized) markerFactory.dispose()
         super.onDestroy()
         StratuxManager.disconnectAll()
@@ -908,6 +903,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         markerFactory = MarkerFactory(mMap, ::formatAirportDetails).also {
             it.areMetarsVisible = areMetarsVisible
         }
+        observeViewModel()
         mMap.mapType = GoogleMap.MAP_TYPE_NORMAL // Options: NORMAL, SATELLITE, TERRAIN, HYBRID
         //mMap.isTrafficEnabled = false
         mMap.uiSettings.isTiltGesturesEnabled = false
@@ -1268,13 +1264,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // createDotBitmap, createTextBitmap moved to BitmapHelpers.kt
 
     private fun startAutoRefresh(intervalMinutes: Long) {
-        autoRefreshJob?.cancel()
-        autoRefreshJob = lifecycleScope.launch {
-            while (isActive) {
-                delay(intervalMinutes * 60 * 1000)
-                if (!isActive) break
-                Log.d("AUTO_REFRESH", "Refreshing Weather data")
-                loadAndDrawMetar()
+        // ViewModel owns the auto-refresh loop so it survives config changes;
+        // the activity re-renders via its flow collector.
+        viewModel.startAutoRefresh(intervalMinutes)
+    }
+
+    private fun observeViewModel() {
+        // Combined METAR + TAF stream — re-render markers whenever either changes.
+        // repeatOnLifecycle pauses collection when the activity isn't visible.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(viewModel.metars, viewModel.tafs) { m, t -> m to t }
+                    .collect { (metars, tafs) ->
+                        metarData = metars
+                        tafData = tafs
+                        if (::mMap.isInitialized) updateVisibleMarkers(metars, tafs)
+                    }
             }
         }
     }
@@ -1419,11 +1424,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun loadAndDrawTFR() {
         lifecycleScope.launch {
             try {
-                if (tfrRepo.refresh()) {
-                    drawTFRPolygons(mMap, tfrRepo.tfrs.value)
-                } else {
-                    Log.d("TFR", "No TFR data available")
-                }
+                viewModel.refreshTfrs().join()
+                drawTFRPolygons(mMap, viewModel.tfrs.value)
             } catch (e: Exception) {
                 Log.e("MainActivity", "TFR refresh failed: ${e.message}", e)
             }
@@ -1790,20 +1792,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 Log.d("loadAndDrawMetar", "🌦️ Updating Weather Data")
                 showBottomProgressBar("🌦️ Downloading Latest Weather Data")
 
-                weatherRepo.loadCached()
-                metarData = weatherRepo.metars.value
-                tafData = weatherRepo.tafs.value
-                updateVisibleMarkers(metarData, tafData) // Show cached data immediately
-
+                viewModel.loadCachedWeather().join()
+                // markers update reactively via the metars/tafs flow collector
                 if (!isInternetAvailable()) {
                     Log.d("loadAndDrawMetar", "❌ No Internet Connection")
                     return@launch
                 }
 
-                weatherRepo.refresh()
-                metarData = weatherRepo.metars.value
-                tafData = weatherRepo.tafs.value
-                updateVisibleMarkers(metarData, tafData) // Refresh UI
+                viewModel.refreshWeather().join()
             } catch (e: Exception) {
                 Log.e("METAR_UPDATE", "Error fetching METAR data", e)
                 withContext(Dispatchers.Main) {
