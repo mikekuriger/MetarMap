@@ -1,0 +1,213 @@
+package com.airportweather.map
+
+import android.util.Log
+import com.airportweather.map.utils.loadMetarDataFromCache
+import com.airportweather.map.utils.loadTafDataFromCache
+import com.airportweather.map.utils.saveMetarDataToCache
+import com.airportweather.map.utils.saveTafDataToCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.net.URL
+import java.util.zip.GZIPInputStream
+
+/**
+ * Owns METAR + TAF download, parse, merge, and cache. Exposes the latest known data
+ * via StateFlows so callers can subscribe instead of polling.
+ *
+ * Both [loadCached] and [refresh] are safe to call from any coroutine; they marshal
+ * their work to the IO dispatcher.
+ */
+class WeatherRepository(private val filesDir: File) {
+
+    private val _metars = MutableStateFlow<List<METAR>>(emptyList())
+    val metars: StateFlow<List<METAR>> = _metars.asStateFlow()
+
+    private val _tafs = MutableStateFlow<List<TAF>>(emptyList())
+    val tafs: StateFlow<List<TAF>> = _tafs.asStateFlow()
+
+    suspend fun loadCached() = withContext(Dispatchers.IO) {
+        _metars.value = loadMetarDataFromCache(filesDir)
+        _tafs.value = loadTafDataFromCache(filesDir)
+    }
+
+    /**
+     * Downloads fresh METAR + TAF data, merges with whatever is already in state
+     * (or cache, if state is empty), saves the merged result back to disk, and
+     * publishes both lists.
+     */
+    suspend fun refresh() = withContext(Dispatchers.IO) {
+        val baseMetars = _metars.value.ifEmpty { loadMetarDataFromCache(filesDir) }
+        val baseTafs = _tafs.value.ifEmpty { loadTafDataFromCache(filesDir) }
+
+        val freshMetars = downloadMetars()
+        val freshTafs = downloadTafs()
+
+        val mergedMetars = merge(baseMetars, freshMetars) { it.stationId }
+        val mergedTafs = merge(baseTafs, freshTafs) { it.stationId }
+
+        saveMetarDataToCache(mergedMetars, filesDir)
+        saveTafDataToCache(mergedTafs, filesDir)
+
+        _metars.value = mergedMetars
+        _tafs.value = mergedTafs
+    }
+
+    private fun downloadMetars(): List<METAR> {
+        return try {
+            val url = URL("https://aviationweather.gov/data/cache/metars.cache.csv.gz")
+            val connection = url.openConnection().apply {
+                connectTimeout = 15_000
+                readTimeout = 60_000
+            }
+            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
+            val outputFile = File(filesDir, "metars.cache.csv")
+            FileOutputStream(outputFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                throw Exception("Downloaded METAR file is empty or missing")
+            }
+            Log.d("METAR_DOWNLOAD", "Downloaded ${outputFile.length()} bytes")
+            parseMetarCsv(outputFile)
+        } catch (e: Exception) {
+            Log.e("METAR_DOWNLOAD", "Error downloading METAR data: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    private fun downloadTafs(): List<TAF> {
+        return try {
+            val url = URL("https://aviationweather.gov/data/cache/tafs.cache.csv.gz")
+            val connection = url.openConnection().apply {
+                connectTimeout = 15_000
+                readTimeout = 60_000
+            }
+            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
+            val outputFile = File(filesDir, "tafs.cache.csv")
+            FileOutputStream(outputFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                throw Exception("Downloaded TAF file is empty or missing")
+            }
+            Log.d("TAF_DOWNLOAD", "Downloaded ${outputFile.length()} bytes")
+            parseTafCsv(outputFile)
+        } catch (e: Exception) {
+            Log.e("TAF_DOWNLOAD", "Error downloading TAF data: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    private fun parseMetarCsv(file: File): List<METAR> {
+        return file.bufferedReader().useLines { lines ->
+            lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") }
+                .drop(1)
+                .mapNotNull { line ->
+                    try {
+                        parseMetarLine(line)
+                    } catch (e: Exception) {
+                        Log.e("METAR_PARSE", "Error parsing line: $line", e)
+                        null
+                    }
+                }
+                .toList()
+        }
+    }
+
+    private fun parseMetarLine(line: String): METAR? {
+        val fields = line.split(",")
+        if (fields.size < 43) {
+            Log.e("METAR_PARSE", "Skipping line, insufficient fields: $line")
+            return null
+        }
+        return try {
+            METAR(
+                stationId = fields[1],
+                observationTime = fields[2],
+                latitude = fields[3].toDouble(),
+                longitude = fields[4].toDouble(),
+                tempC = fields[5].toDoubleOrNull(),
+                dewpointC = fields[6].toDoubleOrNull(),
+                windDirDegrees = fields[7].toIntOrNull(),
+                windSpeedKt = fields[8].toIntOrNull(),
+                windGustKt = fields[9].toIntOrNull(),
+                visibility = fields[10],
+                altimeterInHg = fields[11].toDoubleOrNull(),
+                wxString = fields[21],
+                skyCover1 = fields.getOrNull(22),
+                cloudBase1 = fields.getOrNull(23)?.toIntOrNull(),
+                skyCover2 = fields.getOrNull(24),
+                cloudBase2 = fields.getOrNull(25)?.toIntOrNull(),
+                skyCover3 = fields.getOrNull(26),
+                cloudBase3 = fields.getOrNull(27)?.toIntOrNull(),
+                skyCover4 = fields.getOrNull(28),
+                cloudBase4 = fields.getOrNull(29)?.toIntOrNull(),
+                flightCategory = fields[30],
+                metarType = fields[42],
+                elevationM = fields[43].toIntOrNull()
+            )
+        } catch (e: Exception) {
+            Log.e("METAR_PARSE", "Failed to parse line: $line", e)
+            null
+        }
+    }
+
+    private fun parseTafCsv(file: File): List<TAF> {
+        return file.bufferedReader().useLines { lines ->
+            lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") }
+                .drop(1)
+                .mapNotNull { line ->
+                    val fields = line.split(",")
+                    try {
+                        val taf = TAF(
+                            stationId = fields[1],
+                            visibility = fields.getOrNull(21),
+                            skyCover = listOf(
+                                fields.getOrNull(26),
+                                fields.getOrNull(29),
+                                fields.getOrNull(32)
+                            ),
+                            cloudBase = listOf(
+                                fields.getOrNull(27)?.toIntOrNull(),
+                                fields.getOrNull(30)?.toIntOrNull(),
+                                fields.getOrNull(33)?.toIntOrNull()
+                            ),
+                        )
+                        taf.flightCategory = determineTafConditions(taf)
+                        taf
+                    } catch (e: Exception) {
+                        Log.e("TAF_PARSE", "Error parsing TAF line: $line", e)
+                        null
+                    }
+                }
+                .toList()
+        }
+    }
+
+    private fun determineTafConditions(forecast: TAF): String {
+        val visibilityMiles = forecast.visibility?.replace("+", "")?.toDoubleOrNull() ?: 0.0
+        val ceilings = forecast.cloudBase.filterNotNull()
+        val ceiling = if (ceilings.isNotEmpty()) ceilings.minOrNull() ?: Int.MAX_VALUE else Int.MAX_VALUE
+
+        return when {
+            ceiling > 3000 && visibilityMiles > 5 -> "VFR"
+            ceiling in 1000..3000 || (visibilityMiles in 3.0..5.0) -> "MVFR"
+            ceiling in 500..999 || (visibilityMiles in 1.0..2.9) -> "IFR"
+            ceiling < 500 || visibilityMiles < 1.0 -> "LIFR"
+            else -> "Unknown"
+        }
+    }
+
+    private inline fun <T> merge(cached: List<T>, fresh: List<T>, keyOf: (T) -> String): List<T> {
+        if (fresh.isEmpty()) return cached
+        val map = cached.associateBy(keyOf).toMutableMap()
+        fresh.forEach { map[keyOf(it)] = it }
+        return map.values.toList()
+    }
+}

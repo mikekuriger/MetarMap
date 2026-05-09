@@ -110,120 +110,9 @@ import com.airportweather.map.utils.Waypoint
 import java.net.InetAddress
 
 // Data classes moved to: WeatherModels.kt, TfrModels.kt, StratuxModels.kt, FlightData.kt
+// METAR/TAF download + parse moved to: WeatherRepository.kt
+// TFR download + parse moved to: TfrRepository.kt
 
-// METAR
-suspend fun downloadAndUnzipMetarData(filesDir: File): List<METAR> {
-    return withContext(Dispatchers.IO) {
-        try {
-            // ✅ Load existing cached METARs
-            val cachedMetars = loadMetarDataFromCache(filesDir)
-
-            // ✅ Download and unzip new METAR data
-            val url = URL("https://aviationweather.gov/data/cache/metars.cache.csv.gz")
-            val connection = url.openConnection()
-            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
-            val outputFile = File(filesDir, "metars.cache.csv")
-            FileOutputStream(outputFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-
-            if (!outputFile.exists() || outputFile.length() == 0L) {
-                throw Exception("Downloaded METAR file is empty or missing")
-            }
-
-            Log.d("METAR_DOWNLOAD", "Downloaded METAR data to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
-
-            // ✅ Parse the new METAR data
-            val newMetars = parseMetarCsv(outputFile)
-
-            // ✅ Merge new METARs with cached ones
-            val mergedMetars = mergeMetarData(cachedMetars, newMetars)
-
-            // ✅ Save the merged METARs back to the cache
-            saveMetarDataToCache(mergedMetars, filesDir)
-
-            return@withContext mergedMetars
-        } catch (e: Exception) {
-            Log.e("METAR_DOWNLOAD", "Error downloading or unzipping METAR data: ${e.message}")
-            e.printStackTrace()
-            return@withContext loadMetarDataFromCache(filesDir) // ✅ Load cached METARs if download fails
-        }
-    }
-}
-fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
-    val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
-
-    newMetars.forEach { metar ->
-        metarMap[metar.stationId] = metar // Replace old METAR if new one exists
-    }
-
-    return metarMap.values.toList()
-}
-fun parseMetarCsv(file: File): List<METAR> {
-    return file.bufferedReader().useLines { lines ->
-        lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") } // Skip header
-            .drop(1) // Skip the "raw_text" line
-            .mapNotNull { line ->
-                try {
-                    parseCsvLineToMETAR(line)
-                } catch (e: Exception) {
-                    println("Error parsing line: $line")
-                    e.printStackTrace()
-                    null
-                }
-            }
-            .toList()
-    }
-}
-fun parseCsvLineToMETAR(line: String): METAR? {
-    val fields = line.split(",")
-    if (fields.size < 43) {
-        Log.e("METAR_PARSE", "Skipping line due to insufficient fields: $line")
-        return null // Skip malformed lines instead of crashing
-    }
-
-    // ✅ Filter: Only allow station IDs that start with "K"
-//    if (!fields[1].startsWith("K")) {
-//        //Log.d("METAR_PARSE", "Skipping non-US station: $fields[1]")
-//        return null
-//    }
-
-    return try {
-        METAR(
-            stationId = fields[1],
-            observationTime = fields[2],
-            latitude = fields[3].toDouble(),
-            longitude = fields[4].toDouble(),
-            tempC = fields[5].toDoubleOrNull(),
-            dewpointC = fields[6].toDoubleOrNull(),
-            windDirDegrees = fields[7].toIntOrNull(),
-//            windDirDegrees = when (fields[7].uppercase()) {
-//                "VRB" -> -1  // Special value for variable wind
-//                else -> fields[7].toIntOrNull()  // Normal numeric value or null
-//            },
-            windSpeedKt = fields[8].toIntOrNull(),
-            windGustKt = fields[9].toIntOrNull(),
-            visibility = fields[10],
-            altimeterInHg = fields[11].toDoubleOrNull(),
-            wxString = fields[21],
-            skyCover1 = fields.getOrNull(22),
-            cloudBase1 = fields.getOrNull(23)?.toIntOrNull(),
-            skyCover2 = fields.getOrNull(24),
-            cloudBase2 = fields.getOrNull(25)?.toIntOrNull(),
-            skyCover3 = fields.getOrNull(26),
-            cloudBase3 = fields.getOrNull(27)?.toIntOrNull(),
-            skyCover4 = fields.getOrNull(28),
-            cloudBase4 = fields.getOrNull(29)?.toIntOrNull(),
-            flightCategory = fields[30],
-            metarType = fields[42],
-            elevationM = fields[43].toIntOrNull()
-        )
-    } catch (e: Exception) {
-        println("Failed to parse line: $line")
-        e.printStackTrace()
-        null
-    }
-}
 fun calculateMetarAge(observationTime: String?): Int? {
     if (observationTime == null) return null
 
@@ -243,230 +132,6 @@ fun calculateMetarAge(observationTime: String?): Int? {
         null
     }
 }
-// TAF
-suspend fun downloadAndUnzipTafData(filesDir: File): List<TAF> {
-    return withContext(Dispatchers.IO) {
-        try {
-            // ✅ Load existing cached TAFs
-            val cachedTafs = loadTafDataFromCache(filesDir)
-
-            // ✅ Download and unzip new TAF data
-            val url = URL("https://aviationweather.gov/data/cache/tafs.cache.csv.gz") // Correct TAF URL
-            val connection = url.openConnection()
-            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
-            val outputFile = File(filesDir, "tafs.cache.csv") // Save as TAF file
-            FileOutputStream(outputFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-
-            if (!outputFile.exists() || outputFile.length() == 0L) {
-                throw Exception("Downloaded TAF file is empty or missing")
-            }
-
-            Log.d("TAF_DOWNLOAD", "Downloaded TAF data to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
-
-            // ✅ Parse the new TAF data
-            val newTafs = parseTAFCsv(outputFile)
-
-            // ✅ Merge new TAFs with cached ones
-            val mergedTafs = mergeTafData(cachedTafs, newTafs)
-
-            // ✅ Save the merged TAFs back to the cache
-            saveTafDataToCache(mergedTafs, filesDir)
-
-            return@withContext mergedTafs
-        } catch (e: Exception) {
-            Log.e("TAF_DOWNLOAD", "Error downloading or unzipping TAF data: ${e.message}")
-            e.printStackTrace()
-            return@withContext loadTafDataFromCache(filesDir) // ✅ Load cached TAFs if download fails
-        }
-    }
-}
-fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
-    val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
-
-    newTafs.forEach { taf ->
-        tafMap[taf.stationId] = taf // ✅ Replace old TAF if new one exists
-    }
-
-    return tafMap.values.toList()
-}
-fun parseTAFCsv(file: File): List<TAF> {
-    return file.bufferedReader().useLines { lines ->
-        lines.dropWhile { it.isBlank() || !it.startsWith("raw_text") } // Skip header
-            .drop(1) // Skip the "raw_text" line
-            .mapNotNull { line ->
-                val fields = line.split(",")
-                try {
-                    val taf = TAF(
-                        stationId = fields[1],                   // KBUR
-                        visibility = fields.getOrNull(21),       // 6+
-                        skyCover = listOf(
-                            fields.getOrNull(26),
-                            fields.getOrNull(29),
-                            fields.getOrNull(32)
-                        ),
-                        cloudBase = listOf(
-                            fields.getOrNull(27)?.toIntOrNull(),
-                            fields.getOrNull(30)?.toIntOrNull(),
-                            fields.getOrNull(33)?.toIntOrNull()
-                        ),
-                    )
-                    taf.flightCategory = determineTAFConditions(taf)
-                    taf
-                } catch (e: Exception) {
-                    println("Error parsing TAF line: $line")
-                    e.printStackTrace()
-                    null
-                }
-            }
-            .toList()
-    }
-}
-fun determineTAFConditions(forecast: TAF): String {
-    // Parse visibility (convert "6+" to a double)
-    val visibilityMiles = forecast.visibility?.replace("+", "")?.toDoubleOrNull() ?: 0.0
-
-    // Determine the ceiling from the lowest cloud base
-    val relevantCloudBases = forecast.cloudBase.filterNotNull() // Remove nulls
-    val ceiling = if (relevantCloudBases.isNotEmpty()) {
-        relevantCloudBases.minOrNull() ?: Int.MAX_VALUE
-    } else {
-        Int.MAX_VALUE // Clear skies
-    }
-
-    return when {
-        ceiling > 3000 && visibilityMiles > 5 -> "VFR"
-        ceiling in 1000..3000 || (visibilityMiles in 3.0..5.0) -> "MVFR"
-        ceiling in 500..999 || (visibilityMiles in 1.0..2.9) -> "IFR"
-        ceiling < 500 || visibilityMiles < 1.0 -> "LIFR"
-        else -> "Unknown"
-    }
-}
-// TFR
-suspend fun getOrDownloadTfrs(filesDir: File): File? {
-    val geoJsonCacheDir = File(filesDir, "geojson").apply { mkdirs() }
-    val tfrFile = File(geoJsonCacheDir, "tfrs.geojson")
-    val maxAgeMillis = TimeUnit.MINUTES.toMillis(30) // 30 minute threshold
-    Log.d("TFR", "✅ getOrDownloadTfrs: ${tfrFile.absolutePath}, dir: $geoJsonCacheDir")
-
-    // Check if the cached file is valid
-    if (tfrFile.exists() && tfrFile.length() > 0 && System.currentTimeMillis() - tfrFile.lastModified() < maxAgeMillis) {
-        Log.d("TFR", "✅ Using cached TFR GeoJSON: ${tfrFile.absolutePath}, size: ${tfrFile.length()} bytes")
-        return tfrFile
-    }
-
-    // If file doesn't exist or is outdated, download a fresh copy
-    return try {
-        println("🔄 Downloading new TFR GeoJSON...")
-        downloadTfrData(geoJsonCacheDir)
-    } catch (e: IOException) {
-        Log.d("TFR", "🚨 Failed to download TFR GeoJSON: ${e.message}")
-        if (tfrFile.exists() && tfrFile.length() > 0) {
-            Log.d("TFR", "⚠️ Using last cached version at ${tfrFile.absolutePath}")
-            tfrFile
-        } else {
-            null // No valid file available
-        }
-    }
-}
-suspend fun downloadTfrData(filesDir: File): File {
-    return withContext(Dispatchers.IO) {
-        try {
-            //val url = URL("https://raw.githubusercontent.com/airframesio/data/refs/heads/master/json/faa/tfrs.json")
-            val url = URL("https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.connect()
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw IOException("HTTP error: ${connection.responseCode}")
-            }
-
-            val inputStream: InputStream = connection.inputStream
-            val outputFile = File(filesDir, "tfrs.geojson")
-            Log.d("TFR", "✅ downloadTfrData: ${outputFile}, ${outputFile.absolutePath}")
-
-            FileOutputStream(outputFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-
-            Log.d("TFR", "Downloaded TFR GeoJSON to ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
-            outputFile
-        } catch (e: Exception) {
-            e.printStackTrace()
-            throw IOException("Error downloading TFR GeoJSON: ${e.message}")
-        }
-    }
-}
-fun parseTFRGeoJson(file: File): List<TFRFeature> {
-    val tfrFeatures = mutableListOf<TFRFeature>()
-
-    try {
-        // Read the GeoJSON file content
-        val geoJsonString = file.bufferedReader().use { it.readText() }
-        val geoJsonObject = JSONObject(geoJsonString)
-        val features = geoJsonObject.getJSONArray("features")
-
-        // Iterate through features in GeoJSON
-        for (i in 0 until features.length()) {
-            val feature = features.getJSONObject(i)
-            val geometry = feature.getJSONObject("geometry")
-            val properties = feature.getJSONObject("properties")
-            val type = geometry.getString("type")
-            val coordinates = geometry.getJSONArray("coordinates")
-
-            if (type == "Polygon") {
-                // Parse the coordinates
-                val parsedCoordinates = mutableListOf<List<List<Double>>>()
-                for (j in 0 until coordinates.length()) {
-                    val ring = coordinates.getJSONArray(j)
-                    val parsedRing = mutableListOf<List<Double>>()
-
-                    for (k in 0 until ring.length()) {
-                        val point = ring.getJSONArray(k)
-                        val lng = point.getDouble(0)
-                        val lat = point.getDouble(1)
-                        parsedRing.add(listOf(lng, lat))
-                    }
-                    parsedCoordinates.add(parsedRing)
-                }
-
-                // Create a TFRGeometry object
-                val tfrGeometry = TFRGeometry(type, parsedCoordinates)
-
-                // Extract updated properties
-                val description = properties.optString("description", "No description available")
-                val notam = properties.optString("notam", "Unknown")
-                val dateIssued = properties.optString("dateIssued", "Unknown")
-                val dateEffective = properties.optString("dateEffective", "Unknown")
-                val dateExpire = properties.optString("dateExpire", "Ongoing")
-                val tfrType = properties.optString("type", "Unknown")
-                val altitudeMin = properties.optString("lowerVal", "Surface")
-                val altitudeMax = properties.optString("upperVal", "Unlimited")
-                val facility = properties.optString("facility", "Unknown")
-                //val fullDescription = properties.optString("fullDescription", "No details available")
-
-                // Create TFRProperties object
-                val tfrProperties = TFRProperties(
-                    description, notam, dateIssued, dateEffective, dateExpire, tfrType, altitudeMin, altitudeMax, facility
-                )
-
-                // Add to list
-                tfrFeatures.add(TFRFeature(tfrProperties, tfrGeometry))
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        Log.d("TFR", "Error parsing TFR GeoJSON: ${e.message}")
-    }
-
-    return tfrFeatures
-}
-
-// Other functions...
 fun getCurrentTimeLocalFormat(): String {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault())
     dateFormat.timeZone = TimeZone.getDefault() // Use the device's default timezone
@@ -608,6 +273,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val recentRedTargets = mutableMapOf<String, Long>()  // hex → timestamp when red was last true
     private var autoRefreshJob: Job? = null
     private lateinit var markerFactory: MarkerFactory
+    private lateinit var weatherRepo: WeatherRepository
+    private lateinit var tfrRepo: TfrRepository
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -668,6 +335,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // ✅ Initialize View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        weatherRepo = WeatherRepository(filesDir)
+        tfrRepo = TfrRepository(filesDir)
 
         // grab preferences
         sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
@@ -1749,21 +1419,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun loadAndDrawTFR() {
         lifecycleScope.launch {
             try {
-                //showBottomProgressBar("✈️ Loading TFR Data")
-                val tfrFile = getOrDownloadTfrs(filesDir)
-                if (tfrFile != null) {
-                    println("✅ Parsing tfr data...")
-                    val tfrFeatures = parseTFRGeoJson(tfrFile)
-                    drawTFRPolygons(mMap, tfrFeatures)
+                if (tfrRepo.refresh()) {
+                    drawTFRPolygons(mMap, tfrRepo.tfrs.value)
                 } else {
-                    //showBottomProgressBar("❌ No TFR Data Available")
-                    println("🚨 No TFR data available")
+                    Log.d("TFR", "No TFR data available")
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "TFR download failed: ${e.message}")
-                //showBottomProgressBar("❌ TFR Data Failed")
-            } finally {
-                //hideBottomProgressBar()
+                Log.e("MainActivity", "TFR refresh failed: ${e.message}", e)
             }
         }
     }
@@ -2125,38 +1787,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         lifecycleScope.launch {
             try {
-                // ✅ Load cached METAR & TAF data before downloading new ones
                 Log.d("loadAndDrawMetar", "🌦️ Updating Weather Data")
                 showBottomProgressBar("🌦️ Downloading Latest Weather Data")
 
-                metarData = loadMetarDataFromCache(filesDir)
-                tafData = loadTafDataFromCache(filesDir)
-
+                weatherRepo.loadCached()
+                metarData = weatherRepo.metars.value
+                tafData = weatherRepo.tafs.value
                 updateVisibleMarkers(metarData, tafData) // Show cached data immediately
 
-                // ✅ Download and merge new data
-                var newMetars: List<METAR> = emptyList()
-                var newTafs: List<TAF> = emptyList()
-                if (isInternetAvailable()) {
-
-                    newMetars = downloadAndUnzipMetarData(filesDir)
-                    newTafs = downloadAndUnzipTafData(filesDir)
-                } else {
+                if (!isInternetAvailable()) {
                     Log.d("loadAndDrawMetar", "❌ No Internet Connection")
-                    //val color = ContextCompat.getColor(this@MainActivity, android.R.color.holo_red_dark)
-                    //showBottomProgressBar("❌ No Internet, Unable to Update Weather", color)
                     return@launch
                 }
 
-                // ✅ Merge new and cached data
-                metarData = mergeMetarData(metarData, newMetars)
-                tafData = mergeTafData(tafData, newTafs)
-
-                // ✅ Save updated data
-                saveMetarDataToCache(metarData, filesDir)
-                saveTafDataToCache(tafData, filesDir)
+                weatherRepo.refresh()
+                metarData = weatherRepo.metars.value
+                tafData = weatherRepo.tafs.value
                 updateVisibleMarkers(metarData, tafData) // Refresh UI
-
             } catch (e: Exception) {
                 Log.e("METAR_UPDATE", "Error fetching METAR data", e)
                 withContext(Dispatchers.Main) {
@@ -2170,18 +1817,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 }
             }
         }
-    }
-
-    private fun mergeMetarData(cachedMetars: List<METAR>, newMetars: List<METAR>): List<METAR> {
-        val metarMap = cachedMetars.associateBy { it.stationId }.toMutableMap()
-        newMetars.forEach { metar -> metarMap[metar.stationId] = metar } // Update with new data
-        return metarMap.values.toList()
-    }
-
-    private fun mergeTafData(cachedTafs: List<TAF>, newTafs: List<TAF>): List<TAF> {
-        val tafMap = cachedTafs.associateBy { it.stationId }.toMutableMap()
-        newTafs.forEach { taf -> tafMap[taf.stationId] = taf } // Update with new data
-        return tafMap.values.toList()
     }
 
     //light
