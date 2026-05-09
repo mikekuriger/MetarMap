@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -92,26 +94,93 @@ class WeatherRepository(private val filesDir: File) {
     }
 
     private fun downloadTafs(): List<TAF> {
+        // The legacy bulk endpoint (tafs.cache.csv.gz) was retired by aviationweather.gov.
+        // The replacement JSON API requires a bounding box; use CONUS coverage which
+        // returns ~380 stations (~750 KB). International coverage would need extra
+        // bbox calls — out of scope for now since this app is US-focused.
         return try {
-            val url = URL("https://aviationweather.gov/data/cache/tafs.cache.csv.gz")
+            val url = URL("https://aviationweather.gov/api/data/taf?format=json&bbox=24,-125,50,-66")
             val connection = url.openConnection().apply {
                 connectTimeout = 15_000
                 readTimeout = 60_000
             }
-            val inputStream: InputStream = GZIPInputStream(connection.getInputStream())
-            val outputFile = File(filesDir, "tafs.cache.csv")
-            FileOutputStream(outputFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
+            val body = connection.getInputStream().bufferedReader().use { it.readText() }
+            if (body.isBlank()) {
+                throw Exception("TAF JSON response is empty")
             }
-            if (!outputFile.exists() || outputFile.length() == 0L) {
-                throw Exception("Downloaded TAF file is empty or missing")
-            }
-            Log.d("TAF_DOWNLOAD", "Downloaded ${outputFile.length()} bytes")
-            parseTafCsv(outputFile)
+            Log.d("TAF_DOWNLOAD", "Downloaded ${body.length} bytes")
+            parseTafJson(body)
         } catch (e: Exception) {
             Log.e("TAF_DOWNLOAD", "Error downloading TAF data: ${e.message}", e)
             emptyList()
         }
+    }
+
+    private fun parseTafJson(body: String): List<TAF> {
+        val out = mutableListOf<TAF>()
+        val array = try {
+            JSONArray(body)
+        } catch (e: Exception) {
+            Log.e("TAF_PARSE", "TAF response is not a JSON array", e)
+            return out
+        }
+
+        for (i in 0 until array.length()) {
+            try {
+                val station = array.getJSONObject(i)
+                parseTafStation(station)?.let { out += it }
+            } catch (e: Exception) {
+                Log.w("TAF_PARSE", "Skipping malformed station at $i", e)
+            }
+        }
+        return out
+    }
+
+    private fun parseTafStation(json: JSONObject): TAF? {
+        val stationId = json.optString("icaoId").takeIf { it.isNotBlank() } ?: return null
+        val fcsts = json.optJSONArray("fcsts") ?: return null
+        if (fcsts.length() == 0) return null
+
+        // Pick the forecast period that covers "now"; fall back to the first period.
+        // timeFrom/timeTo are unix seconds.
+        val nowSec = System.currentTimeMillis() / 1000L
+        val activeIndex = (0 until fcsts.length()).firstOrNull { idx ->
+            val period = fcsts.getJSONObject(idx)
+            val from = period.optLong("timeFrom", -1L)
+            val to = period.optLong("timeTo", -1L)
+            from in 0..nowSec && nowSec <= to
+        } ?: 0
+
+        val period = fcsts.getJSONObject(activeIndex)
+
+        // visib can be a string ("6+", "VRB") or a number (3); normalize to String?
+        val visibility = period.opt("visib")
+            ?.toString()
+            ?.takeIf { it.isNotBlank() && it != "null" }
+
+        val cloudsArray = period.optJSONArray("clouds")
+        val skyCover = mutableListOf<String?>()
+        val cloudBase = mutableListOf<Int?>()
+        if (cloudsArray != null) {
+            for (j in 0 until minOf(3, cloudsArray.length())) {
+                val cloud = cloudsArray.getJSONObject(j)
+                val cover = cloud.opt("cover")?.toString()?.takeIf { it != "null" && it.isNotBlank() }
+                val base = cloud.opt("base")?.toString()?.toIntOrNull()
+                skyCover += cover
+                cloudBase += base
+            }
+        }
+        while (skyCover.size < 3) skyCover += null
+        while (cloudBase.size < 3) cloudBase += null
+
+        val taf = TAF(
+            stationId = stationId,
+            visibility = visibility,
+            skyCover = skyCover,
+            cloudBase = cloudBase,
+        )
+        taf.flightCategory = determineTafConditions(taf)
+        return taf
     }
 
     // RFC-4180 CSV parsing via opencsv: handles commas inside quoted raw_text
@@ -172,53 +241,6 @@ class WeatherRepository(private val filesDir: File) {
             )
         } catch (e: Exception) {
             Log.w("METAR_PARSE", "Failed to parse row for ${fields.getOrNull(1)}", e)
-            null
-        }
-    }
-
-    private fun parseTafCsv(file: File): List<TAF> {
-        val out = mutableListOf<TAF>()
-        file.bufferedReader().use { reader ->
-            CSVReader(reader).use { csv ->
-                csv.readNext() // discard header row
-                while (true) {
-                    val fields = try {
-                        csv.readNext() ?: break
-                    } catch (e: Exception) {
-                        Log.w("TAF_PARSE", "CSV read error, stopping", e)
-                        break
-                    }
-                    parseTafRow(fields)?.let { out += it }
-                }
-            }
-        }
-        return out
-    }
-
-    private fun parseTafRow(fields: Array<String>): TAF? {
-        if (fields.size < 34) {
-            Log.w("TAF_PARSE", "Skipping row, only ${fields.size} fields")
-            return null
-        }
-        return try {
-            val taf = TAF(
-                stationId = fields[1],
-                visibility = fields.getOrNull(21),
-                skyCover = listOf(
-                    fields.getOrNull(26),
-                    fields.getOrNull(29),
-                    fields.getOrNull(32),
-                ),
-                cloudBase = listOf(
-                    fields.getOrNull(27)?.toIntOrNull(),
-                    fields.getOrNull(30)?.toIntOrNull(),
-                    fields.getOrNull(33)?.toIntOrNull(),
-                ),
-            )
-            taf.flightCategory = determineTafConditions(taf)
-            taf
-        } catch (e: Exception) {
-            Log.w("TAF_PARSE", "Failed to parse row for ${fields.getOrNull(1)}", e)
             null
         }
     }
