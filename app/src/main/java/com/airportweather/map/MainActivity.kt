@@ -216,6 +216,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private data class MarkerSignature(val layer: String, val metar: METAR, val taf: TAF?)
     private val markersByStation = mutableMapOf<String, List<Marker>>()
     private val signaturesByStation = mutableMapOf<String, MarkerSignature>()
+
+    // Flight plan visuals — tracked so updateMapWithFlightPlan can clear before redrawing.
+    // Without this, every leg advance leaves dead polylines/markers stacked on the map.
+    private val flightPlanPolylines = mutableListOf<Polyline>()
+    private val flightPlanMarkers = mutableListOf<Marker>()
+    private val ACTIVE_LEG_TAG = "active_leg"
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
@@ -958,6 +964,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 //        } catch (e: Resources.NotFoundException) {
 //            Log.e("MapStyle", "Can't find style. Error: ", e)
 //        }
+
+        // Tap on the magenta active-leg line → confirm and advance to next waypoint.
+        // Only the active leg is marked clickable; other legs ignore taps.
+        mMap.setOnPolylineClickListener { polyline ->
+            if (polyline.tag == ACTIVE_LEG_TAG) promptManualAdvance()
+        }
 
         // Set listener for camera movement
         mMap.setOnCameraIdleListener {  //1
@@ -2589,6 +2601,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
+    private fun promptManualAdvance() {
+        val flightPlan = FlightPlanHolder.currentPlan ?: return
+        val active = flightPlan.legs.firstOrNull { it.active && !it.completed } ?: return
+        AlertDialog.Builder(this)
+            .setTitle("Advance flight plan")
+            .setMessage("Mark ${active.to.name} as reached and activate the next leg?")
+            .setPositiveButton("Advance") { _, _ ->
+                if (flightPlan.forceAdvance()) {
+                    Log.i("FlightPlan", "Manually advanced past ${active.to.name}")
+                    updateMapWithFlightPlan(flightPlan)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     //Flight plan markers, waypoints, LEGS
     private fun updateMapWithFlightPlan(flightPlan: FlightPlan) {
         val latLngList = mutableListOf<LatLng>()
@@ -2607,6 +2635,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 //            return
 //        }
 
+        // Clear any previously-drawn flight plan visuals before redrawing.
+        // Without this, every leg advance accumulates dead polylines and markers.
+        flightPlanPolylines.forEach { it.remove() }
+        flightPlanPolylines.clear()
+        flightPlanMarkers.forEach { it.remove() }
+        flightPlanMarkers.clear()
+
         for (leg in flightPlan.legs) {
             val fromLatLng =  LatLng(leg.from.lat, leg.from.lon)
             val toLatLng = LatLng(leg.to.lat, leg.to.lon)
@@ -2618,20 +2653,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 else -> Color.CYAN
             }
 
-            val legLine = PolylineOptions()
+            val isActive = leg.active && !leg.completed
+
+            val legLineOpts = PolylineOptions()
                 .add(fromLatLng, toLatLng)
                 .color(legColor)
                 .width(10f)
                 .zIndex(2f)
+                .clickable(isActive) // only the active leg responds to taps
 
-            val legBorder = PolylineOptions()
+            val legBorderOpts = PolylineOptions()
                 .add(fromLatLng, toLatLng)
                 .color(Color.BLACK)
                 .width(12f)
                 .zIndex(1f)
 
-            mMap.addPolyline(legBorder)
-            mMap.addPolyline(legLine)
+            flightPlanPolylines += mMap.addPolyline(legBorderOpts)
+            val legLine = mMap.addPolyline(legLineOpts)
+            if (isActive) legLine.tag = ACTIVE_LEG_TAG
+            flightPlanPolylines += legLine
 
             // Draw waypoint dots
             for (wp in listOf(leg.from, leg.to)) {
@@ -2648,7 +2688,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         .anchor(0.5f, 0.5f)
                         .zIndex(2f)
                         .visible(true)
-                )
+                )?.let { flightPlanMarkers += it }
             }
 
             if (latLngList.isEmpty()) {
@@ -2670,7 +2710,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     .icon(BitmapDescriptorFactory.fromBitmap(labelBitmap))
                     .anchor(-0.1f, 0.5f)
                     .zIndex(3f)
-            )
+            )?.let { flightPlanMarkers += it }
         }
 
         // Draw runways at destination
@@ -2684,31 +2724,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             val ext1 = destinationPoint(end2LatLng, extensionLengthNm, rwy.end2.heading)
 
             // Runway body
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end1LatLng, end2LatLng).color(Color.WHITE).width(20f)
                     .zIndex(3f)
             )
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end1LatLng, end2LatLng).color(Color.BLACK).width(10f)
                     .zIndex(3.1f)
             )
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end1LatLng, end2LatLng).color(Color.WHITE).width(5f)
                     .zIndex(3.2f)
             )
 
             // Extended centerlines
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end1LatLng, ext1).color(Color.WHITE).width(20f).zIndex(3f)
             )
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end1LatLng, ext1).color(Color.BLACK).width(10f)
                     .zIndex(3.1f)
             )
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end2LatLng, ext2).color(Color.WHITE).width(20f).zIndex(3f)
             )
-            mMap.addPolyline(
+            flightPlanPolylines += mMap.addPolyline(
                 PolylineOptions().add(end2LatLng, ext2).color(Color.BLACK).width(10f)
                     .zIndex(3.1f)
             )
@@ -2743,7 +2783,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     .anchor(0.5f, 0.5f)
                     .flat(true)
                     .zIndex(6f)
-            )
+            )?.let { flightPlanMarkers += it }
             mMap.addMarker(
                 MarkerOptions()
                     .position(labelPos2)
@@ -2751,7 +2791,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     .anchor(0.5f, 0.5f)
                     .flat(true)
                     .zIndex(6f)
-            )
+            )?.let { flightPlanMarkers += it }
         }
 
         // ✅ Adjust camera
