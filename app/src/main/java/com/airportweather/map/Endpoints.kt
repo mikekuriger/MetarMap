@@ -24,8 +24,9 @@ object Endpoints {
         "$TAF_JSON_BASE?format=json&bbox=$bbox"
 
     // ---- TFRs (project-maintained GitHub mirror of FAA data) ----
+    // Lives on the `data` branch so daily auto-commits don't pollute `main`'s history.
     const val TFR_GEOJSON =
-        "https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson"
+        "https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/data/scripts/tfrs.geojson"
 
     // ---- Special Use Airspace (FAA ArcGIS REST → GeoJSON) ----
     // Filtered server-side to MOA, Restricted, Prohibited. Reduced coordinate
