@@ -16,34 +16,44 @@ import java.io.InputStream
 import java.net.URL
 import java.util.zip.GZIPInputStream
 
+data class WeatherSnapshot(val metars: List<METAR>, val tafs: List<TAF>) {
+    companion object {
+        val EMPTY = WeatherSnapshot(emptyList(), emptyList())
+    }
+}
+
 /**
  * Owns METAR + TAF download, parse, merge, and cache. Exposes the latest known data
- * via StateFlows so callers can subscribe instead of polling.
+ * via a single [snapshot] StateFlow so subscribers see one emission per refresh
+ * (avoids the "flicker" of two rapid emissions when both lists update together).
  *
  * Both [loadCached] and [refresh] are safe to call from any coroutine; they marshal
  * their work to the IO dispatcher.
  */
 class WeatherRepository(private val filesDir: File) {
 
-    private val _metars = MutableStateFlow<List<METAR>>(emptyList())
-    val metars: StateFlow<List<METAR>> = _metars.asStateFlow()
+    private val _snapshot = MutableStateFlow(WeatherSnapshot.EMPTY)
+    val snapshot: StateFlow<WeatherSnapshot> = _snapshot.asStateFlow()
 
-    private val _tafs = MutableStateFlow<List<TAF>>(emptyList())
-    val tafs: StateFlow<List<TAF>> = _tafs.asStateFlow()
+    val metars: List<METAR> get() = _snapshot.value.metars
+    val tafs: List<TAF> get() = _snapshot.value.tafs
 
     suspend fun loadCached() = withContext(Dispatchers.IO) {
-        _metars.value = loadMetarDataFromCache(filesDir)
-        _tafs.value = loadTafDataFromCache(filesDir)
+        _snapshot.value = WeatherSnapshot(
+            metars = loadMetarDataFromCache(filesDir),
+            tafs = loadTafDataFromCache(filesDir),
+        )
     }
 
     /**
      * Downloads fresh METAR + TAF data, merges with whatever is already in state
      * (or cache, if state is empty), saves the merged result back to disk, and
-     * publishes both lists.
+     * publishes both lists in a single atomic snapshot update.
      */
     suspend fun refresh() = withContext(Dispatchers.IO) {
-        val baseMetars = _metars.value.ifEmpty { loadMetarDataFromCache(filesDir) }
-        val baseTafs = _tafs.value.ifEmpty { loadTafDataFromCache(filesDir) }
+        val current = _snapshot.value
+        val baseMetars = current.metars.ifEmpty { loadMetarDataFromCache(filesDir) }
+        val baseTafs = current.tafs.ifEmpty { loadTafDataFromCache(filesDir) }
 
         val freshMetars = downloadMetars()
         val freshTafs = downloadTafs()
@@ -54,8 +64,7 @@ class WeatherRepository(private val filesDir: File) {
         saveMetarDataToCache(mergedMetars, filesDir)
         saveTafDataToCache(mergedTafs, filesDir)
 
-        _metars.value = mergedMetars
-        _tafs.value = mergedTafs
+        _snapshot.value = WeatherSnapshot(mergedMetars, mergedTafs)
     }
 
     private fun downloadMetars(): List<METAR> {

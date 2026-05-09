@@ -70,7 +70,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
@@ -1276,16 +1275,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     private fun observeViewModel() {
-        // Combined METAR + TAF stream — re-render markers whenever either changes.
+        // Single weather snapshot — one emission per refresh, no double-rebuild.
         // repeatOnLifecycle pauses collection when the activity isn't visible.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                combine(viewModel.metars, viewModel.tafs) { m, t -> m to t }
-                    .collect { (metars, tafs) ->
-                        metarData = metars
-                        tafData = tafs
-                        if (::mMap.isInitialized) updateVisibleMarkers(metars, tafs)
-                    }
+                viewModel.weather.collect { snapshot ->
+                    metarData = snapshot.metars
+                    tafData = snapshot.tafs
+                    if (::mMap.isInitialized) updateVisibleMarkers(snapshot.metars, snapshot.tafs)
+                }
             }
         }
     }

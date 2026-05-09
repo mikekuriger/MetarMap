@@ -21,8 +21,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val tfrRepo = TfrRepository(application.filesDir)
     private val trafficRepo = TrafficRepository()
 
-    val metars: StateFlow<List<METAR>> = weatherRepo.metars
-    val tafs: StateFlow<List<TAF>> = weatherRepo.tafs
+    val weather: StateFlow<WeatherSnapshot> = weatherRepo.snapshot
     val tfrs: StateFlow<List<TFRFeature>> = tfrRepo.tfrs
     val traffic: StateFlow<Map<String, TrafficTarget>> = trafficRepo.targets
 
