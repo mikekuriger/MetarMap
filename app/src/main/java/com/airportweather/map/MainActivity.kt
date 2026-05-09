@@ -221,7 +221,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Without this, every leg advance leaves dead polylines/markers stacked on the map.
     private val flightPlanPolylines = mutableListOf<Polyline>()
     private val flightPlanMarkers = mutableListOf<Marker>()
-    private val ACTIVE_LEG_TAG = "active_leg"
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
@@ -965,10 +964,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 //            Log.e("MapStyle", "Can't find style. Error: ", e)
 //        }
 
-        // Tap on the magenta active-leg line → confirm and advance to next waypoint.
-        // Only the active leg is marked clickable; other legs ignore taps.
+        // Tap any leg line → confirmation dialog asking whether to activate that leg.
+        // Each leg's polyline carries its index as a tag; non-leg polylines (runways,
+        // etc.) leave tag null and are silently ignored here.
         mMap.setOnPolylineClickListener { polyline ->
-            if (polyline.tag == ACTIVE_LEG_TAG) promptManualAdvance()
+            (polyline.tag as? Int)?.let { promptActivateLeg(it) }
         }
 
         // Set listener for camera movement
@@ -2601,15 +2601,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
-    private fun promptManualAdvance() {
+    private fun promptActivateLeg(index: Int) {
         val flightPlan = FlightPlanHolder.currentPlan ?: return
-        val active = flightPlan.legs.firstOrNull { it.active && !it.completed } ?: return
+        val leg = flightPlan.legs.getOrNull(index) ?: return
+        if (leg.active && !leg.completed) return  // already active, nothing to do
+
         AlertDialog.Builder(this)
-            .setTitle("Advance flight plan")
-            .setMessage("Mark ${active.to.name} as reached and activate the next leg?")
-            .setPositiveButton("Advance") { _, _ ->
-                if (flightPlan.forceAdvance()) {
-                    Log.i("FlightPlan", "Manually advanced past ${active.to.name}")
+            .setTitle("Activate this leg?")
+            .setMessage("Activate the leg to ${leg.to.name}?")
+            .setPositiveButton("Activate") { _, _ ->
+                if (flightPlan.activateLeg(index)) {
+                    Log.i("FlightPlan", "Manually activated leg ${index + 1} → ${leg.to.name}")
                     updateMapWithFlightPlan(flightPlan)
                 }
             }
@@ -2642,36 +2644,37 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         flightPlanMarkers.forEach { it.remove() }
         flightPlanMarkers.clear()
 
-        for (leg in flightPlan.legs) {
+        flightPlan.legs.forEachIndexed { index, leg ->
             val fromLatLng =  LatLng(leg.from.lat, leg.from.lon)
             val toLatLng = LatLng(leg.to.lat, leg.to.lon)
 
-            // Draw each leg individually
             val legColor = when {
                 leg.completed -> Color.LTGRAY
                 leg.active -> Color.MAGENTA
                 else -> Color.CYAN
             }
 
-            val isActive = leg.active && !leg.completed
-
+            // Every leg is tappable so the user can jump forward or back; the click
+            // listener prompts before changing state. The wider black border is also
+            // clickable so taps near the edge of the line still register.
             val legLineOpts = PolylineOptions()
                 .add(fromLatLng, toLatLng)
                 .color(legColor)
                 .width(10f)
                 .zIndex(2f)
-                .clickable(isActive) // only the active leg responds to taps
+                .clickable(true)
 
             val legBorderOpts = PolylineOptions()
                 .add(fromLatLng, toLatLng)
                 .color(Color.BLACK)
                 .width(12f)
                 .zIndex(1f)
+                .clickable(true)
 
-            flightPlanPolylines += mMap.addPolyline(legBorderOpts)
-            val legLine = mMap.addPolyline(legLineOpts)
-            if (isActive) legLine.tag = ACTIVE_LEG_TAG
-            flightPlanPolylines += legLine
+            val border = mMap.addPolyline(legBorderOpts).also { it.tag = index }
+            val line = mMap.addPolyline(legLineOpts).also { it.tag = index }
+            flightPlanPolylines += border
+            flightPlanPolylines += line
 
             // Draw waypoint dots
             for (wp in listOf(leg.from, leg.to)) {

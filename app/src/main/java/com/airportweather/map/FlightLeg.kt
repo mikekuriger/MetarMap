@@ -70,15 +70,34 @@ data class FlightPlan(
         return false
     }
 
-    /** Manually advance the active leg (for the tap-on-line UI). */
-    fun forceAdvance(): Boolean = advanceCurrent()
-
     private fun advanceCurrent(): Boolean {
         val current = legs.firstOrNull { it.active && !it.completed } ?: return false
         current.active = false
         current.completed = true
         val next = legs.dropWhile { it != current }.drop(1).firstOrNull()
         next?.active = true
+        return true
+    }
+
+    /**
+     * Manually activate a specific leg by index. Earlier legs are marked completed,
+     * the chosen leg becomes active, later legs are reset (not active, not completed).
+     * No-ops if [index] is out of range or the leg is already the active one.
+     *
+     * Returns true if state changed.
+     */
+    fun activateLeg(index: Int): Boolean {
+        if (index !in legs.indices) return false
+        val target = legs[index]
+        if (target.active && !target.completed) return false
+
+        legs.forEachIndexed { i, leg ->
+            when {
+                i < index -> { leg.active = false; leg.completed = true }
+                i == index -> { leg.active = true; leg.completed = false }
+                else -> { leg.active = false; leg.completed = false }
+            }
+        }
         return true
     }
 
