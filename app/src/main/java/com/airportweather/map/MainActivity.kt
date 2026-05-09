@@ -23,6 +23,7 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import android.util.LruCache
 import android.view.Gravity
 import android.view.MenuItem
 import android.view.View
@@ -276,6 +277,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Throttle reachability pings so we don't probe Stratux on every GPS callback
     private var lastStratuxProbeMs = 0L
     private val stratuxProbeIntervalMs = 15_000L
+
+    // Traffic-label BitmapDescriptors, bounded so the cache can't grow without
+    // limit. Stratux pushes ~1 update per aircraft per second, and label text
+    // varies with every speed change — without caching we OOM the Maps SDK
+    // bitmap pool over time.
+    private data class TrafficLabelKey(val text: String, val textColor: Int, val bgColor: Int, val size: Float)
+    private val trafficLabelCache = LruCache<TrafficLabelKey, BitmapDescriptor>(200)
+    private fun trafficLabelDescriptor(text: String, textColor: Int, bgColor: Int, size: Float): BitmapDescriptor {
+        val key = TrafficLabelKey(text, textColor, bgColor, size)
+        trafficLabelCache.get(key)?.let { return it }
+        val descriptor = BitmapDescriptorFactory.fromBitmap(createTextBitmap(text, textColor, bgColor, size))
+        trafficLabelCache.put(key, descriptor)
+        return descriptor
+    }
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
     private val aircraftMarkers = mutableMapOf<String, Marker>()
     private val aircraftLabels = mutableMapOf<String, Marker>()
@@ -618,6 +633,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         pruneHandler.removeCallbacks(pruneRunnable)
         trafficHandler.removeCallbacksAndMessages(null)
         if (::markerFactory.isInitialized) markerFactory.dispose()
+        trafficLabelCache.evictAll()
         super.onDestroy()
         StratuxManager.disconnectAll()
     }
@@ -2497,14 +2513,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         val labelTextTop = "$altString$arrow"
-        val labelBitmapTop = createTextBitmap(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
-
         val labelTextBottom = "${target.tail}  ${target.speedKts}kt"
-        val labelBitmapBottom = createTextBitmap(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
-
-//        aircraftMarkers[target.hex]?.position = position
-//        aircraftLabels[target.hex]?.setIcon(BitmapDescriptorFactory.fromBitmap(labelBitmapTop))
-//        aircraftLabelsBottom[target.hex]?.setIcon(BitmapDescriptorFactory.fromBitmap(labelBitmapBottom))
+        val labelTopDescriptor = trafficLabelDescriptor(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
+        val labelBottomDescriptor = trafficLabelDescriptor(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
 
         val marker = aircraftMarkers[target.hex]
         val labelMarker = aircraftLabels[target.hex]
@@ -2515,10 +2526,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             marker.rotation = target.course.toFloat()
 
             labelMarker.position = position
-            labelMarker.setIcon(BitmapDescriptorFactory.fromBitmap(labelBitmapTop))
+            labelMarker.setIcon(labelTopDescriptor)
 
             labelBottomMarker.position = position
-            labelBottomMarker.setIcon(BitmapDescriptorFactory.fromBitmap(labelBitmapBottom))
+            labelBottomMarker.setIcon(labelBottomDescriptor)
         } else {
             val newMarker = mMap.addMarker(
                 MarkerOptions()
@@ -2532,14 +2543,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 MarkerOptions()
                     .position(position)
                     .anchor(0.5f, 1.5f)
-                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmapTop))
+                    .icon(labelTopDescriptor)
             )
 
             val newLabelBottom = mMap.addMarker(
                 MarkerOptions()
                     .position(position)
                     .anchor(0.5f, -0.8f)
-                    .icon(BitmapDescriptorFactory.fromBitmap(labelBitmapBottom))
+                    .icon(labelBottomDescriptor)
             )
 
             if (newMarker != null && newLabelTop != null && newLabelBottom != null) {
