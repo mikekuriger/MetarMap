@@ -114,24 +114,30 @@ import java.net.InetAddress
 // METAR/TAF download + parse moved to: WeatherRepository.kt
 // TFR download + parse moved to: TfrRepository.kt
 
+// AviationWeather sometimes returns observation_time with milliseconds
+// (2026-05-09T21:18:00.000Z) and sometimes without. Try both so the format
+// can drift either way without breaking the popup.
+private val METAR_TIME_PATTERNS = listOf(
+    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+)
+
 fun calculateMetarAge(observationTime: String?): Int? {
-    if (observationTime == null) return null
-
-    // Updated date format to handle ISO 8601 format with 'T' and 'Z'
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-    dateFormat.timeZone = TimeZone.getTimeZone("UTC") // Assuming observationTime is in UTC
-
-    return try {
-        val observationDate = dateFormat.parse(observationTime)
-        val currentTime = Date()
-
-        // Calculate difference in minutes
-        val differenceInMillis = currentTime.time - (observationDate?.time ?: 0)
-        (differenceInMillis / (1000 * 60)).toInt()
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
+    if (observationTime.isNullOrBlank()) return null
+    val now = System.currentTimeMillis()
+    for (pattern in METAR_TIME_PATTERNS) {
+        try {
+            val df = SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val obs = df.parse(observationTime) ?: continue
+            return ((now - obs.time) / 60_000L).toInt()
+        } catch (_: Exception) {
+            // try the next pattern
+        }
     }
+    Log.w("METAR_AGE", "Could not parse observation_time='$observationTime'")
+    return null
 }
 fun getCurrentTimeLocalFormat(): String {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault())
@@ -1373,8 +1379,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Format the weather details for the popup snippet
     private fun formatAirportDetails(metars: METAR): String {
         val ageInMinutes = calculateMetarAge(metars.observationTime)
+        val ageText = ageInMinutes?.let { "$it minutes old" } ?: "age unknown"
         return """
-        ${getCurrentTimeLocalFormat()} (${ageInMinutes} minutes old)
+        ${getCurrentTimeLocalFormat()} ($ageText)
         ${
             if (metars.windSpeedKt == 0 || metars.windSpeedKt == null) {
                 "Wind: Calm"
