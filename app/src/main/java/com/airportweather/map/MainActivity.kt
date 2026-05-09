@@ -273,6 +273,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val handler = Handler(Looper.getMainLooper())
     private var stratuxStarted = false
     private var isStratuxGpsActive = false
+    // Throttle reachability pings so we don't probe Stratux on every GPS callback
+    private var lastStratuxProbeMs = 0L
+    private val stratuxProbeIntervalMs = 15_000L
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
     private val aircraftMarkers = mutableMapOf<String, Marker>()
     private val aircraftLabels = mutableMapOf<String, Marker>()
@@ -677,7 +680,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // ✅ Start Location Updates
     private fun requestLocationUpdates() {
         Log.d("LocationUpdate", "requestLocationUpdates was triggered")
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 50).build()
+        // 1 s GPS interval is plenty for nav, marker tracking, and KML recording.
+        // The previous 50 ms (20 Hz) was racing-drone aggressive and drove the
+        // Stratux probe + log spam every 50 ms.
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -2321,6 +2327,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     //Traffic markers (stratux)
     private fun checkStratuxAndConnectIfEnabled(loc: Location) {
+        // Throttle: skip the probe if we ran one recently. Stratux reachability
+        // doesn't change faster than the user moves in/out of WiFi range, and
+        // the WebSocket already auto-reconnects when a connection drops, so
+        // probing more often than this is pure log/network noise.
+        val now = System.currentTimeMillis()
+        if (now - lastStratuxProbeMs < stratuxProbeIntervalMs) return
+        lastStratuxProbeMs = now
+
         lifecycleScope.launch {
             val reachable = withContext(Dispatchers.IO) {
                 try {
