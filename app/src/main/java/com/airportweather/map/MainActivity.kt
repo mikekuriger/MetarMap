@@ -295,7 +295,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val aircraftMarkers = mutableMapOf<String, Marker>()
     private val aircraftLabels = mutableMapOf<String, Marker>()
     private val aircraftLabelsBottom = mutableMapOf<String, Marker>()
-    private var staleTimeout = 10
+    // Two thresholds, not one:
+    //   extrapolation cutoff = stop estimating where the plane is now (short, since
+    //     dead-reckoning past a few seconds with no fresh data is unreliable)
+    //   prune cutoff         = actually remove the marker (much longer, so a brief
+    //     ADS-B signal gap doesn't churn the marker on/off)
+    private val extrapolationCutoffSec = 5
+    private val pruneCutoffSec = 60
     private val updateRunnable = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
@@ -304,7 +310,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 for ((hex, marker) in aircraftMarkers) {
                     val target = trafficMap[hex] ?: continue
                     val elapsedSec = (now - target.lastUpdated) / 1000.0
-                    if (elapsedSec > staleTimeout) continue  // Skip stale
+                    // Past extrapolation cutoff: don't move the marker, but leave it
+                    // visible. pruneStaleAircraft will clean it up at pruneCutoffSec.
+                    if (elapsedSec > extrapolationCutoffSec) continue
 
                     val predicted = extrapolatePosition(target, elapsedSec)
                     val current = marker.position
@@ -2466,16 +2474,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val distanceMeters = location.distanceTo(target.toLocation())
         val distanceNauticalMiles = distanceMeters / 1852.0
 
-        // hide distant traffic if selected
+        // Re-read prefs every update so toggling Settings takes effect without restart.
+        // 30 nm horizontal default is a more useful range for typical Stratux reception
+        // (was 15 nm, which silently filtered out most of what the receiver was seeing).
+        hideDistantTraffic = sharedPrefs.getBoolean("hide_distant_traffic", true)
         if (hideDistantTraffic) {
             val horizontalDistanceNm = target.distanceNm
             val verticalDistanceFt = abs(target.altitudeFt - (location.altitude * 3.28084))
+            val isDistant = horizontalDistanceNm > 30 || verticalDistanceFt > 3500
 
-            if (horizontalDistanceNm > 15 || verticalDistanceFt > 3500) {
+            if (isDistant) {
                 aircraftMarkers[target.hex]?.isVisible = false
                 aircraftLabels[target.hex]?.isVisible = false
                 aircraftLabelsBottom[target.hex]?.isVisible = false
                 return // Skip further updates for distant traffic
+            } else {
+                // Came back into range — restore visibility (may have been hidden by
+                // a previous distant update on the same target).
+                aircraftMarkers[target.hex]?.isVisible = true
+                aircraftLabels[target.hex]?.isVisible = true
+                aircraftLabelsBottom[target.hex]?.isVisible = true
             }
         }
 
@@ -2628,7 +2646,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }*/
 
     private fun pruneStaleAircraft() {
-        val cutoff = System.currentTimeMillis() - 1000 * staleTimeout
+        val cutoff = System.currentTimeMillis() - 1000L * pruneCutoffSec
         val staleTargets = trafficMap.filterValues { it.lastUpdated < cutoff }
         Log.d(
             "TrafficPrune",

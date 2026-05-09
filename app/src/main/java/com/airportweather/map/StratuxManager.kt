@@ -118,10 +118,16 @@ object StratuxManager {
 
         trafficSubscribers += onUpdate
 
-        // 🔥 Immediately send current list to the new subscriber
-        trafficMap.values.forEach { target ->
-            mainHandler.post { onUpdate(target) }
-        }
+        // Replay only RECENT cached targets to the new subscriber. Without this
+        // filter, a fresh subscriber received every aircraft we'd ever heard,
+        // including stale entries from minutes/hours ago — which then sat on the
+        // new map until the activity-side prune ran.
+        val replayCutoffMs = System.currentTimeMillis() - 60_000L
+        trafficMap.values
+            .filter { it.lastUpdated >= replayCutoffMs }
+            .forEach { target ->
+                mainHandler.post { onUpdate(target) }
+            }
 
         if (trafficConnected) return  // Already connected
 
