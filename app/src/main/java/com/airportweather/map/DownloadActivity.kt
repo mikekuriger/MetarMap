@@ -66,7 +66,7 @@ class DownloadActivity : AppCompatActivity() {
     fun loadSectionalList() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val allChartsJsonString = URL("https://regiruk.netlify.app/zips/all_charts.json").readText()
+                val allChartsJsonString = URL(Endpoints.CHARTS_CATALOG).readText()
                 val allChartsObject = JSONObject(allChartsJsonString)
 
                 val sectionalArray = allChartsObject.getJSONObject("Sectional").getJSONArray("charts")

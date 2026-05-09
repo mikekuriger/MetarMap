@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 class TfrRepository(
     private val filesDir: File,
     private val maxAgeMillis: Long = TimeUnit.MINUTES.toMillis(30),
-    private val sourceUrl: String = "https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/main/scripts/tfrs.geojson",
+    private val sourceUrl: String = Endpoints.TFR_GEOJSON,
 ) {
 
     private val _tfrs = MutableStateFlow<List<TFRFeature>>(emptyList())

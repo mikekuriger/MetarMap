@@ -92,7 +92,7 @@ abstract class BaseTileProvider(
 
 class SectionalTileProvider(context: Context) : BaseTileProvider(
     context,
-    baseUrl = "https://regiruk.netlify.app/Sectional/30",
+    baseUrl = Endpoints.SECTIONAL_TILES,
     localFolder = "Sectional"
 ) {
     override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
@@ -109,7 +109,7 @@ class SectionalTileProvider(context: Context) : BaseTileProvider(
 
 class TerminalTileProvider(context: Context) : BaseTileProvider(
     context,
-    baseUrl = "https://regiruk.netlify.app/Terminal",
+    baseUrl = Endpoints.TERMINAL_TILES,
     localFolder = "Terminal"
 ) {
     override fun getTile(x: Int, y: Int, zoom: Int): Tile? {

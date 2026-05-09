@@ -72,7 +72,7 @@ class WeatherRepository(private val filesDir: File) {
 
     private fun downloadMetars(): List<METAR> {
         return try {
-            val url = URL("https://aviationweather.gov/data/cache/metars.cache.csv.gz")
+            val url = URL(Endpoints.METAR_CSV_GZ)
             val connection = url.openConnection().apply {
                 connectTimeout = 15_000
                 readTimeout = 60_000
@@ -99,7 +99,7 @@ class WeatherRepository(private val filesDir: File) {
         // returns ~380 stations (~750 KB). International coverage would need extra
         // bbox calls — out of scope for now since this app is US-focused.
         return try {
-            val url = URL("https://aviationweather.gov/api/data/taf?format=json&bbox=24,-125,50,-66")
+            val url = URL(Endpoints.tafJson())
             val connection = url.openConnection().apply {
                 connectTimeout = 15_000
                 readTimeout = 60_000

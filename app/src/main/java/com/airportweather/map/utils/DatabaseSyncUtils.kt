@@ -4,6 +4,7 @@ package com.airportweather.map.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.airportweather.map.Endpoints
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -54,7 +55,7 @@ object DatabaseSyncUtils {
 
     private suspend fun getDatabaseManifest(): JSONObject? = withContext(Dispatchers.IO) {
         return@withContext try {
-            val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+            val manifestUrl = Endpoints.DB_MANIFEST
             val conn = URL(manifestUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.connect()
@@ -73,7 +74,7 @@ object DatabaseSyncUtils {
 
     private suspend fun getDatabaseKeysFromManifest(): List<String> = withContext(Dispatchers.IO) {
         return@withContext try {
-            val manifestUrl = "https://regiruk.netlify.app/sqlite/db_manifest.json"
+            val manifestUrl = Endpoints.DB_MANIFEST
             val conn = URL(manifestUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.connect()
