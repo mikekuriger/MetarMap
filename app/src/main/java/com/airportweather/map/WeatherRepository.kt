@@ -213,12 +213,17 @@ class WeatherRepository(private val filesDir: File) {
             Log.w("METAR_PARSE", "Skipping row, only ${fields.size} fields")
             return null
         }
+        // A METAR with no coordinates can't be plotted; skip silently instead of
+        // throwing through the catch and logging at WARN every refresh.
+        val lat = fields[3].toDoubleOrNull() ?: return null
+        val lon = fields[4].toDoubleOrNull() ?: return null
+
         return try {
             METAR(
                 stationId = fields[1],
                 observationTime = fields[2],
-                latitude = fields[3].toDouble(),
-                longitude = fields[4].toDouble(),
+                latitude = lat,
+                longitude = lon,
                 tempC = fields[5].toDoubleOrNull(),
                 dewpointC = fields[6].toDoubleOrNull(),
                 windDirDegrees = fields[7].toIntOrNull(),
