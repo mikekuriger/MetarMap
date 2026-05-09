@@ -2327,10 +2327,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     //Traffic markers (stratux)
     private fun checkStratuxAndConnectIfEnabled(loc: Location) {
-        // Throttle: skip the probe if we ran one recently. Stratux reachability
-        // doesn't change faster than the user moves in/out of WiFi range, and
-        // the WebSocket already auto-reconnects when a connection drops, so
-        // probing more often than this is pure log/network noise.
+        // Re-read on every call so a Settings toggle takes effect immediately.
+        isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
+
+        if (!isTrafficEnabled) {
+            // Traffic disabled. Tear down any in-flight connection and bail —
+            // no probe, no log spam, no network activity.
+            if (stratuxStarted) {
+                Log.d("Stratux", "Traffic disabled in Settings; disconnecting")
+                stratuxStarted = false
+                StratuxManager.disconnectTraffic()
+                clearAllTraffic()
+            }
+            binding.stratuxButton.setColorFilter(Color.BLACK)
+            // Don't reset the probe timer here — re-enabling traffic should probe
+            // immediately on the next location callback rather than wait 15 s.
+            lastStratuxProbeMs = 0L
+            return
+        }
+
+        // Throttle: skip the probe if we ran one recently. Reachability doesn't
+        // change faster than the user moves in/out of WiFi range, and the WebSocket
+        // already auto-reconnects on drops.
         val now = System.currentTimeMillis()
         if (now - lastStratuxProbeMs < stratuxProbeIntervalMs) return
         lastStratuxProbeMs = now
@@ -2340,94 +2358,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 try {
                     InetAddress.getByName("192.168.10.1").isReachable(1000)
                 } catch (e: Exception) {
-                    //Log.e("Stratux", "Ping failed", e)
                     false
                 }
             }
             if (reachable) {
-                Log.d("Stratux", "checkStratuxAndConnectIfEnabled - reachable = $reachable")
-                binding.stratuxButton.setColorFilter(Color.GRAY)
-
-                // enable GPS
-//                StratuxManager.connectToGps { gps ->
-//                    runOnUiThread {
-//                        isStratuxGpsActive = true
-//                        binding.gpsStatusIcon.setColorFilter(Color.GREEN)
-//
-//                        // Replace internal GPS
-//                        val fakeLocation = Location("Stratux").apply {
-//                            latitude = gps.latitude
-//                            longitude = gps.longitude
-//                            altitude = gps.altitudeFt / 3.28084
-//                            if (gps.heading in 0.0..360.0) {
-//                                bearing = gps.heading.toFloat()
-//                            }
-//                            speed = gps.speedKnots.toFloat() * 0.514444f  // knots to m/s
-//                            time = System.currentTimeMillis()
-//                        }
-//                        //lastKnownUserLocation = fakeLocation
-//                        handleNewLocation(fakeLocation)
-//                    }
-//                }
-
-                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
-                if (isTrafficEnabled) {
-//                    Log.d(
-//                        "Stratux",
-//                        "checkStratuxAndConnectIfEnabled - isTrafficEnabled = $isTrafficEnabled"
-//                    )
-                    binding.stratuxButton.setColorFilter(Color.GREEN)
-
-                    if (!stratuxStarted) {
-//                        Log.d(
-//                            "Stratux",
-//                            "checkStratuxAndConnectIfEnabled - stratuxStarted = $stratuxStarted, starting it"
-//                        )
-                        lifecycleScope.launch {
-                            stratuxStarted = true
-                            StratuxManager.connectToTraffic { target ->
-                                if (!isTrafficEnabled) return@connectToTraffic
-
-                                runOnUiThread {
-                                    if (isTrafficEnabled) {
-                                        trafficMap[target.hex] = target
-                                        updateAircraftMarker(target, loc)
-                                    }
-                                }
+                binding.stratuxButton.setColorFilter(Color.GREEN)
+                if (!stratuxStarted) {
+                    Log.d("Stratux", "Stratux reachable, connecting traffic feed")
+                    stratuxStarted = true
+                    StratuxManager.connectToTraffic { target ->
+                        if (!isTrafficEnabled) return@connectToTraffic
+                        runOnUiThread {
+                            if (isTrafficEnabled) {
+                                trafficMap[target.hex] = target
+                                updateAircraftMarker(target, loc)
                             }
                         }
-                    } else {
-                        Log.d(
-                            "Stratux",
-                            "checkStratuxAndConnectIfEnabled - stratuxStarted = $stratuxStarted, already started"
-                        )
                     }
-                } else {
-                    Log.d(
-                        "Stratux",
-                        "checkStratuxAndConnectIfEnabled - isTrafficEnabled = $isTrafficEnabled, shutting down stratux"
-                    )
-                    stratuxStarted = false
-                    //binding.stratuxButton.setColorFilter(Color.GRAY)
-                    StratuxManager.disconnectTraffic()
-                    clearAllTraffic()
                 }
             } else {
-                Log.w(
-                    "Stratux",
-                    "❌ Stratux not reachable - skipping connect and/or disconnecting"
-                )
+                Log.w("Stratux", "Stratux not reachable")
                 stratuxStarted = false
                 StratuxManager.disconnectTraffic()
                 clearAllTraffic()
                 binding.gpsStatusIcon.setColorFilter(Color.RED)
-                // update button, RED if traffic is enabled or GRAY if traffic is disabled
-                isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", false)
-                if (isTrafficEnabled) {
-                    binding.stratuxButton.setColorFilter(Color.RED)
-                } else {
-                    binding.stratuxButton.setColorFilter(Color.BLACK)
-                }
+                binding.stratuxButton.setColorFilter(Color.RED)
             }
         }
     }
