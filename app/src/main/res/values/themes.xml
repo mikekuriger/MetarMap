@@ -8,4 +8,11 @@
         <item name="colorAccent">#03DAC5</item>
     </style>
 
+    <!-- Splash screen theme -->
+    <style name="Theme.MetarMap.Splash" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/mmp_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.MetarMap</item>
+    </style>
+
+
 </resources>

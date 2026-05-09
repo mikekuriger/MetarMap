@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.0.0"
+    kotlin("plugin.parcelize")
 }
 
 val localProperties = File(rootProject.rootDir, "local.properties")
@@ -30,7 +31,9 @@ android {
 
     buildFeatures {
         buildConfig = true
+        viewBinding = true
     }
+
     namespace = "com.airportweather.map"
     compileSdk = 35
 
@@ -98,4 +101,7 @@ dependencies {
     implementation(libs.androidx.drawerlayout)
     implementation(libs.material.v190)
     implementation(libs.androidx.cardview)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.okhttp)
+
 }

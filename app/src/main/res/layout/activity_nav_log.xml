@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/navLogRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#dd000000"
+    android:fitsSystemWindows="true"
+    android:padding="0dp">
+
+    <!-- 🔹 HEADER ROW -->
+    <include layout="@layout/navlog_header_row" />
+
+    <!-- 🔹 RECYCLER VIEW FOR LEGS -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/navLogRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="0dp"
+        android:overScrollMode="never"
+        android:nestedScrollingEnabled="false"
+        android:clipToPadding="false" />
+
+    <!-- 🔹 TOTALS ROW -->
+<!--    <include layout="@layout/navlog_totals_row" />-->
+    <include
+        android:id="@+id/navlogTotalsRow"
+        layout="@layout/navlog_totals_row" />
+</LinearLayout>
+
