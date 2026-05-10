@@ -642,6 +642,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         trafficHandler.removeCallbacksAndMessages(null)
         if (::markerFactory.isInitialized) markerFactory.dispose()
         trafficLabelCache.evictAll()
+        // Unregister the location callback. Without this, the FusedLocationProviderClient
+        // keeps a reference to the dead activity (memory leak) AND keeps firing onto its
+        // callback — so a recreated activity sees both the new and old callbacks fire on
+        // every fix, doubling all per-callback work (handleNewLocation, ETA calc, etc).
+        if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
         super.onDestroy()
         StratuxManager.disconnectAll()
     }
@@ -881,10 +888,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         groundSpeedKnots: Double,
         plannedAirSpeed: Int
     ): Double {
-        Log.d(
-            "ETA",
-            "distanceNM: $distanceNM, groundSpeedKnots: $groundSpeedKnots, plannedAirSpeed: $plannedAirSpeed"
-        )
         return if (groundSpeedKnots > activeSpeed) {
             (distanceNM / groundSpeedKnots) * 60
         } else {
