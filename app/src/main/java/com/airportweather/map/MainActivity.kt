@@ -320,6 +320,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Throttle reachability pings so we don't probe Stratux on every GPS callback
     private var lastStratuxProbeMs = 0L
     private val stratuxProbeIntervalMs = 15_000L
+    // Throttle isFollowingUser animateCamera — see handleNewLocation for why.
+    private var lastFollowAnimateMs = 0L
 
     // Traffic-label BitmapDescriptors, bounded so the cache can't grow without
     // limit. Stratux pushes ~1 update per aircraft per second, and label text
@@ -1222,11 +1224,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             sectionalLoaded = true
         }
 
-        // ✅ Handle flight plan waypoints
+        // ✅ Handle flight plan waypoints — first render after onMapReady,
+        // so fit the camera to the plan's bounds. Subsequent redraws
+        // (from leg advance) skip the camera fit.
         val flightPlan = FlightPlanHolder.currentPlan
 
         if (flightPlan != null) {
-            updateMapWithFlightPlan(flightPlan)
+            updateMapWithFlightPlan(flightPlan, recenterCamera = true)
         }
 
 //        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -2264,9 +2268,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lastKnownUserLocation = location
         val userLatLng = LatLng(location.latitude, location.longitude)
 
-        // ✅ Re-center if following — but only after the map is ready.
-        // Location callbacks can fire before onMapReady completes.
-        if (isFollowingUser && ::mMap.isInitialized) {
+        // ✅ Re-center if following — but only after the map is ready, AND
+        // throttle to ~1 Hz max. Stratux GPS can fire at multi-Hz; animating
+        // the camera on every fix queues tile work faster than the GL thread
+        // can drain, leading to OOM after a minute or two.
+        val nowMs = System.currentTimeMillis()
+        if (isFollowingUser && ::mMap.isInitialized &&
+            nowMs - lastFollowAnimateMs >= 1000L
+        ) {
+            lastFollowAnimateMs = nowMs
             mMap.animateCamera(
                 CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom)
             )
@@ -2909,7 +2919,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     //Flight plan markers, waypoints, LEGS
-    private fun updateMapWithFlightPlan(flightPlan: FlightPlan) {
+    // [recenterCamera] = true on initial activate, false on leg-advance redraws.
+    // newLatLngBounds is expensive — it triggers a full tile reload of the new
+    // viewport, and on each advance during a flight that's the wrong behavior
+    // anyway (the user wants the camera to stay where they put it).
+    private fun updateMapWithFlightPlan(flightPlan: FlightPlan, recenterCamera: Boolean = false) {
         // Guard: handleNewLocation can fire before onMapReady completes,
         // especially when an already-active flight plan auto-advances on
         // the first location fix (e.g. starting waypoint = current position).
@@ -3095,8 +3109,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             )?.let { flightPlanMarkers += it }
         }
 
-        // ✅ Adjust camera
-        if (latLngList.isNotEmpty()) {
+        // ✅ Adjust camera ONLY on initial activate — not on every leg-advance
+        // redraw. Each newLatLngBounds triggers a full tile reload of the new
+        // viewport, and replay-fitting on every advance both fights the user's
+        // current pan/zoom AND queues tile work that contributed to OOMs.
+        if (recenterCamera && latLngList.isNotEmpty()) {
             val boundsBuilder = LatLngBounds.builder()
             latLngList.forEach { boundsBuilder.include(it) }
             val bounds = boundsBuilder.build()
