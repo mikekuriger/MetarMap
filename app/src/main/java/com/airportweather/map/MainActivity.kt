@@ -2524,6 +2524,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             aircraftLabels.clear()
             aircraftLabelsBottom.clear()
             trafficMap.clear()
+            lastAircraftUpdateMs.clear()
+            lastAircraftLabelText.clear()
         }
     }
 
@@ -2567,7 +2569,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
+    // Throttle and dedup aircraft updates so a chatty Stratux feed doesn't
+    // overwhelm the Maps SDK with setIcon/position calls. The smoothing
+    // updateRunnable continues to interpolate position at 1 Hz between updates.
+    private val lastAircraftUpdateMs = mutableMapOf<String, Long>()
+    private val lastAircraftLabelText = mutableMapOf<String, Pair<String, String>>()
+    private val aircraftUpdateMinIntervalMs = 250L
+
     private fun updateAircraftMarker(target: TrafficTarget, location: Location) {
+        // Throttle per-aircraft updates. Stratux can push the same target several
+        // times per second; we don't need to thrash the GMS Maps process at that rate.
+        val nowThrottle = System.currentTimeMillis()
+        val lastUpdate = lastAircraftUpdateMs[target.hex] ?: 0L
+        if (nowThrottle - lastUpdate < aircraftUpdateMinIntervalMs) return
+        lastAircraftUpdateMs[target.hex] = nowThrottle
+
         val position = LatLng(target.lat, target.lon)
         val myAltitudeFt = (location.altitude * 3.28084)
         val altDiffFt = (target.altitudeFt - myAltitudeFt)
@@ -2635,8 +2651,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         val labelTextTop = "$altString$arrow"
         val labelTextBottom = "${target.tail}  ${target.speedKts}kt"
-        val labelTopDescriptor = trafficLabelDescriptor(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
-        val labelBottomDescriptor = trafficLabelDescriptor(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
 
         val marker = aircraftMarkers[target.hex]
         val labelMarker = aircraftLabels[target.hex]
@@ -2646,12 +2660,35 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             marker.position = position
             marker.rotation = target.course.toFloat()
 
+            // Skip setIcon if the label text hasn't changed — most updates only
+            // change position, not the displayed alt-diff or speed strings.
+            // setIcon is a Maps SDK boundary call; calling it 5–10×/s when text
+            // is identical is the main reason traffic was OOMing the GL thread.
+            val previousLabels = lastAircraftLabelText[target.hex]
+            val topChanged = previousLabels?.first != labelTextTop
+            val bottomChanged = previousLabels?.second != labelTextBottom
+
             labelMarker.position = position
-            labelMarker.setIcon(labelTopDescriptor)
+            if (topChanged) {
+                labelMarker.setIcon(
+                    trafficLabelDescriptor(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
+                )
+            }
 
             labelBottomMarker.position = position
-            labelBottomMarker.setIcon(labelBottomDescriptor)
+            if (bottomChanged) {
+                labelBottomMarker.setIcon(
+                    trafficLabelDescriptor(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
+                )
+            }
+
+            if (topChanged || bottomChanged) {
+                lastAircraftLabelText[target.hex] = labelTextTop to labelTextBottom
+            }
         } else {
+            val labelTopDescriptor = trafficLabelDescriptor(labelTextTop, altColor, Color.argb(180, 0, 0, 0), 30F)
+            val labelBottomDescriptor = trafficLabelDescriptor(labelTextBottom, altColor, Color.argb(180, 0, 0, 0), 26F)
+            lastAircraftLabelText[target.hex] = labelTextTop to labelTextBottom
             val newMarker = mMap.addMarker(
                 MarkerOptions()
                     .position(position)
@@ -2789,6 +2826,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             aircraftLabels.remove(hex)
             aircraftLabelsBottom.remove(hex)
             trafficMap.remove(hex)
+            lastAircraftUpdateMs.remove(hex)
+            lastAircraftLabelText.remove(hex)
         }
     }
 
