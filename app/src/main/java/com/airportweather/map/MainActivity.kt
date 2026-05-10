@@ -277,11 +277,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var isStratuxGpsActive = false
     private var lastStratuxGpsMs = 0L
     private var useStratuxGps = false
+    // Latest GPS reading from Stratux, cached so calculateFlightData can pull a
+    // better altitude than the phone GPS even when Stratux isn't driving position.
+    private var latestStratuxGps: GpsData? = null
 
     /**
-     * Convert each Stratux GPS update into a synthetic Location and feed it through
-     * the same handleNewLocation pipeline the phone GPS uses. Sets isStratuxGpsActive
-     * so the FusedLocationProviderClient callback knows to skip its own fix.
+     * Always cache the latest Stratux GPS reading so the HUD altitude can use it.
+     * Additionally, if "Use Stratux GPS" is enabled, build a synthetic Location
+     * and feed it through handleNewLocation — same path the phone GPS uses.
      */
     private val stratuxGpsListener: (GpsData) -> Unit = { gps ->
         // FixQuality 0 means no fix; ignore those updates entirely.
@@ -289,23 +292,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             gps.latitude.isFinite() && gps.longitude.isFinite() &&
             !(gps.latitude == 0.0 && gps.longitude == 0.0)
         ) {
-            val loc = Location("Stratux").apply {
-                latitude = gps.latitude
-                longitude = gps.longitude
-                altitude = gps.altitudeFt / 3.28084           // ft → m
-                speed = (gps.speedKnots * 0.514444).toFloat()  // kt → m/s
-                if (gps.heading in 0.0..360.0) bearing = gps.heading.toFloat()
-                if (gps.horizontalAccuracy.isFinite() && gps.horizontalAccuracy > 0) {
-                    accuracy = gps.horizontalAccuracy.toFloat()
-                }
-                time = System.currentTimeMillis()
-                elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
-            }
+            latestStratuxGps = gps
             lastStratuxGpsMs = System.currentTimeMillis()
-            isStratuxGpsActive = true
-            handleNewLocation(loc)
+
+            if (useStratuxGps) {
+                val loc = Location("Stratux").apply {
+                    latitude = gps.latitude
+                    longitude = gps.longitude
+                    altitude = gps.altitudeFt / 3.28084           // ft → m
+                    speed = (gps.speedKnots * 0.514444).toFloat()  // kt → m/s
+                    if (gps.heading in 0.0..360.0) bearing = gps.heading.toFloat()
+                    if (gps.horizontalAccuracy.isFinite() && gps.horizontalAccuracy > 0) {
+                        accuracy = gps.horizontalAccuracy.toFloat()
+                    }
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                }
+                isStratuxGpsActive = true
+                handleNewLocation(loc)
+            }
         }
     }
+
+    /** True if the Stratux GPS reading is recent enough to trust. */
+    private fun stratuxGpsFresh(): Boolean =
+        latestStratuxGps != null && System.currentTimeMillis() - lastStratuxGpsMs < 5000
     // Throttle reachability pings so we don't probe Stratux on every GPS callback
     private var lastStratuxProbeMs = 0L
     private val stratuxProbeIntervalMs = 15_000L
@@ -793,7 +804,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     ): FlightData {
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
-        val altitude = location.altitude * 3.28084  // Convert to feet
+        // Prefer Stratux altitude when available — its avionics-grade GPS is
+        // typically more accurate than a phone's, and its barometric data is
+        // a quiet improvement even when Stratux isn't driving position.
+        val altitude = if (stratuxGpsFresh()) {
+            latestStratuxGps!!.altitudeFt
+        } else {
+            location.altitude * 3.28084  // phone-GPS metres → feet
+        }
         val activeLeg = flightPlan.legs.firstOrNull { it.active } ?: return FlightData.empty()
 
         val wpFrom = activeLeg.from
@@ -2453,19 +2471,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         }
                     }
                 }
-                // GPS subscription state mirrors the user setting.
-                if (useStratuxGps && !stratuxGpsSubscribed) {
+                // Always subscribe to Stratux GPS while reachable — even if
+                // "Use Stratux GPS for navigation" is off, we still want the
+                // altitude reading for the HUD. The listener itself decides
+                // whether to actually drive position based on useStratuxGps.
+                if (!stratuxGpsSubscribed) {
                     Log.d("Stratux", "Subscribing to Stratux GPS")
                     StratuxManager.connectToGps(stratuxGpsListener)
                     stratuxGpsSubscribed = true
-                    binding.gpsStatusIcon.setColorFilter(Color.GREEN)
-                } else if (!useStratuxGps && stratuxGpsSubscribed) {
-                    Log.d("Stratux", "Unsubscribing from Stratux GPS")
-                    StratuxManager.removeGpsListener(stratuxGpsListener)
-                    stratuxGpsSubscribed = false
-                    isStratuxGpsActive = false
-                    binding.gpsStatusIcon.setColorFilter(Color.BLACK)
                 }
+                binding.gpsStatusIcon.setColorFilter(
+                    if (useStratuxGps) Color.GREEN else Color.BLACK
+                )
             } else {
                 Log.w("Stratux", "Stratux not reachable")
                 stratuxStarted = false
@@ -2476,6 +2493,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     stratuxGpsSubscribed = false
                 }
                 isStratuxGpsActive = false
+                latestStratuxGps = null
                 binding.gpsStatusIcon.setColorFilter(Color.RED)
                 binding.stratuxButton.setColorFilter(Color.RED)
             }
