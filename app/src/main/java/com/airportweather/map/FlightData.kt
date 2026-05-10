@@ -8,12 +8,18 @@ data class FlightData(
     val currentLeg: String,
     val track: Double,
     val bearing: Double,
+    /** Distance to the NEXT waypoint, in nm. */
     val distance: Double,
     val groundSpeed: Double,
     val plannedAirSpeed: Int,
     val altitude: Double,
+    /** ETA to the NEXT waypoint, formatted. */
     val eta: String,
-    val waypoints: List<Waypoint>
+    val waypoints: List<Waypoint>,
+    /** Name of the final waypoint of the flight plan ("---" when no plan). */
+    val finalDestinationName: String = "----",
+    /** Total nm remaining from current position through all unfinished legs to the final destination. */
+    val distanceToDestinationNm: Double = 0.0,
 ) {
     companion object {
         fun empty(): FlightData {
@@ -27,7 +33,9 @@ data class FlightData(
                 plannedAirSpeed = 100,
                 altitude = 0.0,
                 eta = "--:--",
-                waypoints = emptyList()
+                waypoints = emptyList(),
+                finalDestinationName = "----",
+                distanceToDestinationNm = 0.0,
             )
         }
     }

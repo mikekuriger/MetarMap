@@ -829,9 +829,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // want the HUD to keep updating — distance grows, bearing rotates as the
         // user circles for a go-around or just keeps flying. Fall through to the
         // last leg's destination as the "target" in that case.
-        val activeLeg = flightPlan.legs.firstOrNull { it.active && !it.completed }
-        val targetLeg = activeLeg ?: flightPlan.legs.last()
-        val isPostPlan = activeLeg == null
+        val legs = flightPlan.legs
+        val activeIndex = legs.indexOfFirst { it.active && !it.completed }
+        val isPostPlan = activeIndex == -1
+        val targetIndex = if (isPostPlan) legs.lastIndex else activeIndex
+        val targetLeg = legs[targetIndex]
 
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // m/s → kt
@@ -875,6 +877,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         val legLabel = if (isPostPlan) "Past ${wpTo.name}" else "${wpFrom.name} → ${wpTo.name}"
 
+        // Remaining distance to the *final* waypoint:
+        //   distance from the aircraft to the NEXT waypoint (live, just computed)
+        //   PLUS the precomputed great-circle distances of every leg *after* the
+        //   current one. In the post-plan case there are no subsequent legs, so
+        //   it's just distanceToWp.
+        val subsequentLegsDistance = legs
+            .subList(targetIndex + 1, legs.size)
+            .sumOf { it.distanceNM }
+        val distanceToDestinationNm = distanceToWp + subsequentLegsDistance
+        val finalDestinationName = legs.last().to.name
+
         return FlightData(
             wpLocation = toLatLng,
             currentLeg = legLabel,
@@ -885,7 +898,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             plannedAirSpeed = plannedAirSpeed,
             altitude = altitude,
             eta = eta,
-            waypoints = listOf(wpTo)
+            waypoints = listOf(wpTo),
+            finalDestinationName = finalDestinationName,
+            distanceToDestinationNm = distanceToDestinationNm,
         )
     }
 
@@ -1052,20 +1067,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             binding.trackText.text = "${data.track.roundToInt()}°"
         }
 
-        //val destination = data.waypoints.lastOrNull() ?: "----"
-        //binding.destText.text = destination
-        val destinationName = data.waypoints.lastOrNull()?.name ?: "----"
-        binding.destText.text = destinationName
+        // Final destination panel: name of the LAST waypoint in the plan and
+        // total remaining distance/ETA from the current position via all
+        // intermediate waypoints. Previously this read data.waypoints, which
+        // only ever held the *next* waypoint, so this panel showed wrong values.
+        binding.destText.text = data.finalDestinationName
         binding.etaDestText.setTextColor(etaDestColor)
+        binding.dtdText.text = "${data.distanceToDestinationNm.roundToInt()}nm"
 
-        //val dbHelper = AirportDatabaseHelper(this)
-        //val totalDistance = calculateTotalDistance(data.waypoints, dbHelper)
-        val totalDistance = calculateTotalDistance(data.waypoints)
-        binding.dtdText.text = "${totalDistance.roundToInt()}nm"
-
-        val etaMinutes = calculateETA(totalDistance, data.groundSpeed, data.plannedAirSpeed)
-        val totalETA = formatETA(etaMinutes)
-        binding.etaDestText.text = totalETA
+        val etaToDestMinutes = calculateETA(
+            data.distanceToDestinationNm,
+            data.groundSpeed,
+            data.plannedAirSpeed,
+        )
+        binding.etaDestText.text = formatETA(etaToDestMinutes)
     }
 
     @SuppressLint("MissingPermission")
