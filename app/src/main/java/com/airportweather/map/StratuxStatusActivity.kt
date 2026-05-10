@@ -34,26 +34,9 @@ class StratuxStatusActivity : AppCompatActivity() {
         trafficRecycler.layoutManager = LinearLayoutManager(this)
         trafficRecycler.adapter = trafficAdapter
 
-        // GPS
-        StratuxManager.connectToGps { gps ->
-            runOnUiThread {
-                gpsText.text = """
-                    Latitude: ${gps.latitude}
-                    Longitude: ${gps.longitude}
-                    Altitude: ${gps.altitudeFt} ft
-                    Speed: ${gps.speedKnots} kt
-                    Vertical Speed: ${gps.verticalSpeed}
-                    Fix Quality: ${gps.fixQuality}
-                    Satellites: ${gps.satellites}
-                    Satellites Tracked: ${gps.satellitesTracked}
-                    Satellites Seen: ${gps.satellitesSeen}
-                    Horizontal Accuracy: ${gps.horizontalAccuracy}
-                    Vertical Accuracy: ${gps.verticalAccuracy}
-                    Temperature: ${gps.temperature}
-                    Pressure Altitude: ${gps.pressureAltitude}
-                """.trimIndent()
-            }
-        }
+        // GPS — keep the lambda as a field so onDestroy can unsubscribe just this
+        // listener (without killing other subscribers like MainActivity's nav GPS).
+        StratuxManager.connectToGps(gpsListener)
 
         // Traffic: subscribe AFTER adapter is ready
         StratuxManager.connectToTraffic { target ->
@@ -69,6 +52,26 @@ class StratuxStatusActivity : AppCompatActivity() {
 
         // Weather (still raw WebSocket)
         connectWeather()
+    }
+
+    private val gpsListener: (GpsData) -> Unit = { gps ->
+        runOnUiThread {
+            gpsText.text = """
+                Latitude: ${gps.latitude}
+                Longitude: ${gps.longitude}
+                Altitude: ${gps.altitudeFt} ft
+                Speed: ${gps.speedKnots} kt
+                Vertical Speed: ${gps.verticalSpeed}
+                Fix Quality: ${gps.fixQuality}
+                Satellites: ${gps.satellites}
+                Satellites Tracked: ${gps.satellitesTracked}
+                Satellites Seen: ${gps.satellitesSeen}
+                Horizontal Accuracy: ${gps.horizontalAccuracy}
+                Vertical Accuracy: ${gps.verticalAccuracy}
+                Temperature: ${gps.temperature}
+                Pressure Altitude: ${gps.pressureAltitude}
+            """.trimIndent()
+        }
     }
 
     private var weatherSocket: WebSocket? = null
@@ -98,6 +101,8 @@ class StratuxStatusActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         weatherSocket?.cancel()
-        StratuxManager.disconnectGps()
+        // Only remove THIS activity's listener — don't tear down the GPS feed
+        // for other subscribers (like MainActivity's nav GPS).
+        StratuxManager.removeGpsListener(gpsListener)
     }
 }

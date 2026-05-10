@@ -273,7 +273,39 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var isMetarVisible = true
     private val handler = Handler(Looper.getMainLooper())
     private var stratuxStarted = false
+    private var stratuxGpsSubscribed = false
     private var isStratuxGpsActive = false
+    private var lastStratuxGpsMs = 0L
+    private var useStratuxGps = false
+
+    /**
+     * Convert each Stratux GPS update into a synthetic Location and feed it through
+     * the same handleNewLocation pipeline the phone GPS uses. Sets isStratuxGpsActive
+     * so the FusedLocationProviderClient callback knows to skip its own fix.
+     */
+    private val stratuxGpsListener: (GpsData) -> Unit = { gps ->
+        // FixQuality 0 means no fix; ignore those updates entirely.
+        if (gps.fixQuality > 0 &&
+            gps.latitude.isFinite() && gps.longitude.isFinite() &&
+            !(gps.latitude == 0.0 && gps.longitude == 0.0)
+        ) {
+            val loc = Location("Stratux").apply {
+                latitude = gps.latitude
+                longitude = gps.longitude
+                altitude = gps.altitudeFt / 3.28084           // ft → m
+                speed = (gps.speedKnots * 0.514444).toFloat()  // kt → m/s
+                if (gps.heading in 0.0..360.0) bearing = gps.heading.toFloat()
+                if (gps.horizontalAccuracy.isFinite() && gps.horizontalAccuracy > 0) {
+                    accuracy = gps.horizontalAccuracy.toFloat()
+                }
+                time = System.currentTimeMillis()
+                elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+            }
+            lastStratuxGpsMs = System.currentTimeMillis()
+            isStratuxGpsActive = true
+            handleNewLocation(loc)
+        }
+    }
     // Throttle reachability pings so we don't probe Stratux on every GPS callback
     private var lastStratuxProbeMs = 0L
     private val stratuxProbeIntervalMs = 15_000L
@@ -537,7 +569,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                if (isStratuxGpsActive) return  // skip if Stratux is driving
+                // Suppress phone GPS only while Stratux GPS is fresh. If Stratux GPS
+                // hasn't arrived in 5s, fall back to the phone so the map keeps
+                // updating even when WiFi to the Stratux drops.
+                if (isStratuxGpsActive &&
+                    System.currentTimeMillis() - lastStratuxGpsMs < 5000
+                ) return
+                isStratuxGpsActive = false
                 locationResult.lastLocation?.let { handleNewLocation(it) }
             }
         }
@@ -2354,23 +2392,35 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     //Traffic markers (stratux)
     private fun checkStratuxAndConnectIfEnabled(loc: Location) {
-        // Re-read on every call so a Settings toggle takes effect immediately.
+        // Re-read prefs on every call so Settings toggles take effect immediately.
         isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
+        useStratuxGps = sharedPrefs.getBoolean("use_stratux_gps", false)
 
-        if (!isTrafficEnabled) {
-            // Traffic disabled. Tear down any in-flight connection and bail —
-            // no probe, no log spam, no network activity.
+        // Nothing to do if neither traffic nor Stratux GPS is wanted.
+        if (!isTrafficEnabled && !useStratuxGps) {
             if (stratuxStarted) {
-                Log.d("Stratux", "Traffic disabled in Settings; disconnecting")
+                Log.d("Stratux", "Traffic + GPS disabled in Settings; disconnecting")
                 stratuxStarted = false
                 StratuxManager.disconnectTraffic()
                 clearAllTraffic()
             }
+            if (stratuxGpsSubscribed) {
+                StratuxManager.removeGpsListener(stratuxGpsListener)
+                stratuxGpsSubscribed = false
+                isStratuxGpsActive = false
+            }
             binding.stratuxButton.setColorFilter(Color.BLACK)
-            // Don't reset the probe timer here — re-enabling traffic should probe
-            // immediately on the next location callback rather than wait 15 s.
+            // Don't keep the probe timer hot — re-enabling should probe immediately.
             lastStratuxProbeMs = 0L
             return
+        }
+
+        // Traffic-only-disabled case: tear down traffic but keep GPS subscription
+        // logic flowing through the rest of the function.
+        if (!isTrafficEnabled && stratuxStarted) {
+            stratuxStarted = false
+            StratuxManager.disconnectTraffic()
+            clearAllTraffic()
         }
 
         // Throttle: skip the probe if we ran one recently. Reachability doesn't
@@ -2390,7 +2440,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             }
             if (reachable) {
                 binding.stratuxButton.setColorFilter(Color.GREEN)
-                if (!stratuxStarted) {
+                if (isTrafficEnabled && !stratuxStarted) {
                     Log.d("Stratux", "Stratux reachable, connecting traffic feed")
                     stratuxStarted = true
                     StratuxManager.connectToTraffic { target ->
@@ -2403,11 +2453,29 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         }
                     }
                 }
+                // GPS subscription state mirrors the user setting.
+                if (useStratuxGps && !stratuxGpsSubscribed) {
+                    Log.d("Stratux", "Subscribing to Stratux GPS")
+                    StratuxManager.connectToGps(stratuxGpsListener)
+                    stratuxGpsSubscribed = true
+                    binding.gpsStatusIcon.setColorFilter(Color.GREEN)
+                } else if (!useStratuxGps && stratuxGpsSubscribed) {
+                    Log.d("Stratux", "Unsubscribing from Stratux GPS")
+                    StratuxManager.removeGpsListener(stratuxGpsListener)
+                    stratuxGpsSubscribed = false
+                    isStratuxGpsActive = false
+                    binding.gpsStatusIcon.setColorFilter(Color.BLACK)
+                }
             } else {
                 Log.w("Stratux", "Stratux not reachable")
                 stratuxStarted = false
                 StratuxManager.disconnectTraffic()
                 clearAllTraffic()
+                if (stratuxGpsSubscribed) {
+                    StratuxManager.removeGpsListener(stratuxGpsListener)
+                    stratuxGpsSubscribed = false
+                }
+                isStratuxGpsActive = false
                 binding.gpsStatusIcon.setColorFilter(Color.RED)
                 binding.stratuxButton.setColorFilter(Color.RED)
             }

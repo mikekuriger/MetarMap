@@ -19,17 +19,45 @@ object StratuxManager {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    // === GPS === (for display only right now - need to build a module to use this)
+    // === GPS ===
+    // Multiple listeners (Status screen for display, MainActivity for navigation)
+    // can subscribe simultaneously — the WebSocket is opened on first subscribe and
+    // closed when the last listener removes itself.
+    private val gpsListeners = mutableListOf<(GpsData) -> Unit>()
     private var gpsSocket: WebSocket? = null
     private var gpsConnected = false
     private var gpsShouldStayConnected = false
     private var gpsReconnectPending = false
 
+    /** Subscribe to GPS updates. Idempotent: re-adding the same lambda is a no-op. */
     fun connectToGps(onUpdate: (GpsData) -> Unit) {
-        Log.d("Stratux", "📡 GPS connectToGps triggered")
+        if (onUpdate !in gpsListeners) gpsListeners += onUpdate
         gpsShouldStayConnected = true
-        if (gpsConnected) return  // already have a live socket
+        if (gpsConnected) return // socket already open; new listener will get the next tick
+        openGpsSocket()
+    }
 
+    /** Remove a single subscriber. Closes the socket if no listeners remain. */
+    fun removeGpsListener(onUpdate: (GpsData) -> Unit) {
+        gpsListeners -= onUpdate
+        if (gpsListeners.isEmpty()) {
+            gpsShouldStayConnected = false
+            gpsSocket?.close(1000, "no listeners")
+            gpsSocket = null
+            gpsConnected = false
+        }
+    }
+
+    /** Force-disconnect every listener and close the socket. Used on app exit. */
+    fun disconnectGps() {
+        gpsShouldStayConnected = false
+        gpsSocket?.close(1000, "User exit")
+        gpsSocket = null
+        gpsConnected = false
+        gpsListeners.clear()
+    }
+
+    private fun openGpsSocket() {
         // Close any stale socket before opening a new one (prevents leaks on reconnect)
         gpsSocket?.close(1000, "reconnect")
         gpsSocket = null
@@ -45,8 +73,6 @@ object StratuxManager {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d("Stratux", "📡 GPS Raw: $text")  // 🔍 Log raw message first
-
                 try {
                     val json = JSONObject(text)
                     val gps = GpsData(
@@ -65,8 +91,11 @@ object StratuxManager {
                         pressureAltitude = json.optDouble("BaroPressureAltitude"),
                         verticalSpeed = json.optDouble("BaroVerticalSpeed")
                     )
-                    Log.d("Stratux", "✅ Parsed GPS: $gps")
-                    mainHandler.post { onUpdate(gps) }
+                    mainHandler.post {
+                        // Snapshot the list so a listener that unsubscribes inside the
+                        // callback doesn't trigger ConcurrentModificationException.
+                        gpsListeners.toList().forEach { it(gps) }
+                    }
                 } catch (e: Exception) {
                     Log.e("Stratux", "GPS parse error: ${e.message}")
                 }
@@ -76,32 +105,25 @@ object StratuxManager {
                 Log.e("Stratux", "GPS socket failure: ${t.message}")
                 gpsConnected = false
                 gpsSocket = null
-                reconnectGps(onUpdate)
+                reconnectGps()
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w("Stratux", "GPS socket closed: $reason")
                 gpsConnected = false
                 gpsSocket = null
-                reconnectGps(onUpdate)
+                reconnectGps()
             }
         })
     }
 
-    fun reconnectGps(onUpdate: (GpsData) -> Unit) {
-        if (!gpsShouldStayConnected || gpsReconnectPending) return
+    private fun reconnectGps() {
+        if (!gpsShouldStayConnected || gpsReconnectPending || gpsListeners.isEmpty()) return
         gpsReconnectPending = true
         mainHandler.postDelayed({
             gpsReconnectPending = false
-            if (gpsShouldStayConnected) connectToGps(onUpdate)
+            if (gpsShouldStayConnected && gpsListeners.isNotEmpty()) openGpsSocket()
         }, 2000)
-    }
-
-    fun disconnectGps() {
-        gpsShouldStayConnected = false
-        gpsConnected = false
-        gpsSocket?.close(1000, "User exit")
-        gpsSocket = null
     }
 
     // === TRAFFIC ===

@@ -86,6 +86,7 @@ class SettingsActivity : AppCompatActivity() {
         val showChart = binding.toggleChartsButton
         val showTraffic = binding.toggleTrafficButton
         val hideDistantTraffic = binding.hideDistantTraffic
+        val useStratuxGps = binding.useStratuxGps
 
         showAirspace.isChecked = sharedPrefs.getBoolean("show_airspace", true)
         showTfrs.isChecked = sharedPrefs.getBoolean("show_tfrs", true)
@@ -93,6 +94,7 @@ class SettingsActivity : AppCompatActivity() {
         showChart.isChecked = sharedPrefs.getBoolean("show_chart", true)
         showTraffic.isChecked = sharedPrefs.getBoolean("show_traffic", true)
         hideDistantTraffic.isChecked = sharedPrefs.getBoolean("hide_distant_traffic", true)
+        useStratuxGps.isChecked = sharedPrefs.getBoolean("use_stratux_gps", false)
 
         showAirspace.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("show_airspace", isChecked).apply()
@@ -116,6 +118,10 @@ class SettingsActivity : AppCompatActivity() {
 
         hideDistantTraffic.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("hide_distant_traffic", isChecked).apply()
+        }
+
+        useStratuxGps.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("use_stratux_gps", isChecked).apply()
         }
     }
 }
