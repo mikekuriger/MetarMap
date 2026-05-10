@@ -256,6 +256,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Without this, every leg advance leaves dead polylines/markers stacked on the map.
     private val flightPlanPolylines = mutableListOf<Polyline>()
     private val flightPlanMarkers = mutableListOf<Marker>()
+    // Tracks the last FlightPlan reference rendered to the map so onResume
+    // can skip the expensive redraw when the plan hasn't actually changed.
+    private var lastRenderedFlightPlan: FlightPlan? = null
     private val tfrPolygonInfo = mutableMapOf<Polygon, MutableList<TFRProperties>>()
     private var metarData: List<METAR> = emptyList()
     private var tafData: List<TAF> = emptyList()
@@ -684,6 +687,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         super.onResume()
         if (::mMap.isInitialized) {
             loadMapPreferences()
+            // Returning from FlightPlanActivity (or any child screen) may have
+            // changed FlightPlanHolder.currentPlan. Re-render only when it has
+            // actually changed, to avoid churning polylines on every resume.
+            val current = FlightPlanHolder.currentPlan
+            if (current !== lastRenderedFlightPlan) {
+                if (current != null) {
+                    updateMapWithFlightPlan(current, recenterCamera = true)
+                } else {
+                    // Plan was cleared — wipe the on-map flight plan visuals
+                    flightPlanPolylines.forEach { it.remove() }
+                    flightPlanPolylines.clear()
+                    flightPlanMarkers.forEach { it.remove() }
+                    flightPlanMarkers.clear()
+                }
+                lastRenderedFlightPlan = current
+            }
         }
     }
 
@@ -1254,6 +1273,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         if (flightPlan != null) {
             updateMapWithFlightPlan(flightPlan, recenterCamera = true)
+            lastRenderedFlightPlan = flightPlan
         }
 
 //        val waypoints: ArrayList<Waypoint>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

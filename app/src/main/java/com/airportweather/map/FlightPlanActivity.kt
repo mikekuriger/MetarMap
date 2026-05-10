@@ -196,8 +196,7 @@ class FlightPlanActivity : AppCompatActivity() {
                 FlightPlanHolder.currentPlan = null
                 sharedPreferences.edit().remove("WAYPOINTS").apply()
 
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
+                returnToMainActivity()
                 return@setOnClickListener
             }
 
@@ -217,15 +216,9 @@ class FlightPlanActivity : AppCompatActivity() {
                 val flightPlan = buildFlightPlanFromText(this, rawText, currentLocation = location)
 
                 if (flightPlan != null) {
-                    val intent = Intent(this, MainActivity::class.java)
-                    intent.putParcelableArrayListExtra(
-                        "WAYPOINTS",
-                        ArrayList(flightPlan.legs.flatMap { listOf(it.from, it.to) }.distinctBy { it.name })
-                    )
-
                     FlightPlanHolder.currentPlan = flightPlan
                     sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
-                    startActivity(intent)
+                    returnToMainActivity()
                 } else {
                     Toast.makeText(this, "Invalid flight plan", Toast.LENGTH_SHORT).show()
                 }
@@ -303,6 +296,17 @@ class FlightPlanActivity : AppCompatActivity() {
         for (wp in waypoints) {
             Log.d("FlightPlan", "→ ${wp.name} (${wp.lat}, ${wp.lon})")
         }
+        returnToMainActivity(intent)
+    }
+
+    /**
+     * Return to the existing MainActivity instead of starting a fresh one on top.
+     * Without these flags the back-stack ends up with two (or more) MainActivity
+     * instances, each holding its own GoogleMap + cached SUA/METAR data, which
+     * doubles heap usage and OOMs the next time we parse the 9 MB SUA GeoJSON.
+     */
+    private fun returnToMainActivity(intent: Intent = Intent(this, MainActivity::class.java)) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         startActivity(intent)
     }
 }
