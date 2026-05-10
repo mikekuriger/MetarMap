@@ -97,34 +97,84 @@ class AirportDatabaseHelper(private val context: Context) :
         return results
     }
 
+    // NAV_BASE column names vary by FAA NASR build (NAV_NAME vs NAME vs others).
+    // Detect once on first use; cache the answer.
+    private var navColumns: Set<String>? = null
+    private fun navBaseColumns(): Set<String> {
+        navColumns?.let { return it }
+        val cols = mutableSetOf<String>()
+        try {
+            readableDatabase.rawQuery("PRAGMA table_info(NAV_BASE)", null).use { cursor ->
+                while (cursor.moveToNext()) {
+                    cols += cursor.getString(1).uppercase()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("WaypointSearch", "Could not introspect NAV_BASE: ${e.message}")
+        }
+        Log.d("WaypointSearch", "NAV_BASE columns: $cols")
+        navColumns = cols
+        return cols
+    }
+
     private fun searchNavaids(query: String, limit: Int): List<WaypointSearchResult> {
         val prefix = "$query%"
         val contains = "%$query%"
-        // NAV_BASE schema varies by build of the DB. Try with NAV_NAME + CITY first;
-        // if those columns aren't present, the SQL throws and we fall back to code-only.
-        val richSql = """
-            SELECT NAV_ID, NAV_NAME, CITY, STATE_CODE
+        val cols = navBaseColumns()
+
+        // Pick the first column from each candidate set that actually exists in
+        // this build of the DB. NASR sometimes ships "NAV_NAME", sometimes "NAME";
+        // city/state column names also vary.
+        val nameCol = listOf("NAV_NAME", "NAME", "NAVAID_NAME").firstOrNull { it in cols }
+        val cityCol = listOf("CITY", "ASSOC_CITY").firstOrNull { it in cols }
+        val stateCol = listOf("STATE_CODE", "STATE", "STATE_NAME").firstOrNull { it in cols }
+
+        // Build the WHERE clause dynamically based on which columns we have. NAV_ID
+        // is always present (we use it elsewhere in this class for lookupNavaid).
+        val whereParts = mutableListOf("NAV_ID LIKE ? COLLATE NOCASE")
+        val whereArgs = mutableListOf<String>(prefix)
+        if (nameCol != null) {
+            whereParts += "$nameCol LIKE ? COLLATE NOCASE"
+            whereArgs += contains
+        }
+        if (cityCol != null) {
+            whereParts += "$cityCol LIKE ? COLLATE NOCASE"
+            whereArgs += contains
+        }
+        val whereClause = whereParts.joinToString(" OR ")
+
+        // SELECT list always includes NAV_ID; name and city/state are NULL if absent.
+        val selectName = nameCol ?: "NULL"
+        val selectCity = cityCol ?: "NULL"
+        val selectState = stateCol ?: "NULL"
+
+        // Ranking: exact ID → ID prefix → name prefix → city prefix → contains.
+        val orderParts = mutableListOf<String>(
+            "WHEN NAV_ID = ? COLLATE NOCASE THEN 0",
+            "WHEN NAV_ID LIKE ? COLLATE NOCASE THEN 1",
+        )
+        val orderArgs = mutableListOf<String>(query, prefix)
+        if (nameCol != null) {
+            orderParts += "WHEN $nameCol LIKE ? COLLATE NOCASE THEN 2"
+            orderArgs += prefix
+        }
+        if (cityCol != null) {
+            orderParts += "WHEN $cityCol LIKE ? COLLATE NOCASE THEN 3"
+            orderArgs += prefix
+        }
+        val orderBy = "CASE ${orderParts.joinToString(" ")} ELSE 4 END, ${nameCol ?: "NAV_ID"}"
+
+        val sql = """
+            SELECT NAV_ID, $selectName, $selectCity, $selectState
             FROM NAV_BASE
-            WHERE NAV_ID LIKE ? COLLATE NOCASE
-               OR NAV_NAME LIKE ? COLLATE NOCASE
-               OR CITY LIKE ? COLLATE NOCASE
-            ORDER BY
-              CASE
-                WHEN NAV_ID = ? COLLATE NOCASE THEN 0
-                WHEN NAV_ID LIKE ? COLLATE NOCASE THEN 1
-                WHEN NAV_NAME LIKE ? COLLATE NOCASE THEN 2
-                WHEN CITY LIKE ? COLLATE NOCASE THEN 3
-                ELSE 4
-              END,
-              NAV_NAME
+            WHERE $whereClause
+            ORDER BY $orderBy
             LIMIT $limit
         """.trimIndent()
+
         val results = mutableListOf<WaypointSearchResult>()
         try {
-            readableDatabase.rawQuery(
-                richSql,
-                arrayOf(prefix, contains, contains, query, prefix, prefix, prefix),
-            ).use { cursor ->
+            readableDatabase.rawQuery(sql, (whereArgs + orderArgs).toTypedArray()).use { cursor ->
                 while (cursor.moveToNext()) {
                     val id = cursor.getString(0)
                     val name = cursor.getStringOrNull(1)
@@ -138,20 +188,7 @@ class AirportDatabaseHelper(private val context: Context) :
                 }
             }
         } catch (e: Exception) {
-            // Fallback: NAV_NAME / CITY not in schema. Code-only prefix search.
-            Log.d("WaypointSearch", "Falling back to NAV_ID-only navaid search: ${e.message}")
-            try {
-                readableDatabase.rawQuery(
-                    "SELECT NAV_ID FROM NAV_BASE WHERE NAV_ID LIKE ? COLLATE NOCASE ORDER BY NAV_ID LIMIT $limit",
-                    arrayOf(prefix),
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        results += WaypointSearchResult(cursor.getString(0), "NAVAID", null, null)
-                    }
-                }
-            } catch (e2: Exception) {
-                Log.w("WaypointSearch", "Navaid search failed entirely: ${e2.message}")
-            }
+            Log.w("WaypointSearch", "Navaid search failed: ${e.message}")
         }
         return results
     }
