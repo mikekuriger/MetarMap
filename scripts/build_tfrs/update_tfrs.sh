@@ -28,4 +28,6 @@ cd /data/MetarMap/scripts
 
 git add tfrs.geojson
 git commit -m "auto-commit $DATE"
-git push origin main
+# Push to `data` branch — keeps daily TFR auto-commits out of `main`.
+# The Android app reads from this branch via Endpoints.TFR_GEOJSON.
+git push origin HEAD:data
