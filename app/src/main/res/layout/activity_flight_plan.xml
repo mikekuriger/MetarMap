@@ -56,7 +56,7 @@
          is free for the new search input + results list. -->
     <LinearLayout
         android:id="@+id/flightPlanButtonLayout"
-        android:layout_width="140dp"
+        android:layout_width="110dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="4dp"

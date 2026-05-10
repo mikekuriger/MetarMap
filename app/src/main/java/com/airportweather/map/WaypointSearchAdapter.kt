@@ -40,7 +40,6 @@ class WaypointSearchAdapter(
         private val codeText: TextView = view.findViewById(R.id.codeText)
         private val nameText: TextView = view.findViewById(R.id.nameText)
         private val locationText: TextView = view.findViewById(R.id.locationText)
-        private val typeText: TextView = view.findViewById(R.id.typeText)
 
         fun bind(result: WaypointSearchResult, onPick: (WaypointSearchResult) -> Unit) {
             codeText.text = result.code
@@ -58,7 +57,6 @@ class WaypointSearchAdapter(
             nameText.visibility = if (result.name.isNullOrBlank()) View.GONE else View.VISIBLE
             locationText.text = result.location ?: ""
             locationText.visibility = if (result.location.isNullOrBlank()) View.GONE else View.VISIBLE
-            typeText.text = result.type
             itemView.setOnClickListener { onPick(result) }
         }
     }
