@@ -108,10 +108,10 @@
             android:text="Hide Distant Traffic" />
 
         <CheckBox
-            android:id="@+id/use_stratux_gps"
+            android:id="@+id/force_internal_gps"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Use Stratux GPS for navigation" />
+            android:text="Force internal GPS (ignore Stratux)" />
 
         <CheckBox
             android:id="@+id/toggle_auto_record"

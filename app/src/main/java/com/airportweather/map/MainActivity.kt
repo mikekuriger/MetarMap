@@ -2411,8 +2411,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     //Traffic markers (stratux)
     private fun checkStratuxAndConnectIfEnabled(loc: Location) {
         // Re-read prefs on every call so Settings toggles take effect immediately.
+        // useStratuxGps is the inverse of force_internal_gps: by default we PREFER
+        // Stratux GPS when reachable; the user can opt out via the Settings checkbox
+        // to fall back to phone GPS (useful when Stratux fix is flaky, indoor, etc).
         isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
-        useStratuxGps = sharedPrefs.getBoolean("use_stratux_gps", false)
+        useStratuxGps = !sharedPrefs.getBoolean("force_internal_gps", false)
 
         // Nothing to do if neither traffic nor Stratux GPS is wanted.
         if (!isTrafficEnabled && !useStratuxGps) {
@@ -2471,18 +2474,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         }
                     }
                 }
-                // Always subscribe to Stratux GPS while reachable — even if
-                // "Use Stratux GPS for navigation" is off, we still want the
-                // altitude reading for the HUD. The listener itself decides
-                // whether to actually drive position based on useStratuxGps.
-                if (!stratuxGpsSubscribed) {
+                // Subscribe to Stratux GPS only if the user hasn't forced internal
+                // GPS. When forced internal, we use phone GPS for both position and
+                // altitude — keeping the GPS WebSocket idle.
+                if (useStratuxGps && !stratuxGpsSubscribed) {
                     Log.d("Stratux", "Subscribing to Stratux GPS")
                     StratuxManager.connectToGps(stratuxGpsListener)
                     stratuxGpsSubscribed = true
+                    binding.gpsStatusIcon.setColorFilter(Color.GREEN)
+                } else if (!useStratuxGps && stratuxGpsSubscribed) {
+                    Log.d("Stratux", "User forced internal GPS — unsubscribing from Stratux")
+                    StratuxManager.removeGpsListener(stratuxGpsListener)
+                    stratuxGpsSubscribed = false
+                    isStratuxGpsActive = false
+                    latestStratuxGps = null
+                    binding.gpsStatusIcon.setColorFilter(Color.BLACK)
                 }
-                binding.gpsStatusIcon.setColorFilter(
-                    if (useStratuxGps) Color.GREEN else Color.BLACK
-                )
             } else {
                 Log.w("Stratux", "Stratux not reachable")
                 stratuxStarted = false
