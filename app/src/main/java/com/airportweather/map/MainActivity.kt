@@ -2444,9 +2444,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             clearAllTraffic()
         }
 
-        // Throttle: skip the probe if we ran one recently. Reachability doesn't
-        // change faster than the user moves in/out of WiFi range, and the WebSocket
-        // already auto-reconnects on drops.
+        // Synchronous downgrades — apply immediately, regardless of probe throttle.
+        // The user just unchecked something in Settings; we shouldn't make them wait
+        // up to 15 s for the next probe before unsubscribing.
+        if (!useStratuxGps && stratuxGpsSubscribed) {
+            Log.d("Stratux", "User forced internal GPS — unsubscribing from Stratux")
+            StratuxManager.removeGpsListener(stratuxGpsListener)
+            stratuxGpsSubscribed = false
+            isStratuxGpsActive = false
+            latestStratuxGps = null
+            binding.gpsStatusIcon.setColorFilter(Color.BLACK)
+        }
+
+        // Throttle: skip the network probe if we ran one recently. Reachability
+        // doesn't change faster than the user moves in/out of WiFi range, and the
+        // WebSocket already auto-reconnects on drops. Note: this only throttles the
+        // *probe* — synchronous teardown above runs every call so toggles in
+        // Settings take effect within one location callback.
         val now = System.currentTimeMillis()
         if (now - lastStratuxProbeMs < stratuxProbeIntervalMs) return
         lastStratuxProbeMs = now
@@ -2474,21 +2488,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         }
                     }
                 }
-                // Subscribe to Stratux GPS only if the user hasn't forced internal
-                // GPS. When forced internal, we use phone GPS for both position and
-                // altitude — keeping the GPS WebSocket idle.
+                // Subscribe to Stratux GPS only if the user hasn't forced internal.
+                // (The unsubscribe path is handled synchronously above, outside the
+                // probe throttle, so toggling Settings off takes effect immediately.)
                 if (useStratuxGps && !stratuxGpsSubscribed) {
                     Log.d("Stratux", "Subscribing to Stratux GPS")
                     StratuxManager.connectToGps(stratuxGpsListener)
                     stratuxGpsSubscribed = true
                     binding.gpsStatusIcon.setColorFilter(Color.GREEN)
-                } else if (!useStratuxGps && stratuxGpsSubscribed) {
-                    Log.d("Stratux", "User forced internal GPS — unsubscribing from Stratux")
-                    StratuxManager.removeGpsListener(stratuxGpsListener)
-                    stratuxGpsSubscribed = false
-                    isStratuxGpsActive = false
-                    latestStratuxGps = null
-                    binding.gpsStatusIcon.setColorFilter(Color.BLACK)
                 }
             } else {
                 Log.w("Stratux", "Stratux not reachable")
