@@ -2968,7 +2968,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             for (wp in listOf(leg.from, leg.to)) {
                 val style = MarkerStyle(
                     size = 40,
-                    fillColor = if (wp.type == "NAVAID") Color.CYAN else if (wp.type == "FIX") Color.YELLOW else Color.LTGRAY,
+                    fillColor = when (wp.type) {
+                        "NAVAID" -> Color.CYAN
+                        "FIX" -> Color.YELLOW
+                        "USER" -> Color.MAGENTA  // test/user waypoints from assets/fake_waypoints.txt
+                        else -> Color.LTGRAY
+                    },
                     borderColor = Color.WHITE,
                     borderWidth = 6
                 )

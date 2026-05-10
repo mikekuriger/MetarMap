@@ -20,6 +20,7 @@ import androidx.core.view.WindowCompat
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.FlightPlanHolder
+import com.airportweather.map.utils.UserWaypoints
 import com.airportweather.map.utils.Waypoint
 import com.airportweather.map.utils.buildFlightPlanFromText
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -70,6 +71,7 @@ class FlightPlanActivity : AppCompatActivity() {
                 }
 
                 val dbHelper = AirportDatabaseHelper(this@FlightPlanActivity)
+                UserWaypoints.ensureLoaded(this@FlightPlanActivity)
                 val input = s.toString().uppercase()
                 val endsWithSpace = input.endsWith(" ")
                 val words = input.trim().split("\\s+".toRegex())
@@ -86,9 +88,11 @@ class FlightPlanActivity : AppCompatActivity() {
 
                     val isLastWord = (i == words.lastIndex) && !endsWithSpace
                     val color = when {
+                        UserWaypoints.exists(word) -> Color.MAGENTA  // test/user waypoints
                         dbHelper.fixExists(word) -> Color.YELLOW
                         dbHelper.navExists(word) -> Color.BLUE
                         dbHelper.airportExists(word) -> Color.GREEN
+                        UserWaypoints.prefixExists(word) && isLastWord -> Color.WHITE
                         dbHelper.fixPrefixExists(word) && isLastWord -> Color.WHITE
                         dbHelper.navPrefixExists(word) && isLastWord -> Color.WHITE
                         dbHelper.airportPrefixExists(word) && isLastWord -> Color.WHITE

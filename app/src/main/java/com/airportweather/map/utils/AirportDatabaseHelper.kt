@@ -7,7 +7,7 @@ import android.util.Log
 import androidx.core.database.getDoubleOrNull
 import androidx.core.database.getStringOrNull
 
-class AirportDatabaseHelper(context: Context) :
+class AirportDatabaseHelper(private val context: Context) :
     SQLiteOpenHelper(context, "faa_navigation.db", null, 1) {
 
     override fun onCreate(db: SQLiteDatabase?) {} // Not needed if you're using a prebuilt DB
@@ -16,6 +16,11 @@ class AirportDatabaseHelper(context: Context) :
     // New waypoint lookup
     fun lookupWaypoint(code: String): Waypoint? {
         val upperCode = code.uppercase()
+
+        // User-defined test waypoints (assets/fake_waypoints.txt) take priority
+        // so they can shadow real codes if needed for testing.
+        UserWaypoints.ensureLoaded(context)
+        UserWaypoints.lookup(upperCode)?.let { return it }
 
         return when {
             upperCode.startsWith("K") && upperCode.length == 4 -> {
