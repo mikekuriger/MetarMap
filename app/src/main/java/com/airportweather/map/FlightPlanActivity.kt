@@ -1,6 +1,7 @@
 package com.airportweather.map
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -9,6 +10,7 @@ import android.text.Editable
 import android.text.Spannable
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -17,6 +19,8 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.FlightPlanHolder
@@ -25,12 +29,19 @@ import com.airportweather.map.utils.Waypoint
 import com.airportweather.map.utils.buildFlightPlanFromText
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FlightPlanActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFlightPlanBinding
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var searchAdapter: WaypointSearchAdapter
+    private var searchJob: Job? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -116,6 +127,7 @@ class FlightPlanActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
+        setupWaypointSearch()
 
         // BUTTONS
         // ✅ When "Reverse Flight Plan" button is clicked
@@ -286,6 +298,57 @@ class FlightPlanActivity : AppCompatActivity() {
             val parts = it.split("|", limit = 2)
             if (parts.size == 2) parts[0] to parts[1] else null
         } ?: emptyList()
+    }
+
+    /**
+     * Wire up the search box and results list under the flight plan editor.
+     * Searches APT/NAV/FIX tables on a 250ms debounce while the user types, and
+     * appends the chosen code to the flight plan when a result is tapped.
+     */
+    private fun setupWaypointSearch() {
+        val dbHelper = AirportDatabaseHelper(this)
+        searchAdapter = WaypointSearchAdapter { result ->
+            // Append the code to the flight plan editor with a single space
+            // separator. Trailing space leaves a clean spot for the next waypoint.
+            val current = binding.flightPlanEdit.text.toString().trimEnd()
+            val sep = if (current.isEmpty()) "" else " "
+            val newText = "$current$sep${result.code} "
+            binding.flightPlanEdit.setText(newText)
+            binding.flightPlanEdit.setSelection(newText.length)
+
+            // Clear the search box, hide the keyboard, and clear focus so the
+            // user can read the plan they've built without the keyboard covering it.
+            binding.searchInput.setText("")
+            searchAdapter.update(emptyList())
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.searchInput.windowToken, 0)
+            binding.searchInput.clearFocus()
+            binding.flightPlanEdit.clearFocus()
+        }
+
+        binding.searchResults.layoutManager = LinearLayoutManager(this)
+        binding.searchResults.adapter = searchAdapter
+
+        binding.searchInput.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                searchJob?.cancel()
+                val query = s?.toString().orEmpty()
+                if (query.trim().length < 2) {
+                    searchAdapter.update(emptyList())
+                    return
+                }
+                // 250 ms debounce, then run the (LIKE-based) query off the main thread.
+                searchJob = lifecycleScope.launch {
+                    delay(250)
+                    val results = withContext(Dispatchers.IO) {
+                        dbHelper.searchWaypoints(query, limit = 30)
+                    }
+                    searchAdapter.update(results)
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
     }
 
     // push to map
