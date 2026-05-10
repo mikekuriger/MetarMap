@@ -2264,8 +2264,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lastKnownUserLocation = location
         val userLatLng = LatLng(location.latitude, location.longitude)
 
-        // ✅ Re-center if following
-        if (isFollowingUser) {
+        // ✅ Re-center if following — but only after the map is ready.
+        // Location callbacks can fire before onMapReady completes.
+        if (isFollowingUser && ::mMap.isInitialized) {
             mMap.animateCamera(
                 CameraUpdateFactory.newLatLngZoom(userLatLng, mMap.cameraPosition.zoom)
             )
@@ -2909,6 +2910,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     //Flight plan markers, waypoints, LEGS
     private fun updateMapWithFlightPlan(flightPlan: FlightPlan) {
+        // Guard: handleNewLocation can fire before onMapReady completes,
+        // especially when an already-active flight plan auto-advances on
+        // the first location fix (e.g. starting waypoint = current position).
+        if (!::mMap.isInitialized) return
         val latLngList = mutableListOf<LatLng>()
         val waypointNames = mutableListOf<String>()
         val dbHelper = AirportDatabaseHelper(this)
