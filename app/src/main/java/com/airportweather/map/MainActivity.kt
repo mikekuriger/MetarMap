@@ -2465,6 +2465,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             isStratuxGpsActive = false
             latestStratuxGps = null
             binding.gpsStatusIcon.setColorFilter(Color.BLACK)
+            // Reset the probe throttle so toggling back ON triggers an immediate
+            // re-subscribe on the next location callback (≤1 s), rather than
+            // waiting up to 15 s for the next probe window.
+            lastStratuxProbeMs = 0L
         }
 
         // Throttle: skip the network probe if we ran one recently. Reachability
