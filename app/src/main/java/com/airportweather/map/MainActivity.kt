@@ -804,38 +804,61 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         location: Location,
         flightPlan: FlightPlan
     ): FlightData {
+        if (flightPlan.legs.isEmpty()) return FlightData.empty()
+
+        // After the last waypoint is auto-advanced past, no leg is active. We still
+        // want the HUD to keep updating — distance grows, bearing rotates as the
+        // user circles for a go-around or just keeps flying. Fall through to the
+        // last leg's destination as the "target" in that case.
+        val activeLeg = flightPlan.legs.firstOrNull { it.active && !it.completed }
+        val targetLeg = activeLeg ?: flightPlan.legs.last()
+        val isPostPlan = activeLeg == null
+
         val userLatLng = LatLng(location.latitude, location.longitude)
-        val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
-        // Prefer Stratux altitude when available — its avionics-grade GPS is
-        // typically more accurate than a phone's, and its barometric data is
-        // a quiet improvement even when Stratux isn't driving position.
+        val groundSpeed = location.speed.toDouble() * 1.94384  // m/s → kt
         val altitude = if (stratuxGpsFresh()) {
             latestStratuxGps!!.altitudeFt
         } else {
             location.altitude * 3.28084  // phone-GPS metres → feet
         }
-        val activeLeg = flightPlan.legs.firstOrNull { it.active } ?: return FlightData.empty()
 
-        val wpFrom = activeLeg.from
-        val wpTo = activeLeg.to
-
-        val fromLatLng = LatLng(wpFrom.lat, wpFrom.lon)
+        val wpFrom = targetLeg.from
+        val wpTo = targetLeg.to
         val toLatLng = LatLng(wpTo.lat, wpTo.lon)
-        val magVar = wpFrom.magVar
+
+        // Live magnetic declination at the user's current position. Replaces the
+        // per-waypoint stored magVar, which was 0 for USER waypoints (test data)
+        // and for the "current location" pseudo-waypoint used in direct-to plans —
+        // making the displayed bearing/track effectively TRUE for those legs.
+        // Android's GeomagneticField is the WMM under the hood; auto-updates as
+        // the user crosses isogonic lines on a long leg.
+        val magVar = -android.hardware.GeomagneticField(
+            location.latitude.toFloat(),
+            location.longitude.toFloat(),
+            location.altitude.toFloat(),
+            location.time
+        ).declination.toDouble()
 
         val track = location.bearing.toDouble()
         val magneticTrack = (track + magVar + 360) % 360
 
-        //val bearingToWp = calculateBearing(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
-        val trueCourse = FlightPlanUtils.calculateTrueCourse(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
+        val trueCourse = FlightPlanUtils.calculateTrueCourse(
+            userLatLng.latitude, userLatLng.longitude,
+            toLatLng.latitude, toLatLng.longitude
+        )
         val bearingToWp = (trueCourse + magVar + 360) % 360
-        val distanceToWp = FlightPlanUtils.calculateDistance(userLatLng.latitude, userLatLng.longitude, toLatLng.latitude, toLatLng.longitude)
+        val distanceToWp = FlightPlanUtils.calculateDistance(
+            userLatLng.latitude, userLatLng.longitude,
+            toLatLng.latitude, toLatLng.longitude
+        )
         val etaMinutes = calculateETA(distanceToWp, groundSpeed, plannedAirSpeed)
         val eta = formatETA(etaMinutes)
 
+        val legLabel = if (isPostPlan) "Past ${wpTo.name}" else "${wpFrom.name} → ${wpTo.name}"
+
         return FlightData(
             wpLocation = toLatLng,
-            currentLeg = "${wpFrom.name} → ${wpTo.name}",
+            currentLeg = legLabel,
             track = magneticTrack,
             bearing = bearingToWp,
             distance = distanceToWp,
@@ -843,7 +866,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             plannedAirSpeed = plannedAirSpeed,
             altitude = altitude,
             eta = eta,
-            waypoints = listOf(wpTo) // or flightPlan.legs.map { it.to }
+            waypoints = listOf(wpTo)
         )
     }
 
@@ -2344,12 +2367,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 updateMapWithFlightPlan(flightPlan)
             }
 
-            val activeLeg = flightPlan.legs.firstOrNull { it.active && !it.completed }
-            if (activeLeg != null) {
-//                val flightData = calculateFlightData(location, listOf(activeLeg.from, activeLeg.to))
-                val flightData = calculateFlightData(location, flightPlan)
-                updateFlightInfo(flightData)
-            }
+            // Always recompute and display flight data — even after the last
+            // waypoint is "passed", calculateFlightData keeps tracking distance
+            // and bearing to the final destination so the HUD stays useful for
+            // go-arounds, diversions, etc.
+            val flightData = calculateFlightData(location, flightPlan)
+            updateFlightInfo(flightData)
         }
     }
 

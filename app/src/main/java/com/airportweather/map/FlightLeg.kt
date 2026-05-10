@@ -37,37 +37,58 @@ data class FlightPlan(
         }
 
     /**
-     * Advance the active leg if the aircraft has reached or passed the `to` waypoint.
+     * Advance the active leg when the aircraft has crossed the bisector of the
+     * turn at the next waypoint — the geometrically correct definition of
+     * "passing" a waypoint in a flight plan.
      *
-     * Two triggers, either of which fires the advance:
-     *   1. Proximity: distance to the waypoint is within [proximityNm] (you're "at" it).
-     *   2. Bearing-flip: bearing from current position to the waypoint differs from
-     *      the leg's true course by more than 90° (the waypoint is now behind you).
-     *      This catches the common case of flying past a waypoint with crosswind drift
-     *      or a wide turn — proximity alone never triggered, leaving the leg stuck.
+     * At waypoint B with neighbors A (previous) and C (next), the "passing
+     * direction" is the average of the incoming course (A→B) and the outgoing
+     * course (B→C). The line perpendicular to that direction through B is the
+     * bisector of the turn. We've "passed" B when the bearing FROM B TO the
+     * aircraft is within 90° of the passing direction — i.e., the waypoint is
+     * now behind us along the bisector.
+     *
+     * For the final waypoint (no next leg), passing direction = incoming course,
+     * so the check reduces to crossing the perpendicular line at the waypoint.
+     *
+     * Gated by [advanceWindowNm]: outside the window we don't auto-advance even
+     * if the bisector geometry says we did. This avoids accidental advance when
+     * the user has intentionally flown wide of the plan (sightseeing, weather
+     * diversion, etc.); they can tap a leg line to advance manually.
      */
-    fun advanceLegIfPast(currentLocation: LatLng, proximityNm: Double = 0.5): Boolean {
+    fun advanceLegIfPast(currentLocation: LatLng, advanceWindowNm: Double = 0.5): Boolean {
         val current = legs.firstOrNull { it.active && !it.completed } ?: return false
 
         val distanceNm = FlightPlanUtils.calculateDistance(
             currentLocation.latitude, currentLocation.longitude,
             current.to.lat, current.to.lon
         )
+        if (distanceNm > advanceWindowNm) return false
 
-        if (distanceNm <= proximityNm) {
-            return advanceCurrent()
+        // Passing direction = bisector of incoming and outgoing legs at the waypoint.
+        // For the final waypoint, no outgoing leg — fall back to incoming course alone.
+        val nextLeg = legs.dropWhile { it != current }.drop(1).firstOrNull()
+        val passingDirection = if (nextLeg != null) {
+            averageBearing(current.trueCourse.toDouble(), nextLeg.trueCourse.toDouble())
+        } else {
+            current.trueCourse.toDouble()
         }
 
-        val bearingToWaypoint = FlightPlanUtils.calculateTrueCourse(
-            currentLocation.latitude, currentLocation.longitude,
-            current.to.lat, current.to.lon
+        val bearingFromWp = FlightPlanUtils.calculateTrueCourse(
+            current.to.lat, current.to.lon,
+            currentLocation.latitude, currentLocation.longitude
         )
-        val courseDelta = angularDelta(bearingToWaypoint, current.trueCourse.toDouble())
-        if (courseDelta > 90.0) {
+        val delta = angularDelta(bearingFromWp, passingDirection)
+        if (delta < 90.0) {
             return advanceCurrent()
         }
-
         return false
+    }
+
+    /** Average of two compass bearings, handling 0/360 wraparound. */
+    private fun averageBearing(b1: Double, b2: Double): Double {
+        val diff = ((b2 - b1 + 540.0) % 360.0) - 180.0  // signed delta in (-180, 180]
+        return (b1 + diff / 2.0 + 360.0) % 360.0
     }
 
     private fun advanceCurrent(): Boolean {
