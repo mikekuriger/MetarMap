@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small red dot used as the action view on the Downloads nav drawer item when
+     stale charts exist. Bound by MainActivity.bindStaleChartBadge(). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_vertical|end"
+    android:paddingEnd="12dp"
+    android:paddingStart="12dp">
+
+    <View
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        android:background="@drawable/badge_dot" />
+</FrameLayout>
