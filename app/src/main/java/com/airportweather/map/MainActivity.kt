@@ -25,6 +25,7 @@ import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.util.LruCache
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.WindowManager
@@ -32,6 +33,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -265,6 +267,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var currentLayerName: String = "FlightConditions"
     private var sectionalOverlay: TileOverlay? = null
     private var terminalOverlay: TileOverlay? = null
+    private var ifrOverlay: TileOverlay? = null
+    private var currentChartMode: ChartMode = ChartMode.VFR
     private var lastKnownUserLocation: Location? = null
     private val activeSpeed = 10
     private val plannedAirSpeed = 95 // make editable in the UI
@@ -397,8 +401,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
         // const val ACTIVE_SPEED = 10
+
+        private const val PREF_CHART_MODE = "chart_mode"
+        // Legacy boolean we migrate from on first launch with the new selector.
+        private const val LEGACY_PREF_SHOW_CHART = "show_chart"
     }
 // end vars
+
+    /**
+     * Which set of aeronautical chart tiles is currently rendered under the map.
+     * Persisted as a string in MapSettings under [PREF_CHART_MODE].
+     */
+    enum class ChartMode(val label: String) {
+        VFR("VFR"),
+        IFR("IFR"),
+        OFF("OFF");
+
+        companion object {
+            fun fromName(name: String?): ChartMode = entries.firstOrNull { it.name == name } ?: VFR
+        }
+    }
 
     sealed class MapLayer {
         data object FlightConditions : MapLayer()
@@ -581,6 +603,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         navView.setNavigationItemSelectedListener(this)
 
+        bindStaleChartBadge()
+
         // location stuff
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationCallback = object : LocationCallback() {
@@ -685,6 +709,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     override fun onResume() {
         super.onResume()
+        // Refresh the chart catalog so the Downloads drawer badge reflects any
+        // new FAA cycle published since the last app session. Repository caches
+        // the result for 24h so this is cheap on repeat opens.
+        viewModel.refreshChartCatalog()
         if (::mMap.isInitialized) {
             loadMapPreferences()
             // Returning from FlightPlanActivity (or any child screen) may have
@@ -729,17 +757,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val showAirspace = prefs.getBoolean("show_airspace", true)
         val showTfrs = prefs.getBoolean("show_tfrs", true)
         val showMetars = prefs.getBoolean("show_metars", true)
-        val showChart = prefs.getBoolean("show_chart", true)
+        val chartMode = loadChartModePref(prefs)
 
-        // Apply logic to show/hide layers
-        setLayerVisibility(showAirspace, showTfrs, showMetars, showChart)
+        setLayerVisibility(showAirspace, showTfrs, showMetars, chartMode)
+    }
+
+    /**
+     * Reads the chart-mode preference, migrating a legacy boolean if present.
+     * The boolean predated this 3-way selector; true → VFR, false → OFF.
+     */
+    private fun loadChartModePref(prefs: SharedPreferences): ChartMode {
+        prefs.getString(PREF_CHART_MODE, null)?.let { return ChartMode.fromName(it) }
+        if (prefs.contains(LEGACY_PREF_SHOW_CHART)) {
+            val legacy = prefs.getBoolean(LEGACY_PREF_SHOW_CHART, true)
+            val migrated = if (legacy) ChartMode.VFR else ChartMode.OFF
+            prefs.edit().putString(PREF_CHART_MODE, migrated.name).apply()
+            return migrated
+        }
+        return ChartMode.VFR
     }
 
     private fun setLayerVisibility(
         showAirspace: Boolean,
         showTfrs: Boolean,
         showMetars: Boolean,
-        showChart: Boolean,
+        chartMode: ChartMode,
     ) {
         toggleAirspace(showAirspace)
         updateButtonState(binding.toggleAirspaceButton, showAirspace)
@@ -750,9 +792,50 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         toggleMetarVisibility(showMetars)
         updateButtonState(binding.toggleMetarButton, showMetars)
 
-        toggleSectionalOverlay(mMap, showChart)
-        updateButtonState(binding.toggleVfrsecButton, showChart)
+        setChartMode(mMap, chartMode)
+    }
 
+    /**
+     * Pops the chart-mode menu (VFR / IFR / OFF) anchored to the CHART button.
+     * Persists the selection to MapSettings and applies it via [setChartMode].
+     */
+    private fun showChartModeMenu(anchor: View, prefs: SharedPreferences) {
+        val popup = PopupMenu(this, anchor)
+        // Inflated from code so we don't need a menu resource file.
+        for ((i, mode) in ChartMode.entries.withIndex()) {
+            val item = popup.menu.add(0, i, i, mode.label)
+            item.isCheckable = true
+            item.isChecked = mode == currentChartMode
+        }
+        popup.menu.setGroupCheckable(0, true, true)
+        popup.setOnMenuItemClickListener { item ->
+            val mode = ChartMode.entries[item.itemId]
+            prefs.edit().putString(PREF_CHART_MODE, mode.name).apply()
+            setChartMode(mMap, mode)
+            true
+        }
+        popup.show()
+    }
+
+    /**
+     * Shows/hides a small red dot on the "Downloads" nav drawer item whenever the
+     * ViewModel reports installed charts that have a newer FAA cycle available.
+     * The action view itself is just a coloured circle (see nav_badge_dot.xml).
+     */
+    private fun bindStaleChartBadge() {
+        val item = navView.menu.findItem(R.id.nav_downloads) ?: return
+        val badge = LayoutInflater.from(this)
+            .inflate(R.layout.nav_badge_dot, navView, false)
+        item.actionView = badge
+        badge.visibility = View.GONE
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.staleChartCount.collect { count ->
+                    badge.visibility = if (count > 0) View.VISIBLE else View.GONE
+                }
+            }
+        }
     }
 
     // ✅ Navigation Drawer
@@ -1255,29 +1338,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             airspaceLoaded = true
         }
 
-        // Sectionals
-        // Initialize the tile overlay toggle
+        // Chart selector (VFR sectional + terminal, IFR enroute, or off).
         if (!sectionalLoaded) {
-            var isSectionalVisible: Boolean
             val vfrSecButton = binding.toggleVfrsecButton
-            if (firstLaunch) {
-                isSectionalVisible = true
-                updateButtonState(vfrSecButton, isSectionalVisible)
-                sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
-                toggleSectionalOverlay(mMap, true)
+            val initialMode = if (firstLaunch) {
+                ChartMode.VFR.also {
+                    sharedPrefs.edit().putString(PREF_CHART_MODE, it.name).apply()
+                }
             } else {
-                isSectionalVisible = sharedPrefs.getBoolean("show_chart", true)
-                updateButtonState(vfrSecButton, isSectionalVisible)
-                toggleSectionalOverlay(mMap, isSectionalVisible)
+                loadChartModePref(sharedPrefs)
             }
-            vfrSecButton.setOnClickListener {
-                isSectionalVisible = !isSectionalVisible
-                // toggle in savedprefs
-                sharedPrefs.edit().putBoolean("show_chart", isSectionalVisible).apply()
-                prefsDump()
-                toggleSectionalOverlay(mMap, isSectionalVisible)
-                updateButtonState(vfrSecButton, isSectionalVisible)
-            }
+            setChartMode(mMap, initialMode)
+            vfrSecButton.setOnClickListener { showChartModeMenu(vfrSecButton, sharedPrefs) }
             sectionalLoaded = true
         }
 
@@ -2267,39 +2339,55 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     // createWindBarbBitmap moved to BitmapHelpers.kt
 
-    // TILES (sectional charts)
-    private fun toggleSectionalOverlay(map: GoogleMap, visible: Boolean) {
+    // TILES (aeronautical charts: VFR sectional+terminal, or IFR enroute)
+    /**
+     * Applies the selected [ChartMode], lazily creating tile overlays for any layer
+     * that hasn't been added to the map yet. VFR turns on sectional + terminal,
+     * IFR turns on enroute-low, OFF hides all of them.
+     */
+    private fun setChartMode(map: GoogleMap, mode: ChartMode) {
         if (sectionalOverlay == null) {
-            val sectionalTileProvider = SectionalTileProvider(this)
-            val tileOverlayOptions = TileOverlayOptions()
-                .tileProvider(sectionalTileProvider)
-                .transparency(0.0f)
-                .zIndex(-1.0f) // ✅ Sectional is the base layer
-            sectionalOverlay = map.addTileOverlay(tileOverlayOptions)
+            sectionalOverlay = map.addTileOverlay(
+                TileOverlayOptions()
+                    .tileProvider(SectionalTileProvider(this))
+                    .transparency(0.0f)
+                    .zIndex(-1.0f) // base
+            )
         }
-
         if (terminalOverlay == null) {
-            val terminalTileProvider = TerminalTileProvider(this)
-            val tileOverlayOptions = TileOverlayOptions()
-                .tileProvider(terminalTileProvider)
-                .transparency(0.0f)
-                .zIndex(-0.5f) // ✅ Terminal is over Sectional
-            terminalOverlay = map.addTileOverlay(tileOverlayOptions)
+            terminalOverlay = map.addTileOverlay(
+                TileOverlayOptions()
+                    .tileProvider(TerminalTileProvider(this))
+                    .transparency(0.0f)
+                    .zIndex(-0.5f) // over sectional
+            )
+        }
+        if (ifrOverlay == null) {
+            ifrOverlay = map.addTileOverlay(
+                TileOverlayOptions()
+                    .tileProvider(IfrTileProvider(this))
+                    .transparency(0.0f)
+                    .zIndex(-0.9f) // IFR doesn't coexist with VFR layers
+            )
         }
 
-        //sectionalVisible = !sectionalVisible // Toggle Sectional visibility
-        //terminalVisible = sectionalVisible  // Keep Terminal consistent
-        sectionalVisible = visible
-        terminalVisible = visible
-
+        currentChartMode = mode
+        sectionalVisible = mode == ChartMode.VFR
+        terminalVisible = mode == ChartMode.VFR
         sectionalOverlay?.isVisible = sectionalVisible
         terminalOverlay?.isVisible = terminalVisible
+        ifrOverlay?.isVisible = mode == ChartMode.IFR
 
+        // Smooth transition when crossing modes.
         sectionalOverlay?.clearTileCache()
-        terminalOverlay?.clearTileCache() // ✅ Ensures smooth transition
+        terminalOverlay?.clearTileCache()
+        ifrOverlay?.clearTileCache()
 
-        Log.d("Toggle", "Sectional visibility set to $sectionalVisible")
+        // Button text reflects the chosen mode; updateButtonState handles colour.
+        binding.toggleVfrsecButton.text = mode.label
+        updateButtonState(binding.toggleVfrsecButton, mode != ChartMode.OFF)
 
+        Log.d("Toggle", "Chart mode set to $mode")
     }
 
     private fun destinationPoint(start: LatLng, distanceNm: Double, bearingDeg: Double): LatLng {

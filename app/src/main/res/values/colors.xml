@@ -14,4 +14,12 @@
     <color name="gray">#666666</color>
     <color name="light_gray">#BBBBBB</color>
     <color name="semi_transparent">#66000000</color>
+    <color name="amber">#FFB300</color>
+    <color name="badge_red">#FF3D00</color>
+    <!-- Chart expiration text colours: green=valid, amber=expiring soon,
+         red=expired, gray=unknown (e.g. legacy install with no recorded date). -->
+    <color name="expires_good">#66CC66</color>
+    <color name="expires_warn">#FFB300</color>
+    <color name="expires_bad">#FF5252</color>
+    <color name="expires_unknown">#BBBBBB</color>
 </resources>

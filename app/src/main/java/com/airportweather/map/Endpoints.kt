@@ -44,6 +44,12 @@ object Endpoints {
     // marker; the published structure is /Sectional/{z}/{x}/{y}.png today.
     const val SECTIONAL_TILES = "$CHARTS_HOST/Sectional"
     const val TERMINAL_TILES = "$CHARTS_HOST/Terminal"
+    // Enroute Low IFR tiles. The directory on disk is "IFR" (matches the
+    // DownloadActivity unzip target), but the netlify path is /Enroute_Low.
+    const val IFR_TILES = "$CHARTS_HOST/Enroute_Low"
     const val CHARTS_CATALOG = "$CHARTS_HOST/zips/all_charts.json"
+    const val SECTIONAL_METADATA = "$CHARTS_HOST/Sectional/metadata.json"
+    const val TERMINAL_METADATA = "$CHARTS_HOST/Terminal/metadata.json"
+    const val ENROUTE_LOW_METADATA = "$CHARTS_HOST/Enroute_Low/metadata.json"
     const val DB_MANIFEST = "$CHARTS_HOST/sqlite/db_manifest.json"
 }

@@ -127,3 +127,17 @@ class TerminalTileProvider(context: Context) : BaseTileProvider(
         }
     }
 }
+
+class IfrTileProvider(context: Context) : BaseTileProvider(
+    context,
+    baseUrl = Endpoints.IFR_TILES,
+    localFolder = "IFR"
+) {
+    override fun getTile(x: Int, y: Int, zoom: Int): Tile? {
+        val ifrFile = File(context.filesDir, "tiles/IFR/$zoom/$x/$y.png")
+        return when {
+            ifrFile.exists() -> loadTileFromFile(ifrFile)
+            else -> loadTileFromURL(zoom, x, y, ifrFile)
+        }
+    }
+}

@@ -5,20 +5,36 @@
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
-    <Button
-        android:id="@+id/downloadDbButton"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Update Airport Databases"
-        android:layout_margin="10dp" />
+        android:orientation="vertical"
+        android:padding="6dp">
 
+        <Button
+            android:id="@+id/downloadDbButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:text="Update Airport Databases" />
+
+        <Button
+            android:id="@+id/updateAllButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:backgroundTint="@color/amber"
+            android:text="Update stale charts"
+            android:textColor="@color/black"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:padding="10dp"
         android:text="Download Sectional/Terminal Charts"
         android:textSize="18sp"
-        android:padding="10dp"
         android:textStyle="bold" />
 
     <androidx.recyclerview.widget.RecyclerView
