@@ -20,8 +20,9 @@ abstract class BaseTileProvider(
 
         return when {
             localFile.exists() -> loadTileFromFile(localFile)
-            //MRK checkTileExists(baseUrl, zoom, x, y) -> loadTileFromURL(zoom, x, y, localFile)
-            else -> null
+            // Fall back to on-demand download — loadTileFromURL writes the result
+            // to disk so subsequent visits hit the local cache.
+            else -> loadTileFromURL(zoom, x, y, localFile)
         }
     }
 
@@ -100,8 +101,12 @@ class SectionalTileProvider(context: Context) : BaseTileProvider(
         val sectionalFile = File(context.filesDir, "tiles/Sectional/$zoom/$x/$y.png")
 
         return when {
+            // Wall tiles for the wide zooms (bundled in app assets, no network).
             zoom in 4..7 -> loadTileFromAssets(wallFilePath)
+            // Sectionals for chart zooms: prefer local cache, fall back to a
+            // network download which writes the tile to disk for next time.
             zoom in 8..12 && sectionalFile.exists() -> loadTileFromFile(sectionalFile)
+            zoom in 8..12 -> loadTileFromURL(zoom, x, y, sectionalFile)
             else -> null
         }
     }
@@ -116,7 +121,9 @@ class TerminalTileProvider(context: Context) : BaseTileProvider(
         val terminalFile = File(context.filesDir, "tiles/Terminal/$zoom/$x/$y.png")
         return when {
             terminalFile.exists() -> loadTileFromFile(terminalFile)
-            else -> null
+            // On-demand download for terminal tiles. The server 404s tiles that
+            // don't exist; loadTileFromURL returns null cleanly in that case.
+            else -> loadTileFromURL(zoom, x, y, terminalFile)
         }
     }
 }
