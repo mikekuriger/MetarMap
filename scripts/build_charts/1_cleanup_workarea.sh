@@ -1,1 +1,1 @@
-rm -rf /data/chartmaker/workarea/*
+sudo rm -rf /data/chartmaker/workarea/*
