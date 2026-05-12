@@ -7,8 +7,9 @@ if [[ "$I" != "mk7193" ]]; then
 fi
 
 
-export HOME="/Users/mk7193"
-export PATH="/usr/local/bin:/usr/bin:/bin"
+#export HOME="/Users/mk7193"
+#export PATH="/usr/local/bin:/usr/bin:/bin"
+#export PATH=/home/mk7193/.local/bin:/home/mk7193/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/mk7193/bin:/home/t/bin:/usr/lib64/qt-3.3/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
 export DATE=$(date "+%y%m%d_%H%M%S")
 
 #eval $(ssh-agent -s)
