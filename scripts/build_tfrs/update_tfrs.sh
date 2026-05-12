@@ -7,10 +7,11 @@ if [[ "$I" != "mk7193" ]]; then
 fi
 
 
-#export HOME="/Users/mk7193"
+export HOME="/home/mk7193"
 #export PATH="/usr/local/bin:/usr/bin:/bin"
-#export PATH=/home/mk7193/.local/bin:/home/mk7193/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/mk7193/bin:/home/t/bin:/usr/lib64/qt-3.3/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
 export DATE=$(date "+%y%m%d_%H%M%S")
+PATH=$PATH:$HOME/bin:/home/t/bin:/usr/lib64/qt-3.3/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
+export PATH
 
 #eval $(ssh-agent -s)
 #ssh-add ~/.ssh/id_rsa
@@ -22,7 +23,7 @@ cd /data/build_tfrs || exit
 # geojson files
 #curl 'https://tfr.faa.gov/geoserver/TFR/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=TFR%3AV_TFR_LOC&maxFeatures=50&outputFormat=application%2Fjson' > /data/MetarMap/scripts/tfrs.geojson
 
-python3 faa_get_tfrs.py tfrs.geojson
+/usr/bin/python3 faa_get_tfrs.py tfrs.geojson
 /bin/cp tfrs.geojson /data/MetarMap/scripts
 
 cd /data/MetarMap/scripts
