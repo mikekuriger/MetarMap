@@ -1,1 +1,0 @@
-for i in `sudo docker ps -a | awk '{print $1}'`; do sudo docker kill $i; sudo docker rm $i; done
