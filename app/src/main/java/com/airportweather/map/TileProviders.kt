@@ -32,7 +32,7 @@ abstract class BaseTileProvider(
             val inputStream = context.assets.open(filePath)
             val tileData = inputStream.use { it.readBytes() }
             Tile(tileSize, tileSize, tileData)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Log.e("TileProvider", "Tile not found in assets: $filePath")
             null
         }
@@ -76,19 +76,6 @@ abstract class BaseTileProvider(
         }
     }
 
-    protected fun checkTileExists(baseUrl: String, zoom: Int, x: Int, y: Int): Boolean {
-        val tileUrl = "$baseUrl/$zoom/$x/$y.png"
-        return try {
-            val connection = URL(tileUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "HEAD"
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.connect()
-            connection.responseCode == HttpURLConnection.HTTP_OK
-        } catch (e: Exception) {
-            false
-        }
-    }
 }
 
 class SectionalTileProvider(context: Context) : BaseTileProvider(

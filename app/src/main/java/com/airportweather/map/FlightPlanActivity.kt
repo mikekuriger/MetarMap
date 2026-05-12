@@ -11,17 +11,25 @@ import android.text.Spannable
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.inputmethod.InputMethodManager
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Color
 import android.util.Log
 import android.widget.Toast
+import com.airportweather.map.aircraft.Aircraft
+import com.airportweather.map.aircraft.AircraftListActivity
+import com.airportweather.map.aircraft.PerformanceProfile
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.airportweather.map.databinding.ActivityFlightPlanBinding
+import com.airportweather.map.aircraft.AircraftRepository
+import com.airportweather.map.aircraft.AircraftSelectionStore
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.FlightPlanHolder
 import com.airportweather.map.utils.UserWaypoints
@@ -34,6 +42,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.math.roundToInt
 
 class FlightPlanActivity : AppCompatActivity() {
 
@@ -42,6 +52,19 @@ class FlightPlanActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var searchAdapter: WaypointSearchAdapter
     private var searchJob: Job? = null
+
+    /** Snapshot of aircraft list used to back the spinners — kept in declaration
+     *  order so spinner indices map 1:1. */
+    private var aircraftList: List<Aircraft> = emptyList()
+    private var profilesForSelected: List<PerformanceProfile> = emptyList()
+
+    /** Altitude options currently in the cruise altitude spinner (ft MSL),
+     *  in spinner order. Filtered by the selected aircraft's max ceiling. */
+    private var altitudeOptions: List<Int> = emptyList()
+    /** Most recent winds-aloft lookup keyed by altitude. Used to label the
+     *  altitude spinner and to auto-fill the wind fields when the user picks
+     *  a different altitude. */
+    private var altitudeWinds: Map<Int, Pair<Int, Int>> = emptyMap()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +82,8 @@ class FlightPlanActivity : AppCompatActivity() {
         // ✅ Initialize SharedPreferences
         sharedPreferences = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
 
+        setupAircraftPicker()
+
         // ✅ Load the "current" flight plan when opening the page
         loadFlightPlan()
 
@@ -70,6 +95,11 @@ class FlightPlanActivity : AppCompatActivity() {
                 } else {
                     binding.activateFlightPlanButton.text = "Activate"
                 }
+                // The route course feeds head/tail wind labels in the altitude
+                // spinner; recompute when waypoints change. The plan totals
+                // strip also depends on waypoints, so refresh it too.
+                refreshAltitudeLabels()
+                refreshPreview()
 
                 binding.flightPlanEdit.removeTextChangedListener(this)
 
@@ -224,15 +254,42 @@ class FlightPlanActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                val flightPlan = buildFlightPlanFromText(this, rawText, currentLocation = location)
+            val startingFuel = binding.startingFuelField.text.toString().toDoubleOrNull() ?: 0.0
 
-                if (flightPlan != null) {
-                    FlightPlanHolder.currentPlan = flightPlan
-                    sharedPreferences.edit().putString("WAYPOINTS", rawText).apply()
-                    returnToMainActivity()
-                } else {
-                    Toast.makeText(this, "Invalid flight plan", Toast.LENGTH_SHORT).show()
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                lifecycleScope.launch {
+                    // Wind for plan generation comes from the FB forecast at
+                    // the selected cruise altitude. Prefer the value already
+                    // cached for the altitude spinner (annotated as HW/TW);
+                    // if that's missing, fall back to a fresh lookup at the
+                    // chosen altitude.
+                    val chosenAlt = selectedCruiseAltitude()
+                    val cached = chosenAlt?.let { altitudeWinds[it] }
+                    val (resolvedWindDir, resolvedWindSpeed) = cached
+                        ?: tryFetchWindsAloft(rawText, location, chosenAlt)
+                        ?: (0 to 0)
+
+                    val flightPlan = buildFlightPlanFromText(
+                        context = this@FlightPlanActivity,
+                        rawText = rawText,
+                        cruiseAltitude = selectedCruiseAltitude(),
+                        windDir = resolvedWindDir,
+                        windSpeed = resolvedWindSpeed,
+                        startingFuel = startingFuel,
+                        currentLocation = location,
+                    )
+
+                    if (flightPlan != null) {
+                        FlightPlanHolder.currentPlan = flightPlan
+                        sharedPreferences.edit()
+                            .putString("WAYPOINTS", rawText)
+                            .putInt("CRUISE_ALT", selectedCruiseAltitude() ?: 0)
+                            .putFloat("STARTING_FUEL", startingFuel.toFloat())
+                            .apply()
+                        returnToMainActivity()
+                    } else {
+                        Toast.makeText(this@FlightPlanActivity, "Invalid flight plan", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -244,11 +301,395 @@ class FlightPlanActivity : AppCompatActivity() {
             // Remove waypoints sent to map
             sharedPreferences.edit().remove("WAYPOINTS").apply()
 
+            // Also drop the in-memory plan so MainActivity.onResume knows to
+            // wipe the on-map polylines AND hide the flight-info HUD. Without
+            // this, the HUD keeps showing the last computed numbers even after
+            // the plan is gone.
+            FlightPlanHolder.currentPlan = null
+
             // change activate button to exit button
             binding.activateFlightPlanButton.text = "Exit"
-            // Send empty list to MainActivity
-            //sendWaypointsToMap(emptyList())
         }
+    }
+
+    /**
+     * Wires the aircraft + profile spinners. Both write back to
+     * [AircraftSelectionStore] so any change here propagates to the Settings
+     * summary, the HUD on the map, and the flight plan generation. The
+     * "Manage" button shortcuts to [AircraftListActivity] for adding/editing.
+     */
+    private fun setupAircraftPicker() {
+        val aircraftSpinner = findViewById<android.widget.Spinner>(R.id.aircraftSpinner)
+        val profileSpinner = findViewById<android.widget.Spinner>(R.id.profileSpinner)
+        val manageButton = findViewById<android.widget.Button>(R.id.manageAircraftButton)
+
+        manageButton.setOnClickListener {
+            startActivity(Intent(this, AircraftListActivity::class.java))
+        }
+
+        aircraftSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (aircraftList.isEmpty() || position !in aircraftList.indices) return
+                val chosen = aircraftList[position]
+                val selectionStore = AircraftSelectionStore(this@FlightPlanActivity)
+                if (selectionStore.selectedAircraftId != chosen.id) {
+                    selectionStore.selectedAircraftId = chosen.id
+                    // Aircraft change → reset to that aircraft's default profile,
+                    // not whatever the previous selection had.
+                    selectionStore.selectedProfileId = chosen.defaultProfile?.id
+                }
+                populateProfileSpinner(profileSpinner, chosen, selectionStore.selectedProfileId)
+                // Max ceiling can differ between aircraft, so the altitude list
+                // (and the wind annotations) need refreshing too.
+                refreshAltitudeSpinner(chosen)
+                refreshPreview()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (profilesForSelected.isEmpty() || position !in profilesForSelected.indices) return
+                AircraftSelectionStore(this@FlightPlanActivity).selectedProfileId =
+                    profilesForSelected[position].id
+                // Cruise TAS/GPH differ between profiles → totals change.
+                refreshPreview()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    /** Reloads aircraft from the repository and refreshes both spinners. Called
+     *  from onResume so returning from AircraftListActivity / AircraftEditActivity
+     *  picks up any additions or edits. */
+    private fun refreshAircraftPicker() {
+        val repo = AircraftRepository.get(filesDir)
+        aircraftList = repo.aircraft.value
+        val aircraftSpinner = findViewById<android.widget.Spinner>(R.id.aircraftSpinner)
+        val profileSpinner = findViewById<android.widget.Spinner>(R.id.profileSpinner)
+
+        if (aircraftList.isEmpty()) {
+            aircraftSpinner.adapter = ArrayAdapter(
+                this, R.layout.spinner_item, listOf("(none — tap Manage)")
+            )
+            aircraftSpinner.isEnabled = false
+            profileSpinner.adapter = ArrayAdapter(
+                this, R.layout.spinner_item, listOf("(none)")
+            )
+            profileSpinner.isEnabled = false
+            profilesForSelected = emptyList()
+            refreshAltitudeSpinner(null)
+            return
+        }
+
+        aircraftSpinner.isEnabled = true
+        profileSpinner.isEnabled = true
+        val labels = aircraftList.map { it.general.tailNumber.ifBlank { "(no tail #)" } }
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, labels).apply {
+            setDropDownViewResource(R.layout.spinner_dropdown_item)
+        }
+        aircraftSpinner.adapter = adapter
+
+        // Restore selection. If the stored aircraft id has been deleted, fall
+        // back to the first entry — beats showing a stale or empty selection.
+        val store = AircraftSelectionStore(this)
+        val selectedIdx = aircraftList.indexOfFirst { it.id == store.selectedAircraftId }
+            .takeIf { it >= 0 } ?: 0
+        aircraftSpinner.setSelection(selectedIdx)
+        // The spinner's onItemSelectedListener will populate the profile
+        // spinner via populateProfileSpinner.
+    }
+
+    /** Returns the cruise altitude currently selected by the user, or null when
+     *  no aircraft is configured (so [buildFlightPlanFromText] falls back to
+     *  the aircraft default or its hardcoded fallback). */
+    private fun selectedCruiseAltitude(): Int? {
+        val spinner = findViewById<android.widget.Spinner>(R.id.cruiseAltitudeSpinner)
+        val idx = spinner.selectedItemPosition
+        return altitudeOptions.getOrNull(idx)
+    }
+
+    /**
+     * Rebuilds the altitude spinner for the given aircraft. Options are common
+     * VFR cruise altitudes (every 2,000 ft from 1,500), filtered to the
+     * aircraft's max ceiling. Pre-fills the selection from the saved pref or
+     * the aircraft's defaultCruiseAltitude.
+     */
+    private fun refreshAltitudeSpinner(aircraft: Aircraft?) {
+        val spinner = findViewById<android.widget.Spinner>(R.id.cruiseAltitudeSpinner)
+        val ceiling = aircraft?.altitudes?.maxCeiling?.takeIf { it > 0 } ?: 18_000
+        // Even/odd thousand + 500 covers both eastbound and westbound VFR.
+        val baseAltitudes = generateSequence(1500) { it + 1000 }
+            .takeWhile { it <= ceiling }
+            .toList()
+        altitudeOptions = baseAltitudes
+        if (altitudeOptions.isEmpty()) {
+            spinner.adapter = ArrayAdapter(
+                this, R.layout.spinner_item, listOf("(no altitudes)")
+            )
+            spinner.isEnabled = false
+            return
+        }
+        spinner.isEnabled = true
+        spinner.adapter = altitudeAdapter()
+
+        val preferred = sharedPreferences.getInt("CRUISE_ALT", 0).takeIf { it > 0 }
+            ?: aircraft?.altitudes?.defaultCruiseAltitude?.takeIf { it > 0 }
+        val idx = preferred?.let { p -> altitudeOptions.indexOfFirst { it >= p } }
+            ?.takeIf { it >= 0 }
+            ?: altitudeOptions.indexOfFirst { it >= 5500 }.takeIf { it >= 0 }
+            ?: 0
+        spinner.setSelection(idx)
+
+        // Kick off the wind annotation in the background. Doesn't block the UI;
+        // when results come back, altitudeAdapter() is regenerated so each row
+        // reads "5,500 ft · 240/15".
+        lifecycleScope.launch { fetchAltitudeWinds() }
+
+        // Selection just persists the chosen altitude. Wind is no longer
+        // mirrored into a separate input — the spinner label itself shows the
+        // resulting HW/TW, and Activate reads the wind for whichever altitude
+        // is selected.
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val alt = altitudeOptions.getOrNull(position) ?: return
+                sharedPreferences.edit().putInt("CRUISE_ALT", alt).apply()
+                refreshPreview()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    /**
+     * Builds a flight plan from current state — waypoints, aircraft, profile,
+     * altitude, cached winds — and renders the totals strip. Cheap enough to
+     * call on every keystroke; bails early when waypoints don't resolve.
+     */
+    private fun refreshPreview() {
+        val view = findViewById<android.widget.TextView>(R.id.previewSummary) ?: return
+        val rawText = binding.flightPlanEdit.text?.toString().orEmpty().trim()
+        if (rawText.isBlank()) { view.text = ""; return }
+
+        val alt = selectedCruiseAltitude()
+        val wind = alt?.let { altitudeWinds[it] }
+        val startingFuel = binding.startingFuelField.text.toString().toDoubleOrNull() ?: 0.0
+
+        val plan = buildFlightPlanFromText(
+            context = this,
+            rawText = rawText,
+            cruiseAltitude = alt,
+            windDir = wind?.first ?: 0,
+            windSpeed = wind?.second ?: 0,
+            startingFuel = startingFuel,
+            currentLocation = null,
+        )
+        if (plan == null || plan.legs.isEmpty()) { view.text = ""; return }
+
+        val totalDist = plan.legs.sumOf { it.distanceNM }
+        val totalFuel = plan.legs.sumOf { it.fuelUsed }
+        val totalMin = plan.legs.sumOf {
+            val parts = it.ete.split(":")
+            if (parts.size == 2) parts[0].toInt() * 60 + parts[1].toInt()
+            else parts[0].toIntOrNull() ?: 0
+        }
+        val timeText = "%d:%02d".format(totalMin / 60, totalMin % 60)
+        view.text = "%.1f nm  ·  %s  ·  %.1f gal".format(totalDist, timeText, totalFuel)
+    }
+
+    /** Re-renders the cruise altitude spinner labels using the current
+     *  waypoints + cached wind data. Cheap — just rebuilds the adapter. */
+    private fun refreshAltitudeLabels() {
+        if (altitudeOptions.isEmpty()) return
+        val spinner = findViewById<android.widget.Spinner>(R.id.cruiseAltitudeSpinner)
+        val keep = spinner.selectedItemPosition
+        spinner.adapter = altitudeAdapter()
+        if (keep in altitudeOptions.indices) spinner.setSelection(keep)
+    }
+
+    private fun altitudeAdapter(): ArrayAdapter<String> {
+        // Resolve the route's course once per refresh so we can project each
+        // altitude's wind onto it. Null when there aren't enough waypoints to
+        // define a course — in that case we fall back to dir/speed annotations
+        // so the data isn't lost.
+        val course = computeRouteCourse()
+        val labels = altitudeOptions.map { alt ->
+            val wind = altitudeWinds[alt]
+            val altText = "%,d ft".format(alt)
+            if (wind == null) return@map altText
+
+            val (dir, speed) = wind
+            if (course == null || speed == 0) {
+                "$altText  ·  ${dir}°/${speed}"
+            } else {
+                // Positive = headwind, negative = tailwind. The relative angle
+                // is "wind FROM minus course" because the FB reports the
+                // direction the wind is coming FROM.
+                val relRad = Math.toRadians(((dir - course + 360) % 360))
+                val component = (speed * Math.cos(relRad)).roundToInt()
+                when {
+                    component > 0 -> "$altText  ·  $component kt HW"
+                    component < 0 -> "$altText  ·  ${-component} kt TW"
+                    else -> "$altText  ·  pure x-wind"
+                }
+            }
+        }
+        return ArrayAdapter(this, R.layout.spinner_item, labels).apply {
+            setDropDownViewResource(R.layout.spinner_dropdown_item)
+        }
+    }
+
+    /**
+     * Returns the route's great-circle initial course (first → last waypoint),
+     * or null if the waypoints field doesn't resolve to two distinct points.
+     * Used to compute headwind/tailwind for the altitude spinner annotations.
+     */
+    private fun computeRouteCourse(): Double? {
+        val raw = binding.flightPlanEdit.text?.toString() ?: return null
+        val dbHelper = com.airportweather.map.utils.AirportDatabaseHelper(this)
+        val wps = raw.trim().split("\\s+".toRegex())
+            .mapNotNull { dbHelper.lookupWaypoint(it.uppercase()) }
+        if (wps.size < 2) return null
+        val first = wps.first()
+        val last = wps.last()
+        if (first.lat == last.lat && first.lon == last.lon) return null
+        return com.airportweather.map.utils.FlightPlanUtils.calculateTrueCourse(
+            first.lat, first.lon, last.lat, last.lon,
+        )
+    }
+
+    /**
+     * Fetches the FB forecast once for whatever reference location we have,
+     * interpolates wind at every spinner altitude, and re-renders the adapter.
+     * Reference location prefers GPS; falls back to selected aircraft's home
+     * airport so users can plan winds before they're sitting in the cockpit.
+     */
+    private suspend fun fetchAltitudeWinds() {
+        if (altitudeOptions.isEmpty()) return
+        val (lat, lon) = resolveReferenceLocation() ?: return
+        val winds = WindsAloftRepository(filesDir)
+            .forecastFor(this, lat, lon, altitudeOptions) ?: return
+        altitudeWinds = winds.mapValues { (_, r) -> r.direction to r.speed }
+
+        // Rebuild adapter so labels include wind. Preserve current selection.
+        val spinner = findViewById<android.widget.Spinner>(R.id.cruiseAltitudeSpinner)
+        val keep = spinner.selectedItemPosition
+        spinner.adapter = altitudeAdapter()
+        if (keep in altitudeOptions.indices) spinner.setSelection(keep)
+        // Now that wind data is available for the selected altitude, the
+        // plan totals can reflect real ground speed and fuel.
+        refreshPreview()
+    }
+
+    /** Best-effort lat/lon for winds lookup: GPS if granted and recent,
+     *  otherwise the selected aircraft's home airport. */
+    private suspend fun resolveReferenceLocation(): Pair<Double, Double>? {
+        val gps = try {
+            kotlinx.coroutines.suspendCancellableCoroutine<android.location.Location?> { cont ->
+                if (androidx.core.app.ActivityCompat.checkSelfPermission(
+                        this, Manifest.permission.ACCESS_FINE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED &&
+                    androidx.core.app.ActivityCompat.checkSelfPermission(
+                        this, Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    cont.resume(null)
+                    return@suspendCancellableCoroutine
+                }
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { cont.resume(it) }
+                    .addOnFailureListener { cont.resume(null) }
+            }
+        } catch (_: Exception) { null }
+        if (gps != null) return gps.latitude to gps.longitude
+
+        val homeCode = AircraftSelectionStore(this)
+            .resolveSelection(AircraftRepository.get(filesDir))
+            ?.aircraft?.general?.homeAirport
+            ?.takeIf { it.isNotBlank() } ?: return null
+        val wp = com.airportweather.map.utils.AirportDatabaseHelper(this)
+            .lookupWaypoint(homeCode.uppercase()) ?: return null
+        return wp.lat to wp.lon
+    }
+
+    private fun populateProfileSpinner(
+        spinner: android.widget.Spinner,
+        aircraft: Aircraft,
+        preferredProfileId: String?,
+    ) {
+        profilesForSelected = aircraft.profiles
+        if (profilesForSelected.isEmpty()) {
+            spinner.adapter = ArrayAdapter(
+                this, R.layout.spinner_item, listOf("(none)")
+            )
+            spinner.isEnabled = false
+            return
+        }
+        spinner.isEnabled = true
+        val adapter = ArrayAdapter(
+            this, R.layout.spinner_item,
+            profilesForSelected.map { it.name.ifBlank { "(unnamed)" } },
+        ).apply { setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        spinner.adapter = adapter
+        val idx = profilesForSelected.indexOfFirst { it.id == preferredProfileId }
+            .takeIf { it >= 0 }
+            ?: profilesForSelected.indexOfFirst { it.id == aircraft.defaultProfileId }
+                .takeIf { it >= 0 }
+            ?: 0
+        spinner.setSelection(idx)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshAircraftPicker()
+    }
+
+    /**
+     * Best-effort winds-aloft lookup for the route's midpoint at [altitudeFt]
+     * (or the aircraft's default cruise altitude when [altitudeFt] is null).
+     * Returns null on any failure (no aircraft, no FB cache, no station
+     * nearby) so callers can fall back to (0, 0).
+     */
+    private suspend fun tryFetchWindsAloft(
+        rawText: String,
+        currentLocation: android.location.Location?,
+        altitudeFt: Int? = null,
+    ): Pair<Int, Int>? {
+        val selection = AircraftSelectionStore(this)
+            .resolveSelection(AircraftRepository.get(filesDir)) ?: return null
+        val cruiseAlt = altitudeFt
+            ?: selection.aircraft.altitudes.defaultCruiseAltitude.takeIf { it > 0 }
+            ?: return null
+
+        // Mid-route lat/lon. Cheap mean of declared waypoints; fall back to
+        // current location if waypoints can't be resolved.
+        val dbHelper = AirportDatabaseHelper(this)
+        val waypoints = rawText.trim().split("\\s+".toRegex())
+            .mapNotNull { dbHelper.lookupWaypoint(it.uppercase()) }
+        val midLat: Double; val midLon: Double
+        when {
+            waypoints.size >= 2 -> {
+                midLat = (waypoints.first().lat + waypoints.last().lat) / 2.0
+                midLon = (waypoints.first().lon + waypoints.last().lon) / 2.0
+            }
+            waypoints.size == 1 && currentLocation != null -> {
+                midLat = (waypoints.first().lat + currentLocation.latitude) / 2.0
+                midLon = (waypoints.first().lon + currentLocation.longitude) / 2.0
+            }
+            currentLocation != null -> {
+                midLat = currentLocation.latitude
+                midLon = currentLocation.longitude
+            }
+            else -> return null
+        }
+
+        val repo = WindsAloftRepository(filesDir)
+        val resolved = repo.forecastFor(this, midLat, midLon, cruiseAlt) ?: return null
+        Toast.makeText(
+            this,
+            "Wind ${resolved.direction}°/${resolved.speed} kt from ${resolved.sourceStation}",
+            Toast.LENGTH_SHORT,
+        ).show()
+        return resolved.direction to resolved.speed
     }
 
     // current flight plan
@@ -256,6 +697,11 @@ class FlightPlanActivity : AppCompatActivity() {
         val rawText = sharedPreferences.getString("WAYPOINTS", "") ?: ""
         binding.flightPlanEdit.setText(rawText)
         binding.activateFlightPlanButton.text = if (rawText.isNotBlank()) "Activate" else "Exit"
+
+        // Restore last-used starting fuel so the user doesn't re-enter it on
+        // every plan tweak.
+        val startingFuel = sharedPreferences.getFloat("STARTING_FUEL", 0f)
+        if (startingFuel != 0f) binding.startingFuelField.setText(startingFuel.toString())
 
 //        Log.d("FlightPlanActivity", "Loaded rawText: '$rawText'")
 //        val flightPlan = buildFlightPlanFromText(this, rawText)

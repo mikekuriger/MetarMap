@@ -10,8 +10,6 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
@@ -63,33 +61,22 @@ import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
-import com.google.android.gms.maps.model.Tile
 import com.google.android.gms.maps.model.TileOverlay
 import com.google.android.gms.maps.model.TileOverlayOptions
-import com.google.android.gms.maps.model.TileProvider
 import com.google.android.material.navigation.NavigationView
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-import java.util.zip.GZIPInputStream
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -102,14 +89,12 @@ import kotlin.text.*
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.core.view.WindowCompat
+import com.airportweather.map.aircraft.AircraftRepository
+import com.airportweather.map.aircraft.AircraftSelectionStore
 import com.airportweather.map.utils.AirportDatabaseHelper
 import com.airportweather.map.utils.DatabaseSyncUtils
 import com.airportweather.map.utils.FlightPlanHolder
 import com.airportweather.map.utils.FlightPlanUtils
-import com.airportweather.map.utils.loadMetarDataFromCache
-import com.airportweather.map.utils.loadTafDataFromCache
-import com.airportweather.map.utils.saveMetarDataToCache
-import com.airportweather.map.utils.saveTafDataToCache
 import com.airportweather.map.utils.Waypoint
 import java.net.InetAddress
 
@@ -213,6 +198,9 @@ fun formatClouds(metars: METAR): String {
     }
 }
 fun metersToFeet(meters: Int): Int = (meters * 3.28084).roundToInt()
+
+// Kept for when the HUD adds Fahrenheit / density-altitude readouts.
+@Suppress("unused")
 @SuppressLint("DefaultLocale")
 fun celsiusToFahrenheit(celsius: Double): Double = String.format("%.1f", celsius * 9 / 5 + 32).toDouble()
 
@@ -271,7 +259,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var currentChartMode: ChartMode = ChartMode.VFR
     private var lastKnownUserLocation: Location? = null
     private val activeSpeed = 10
-    private val plannedAirSpeed = 95 // make editable in the UI
+    // Pulled from the selected aircraft's active profile (cruiseTas) on
+    // onCreate and refreshed in onResume. Falls back to 95 if no aircraft
+    // has been configured yet.
+    private var plannedAirSpeed: Int = 95
     private var showVersion = true
     private var showZoom = true
     private lateinit var sharedPrefs: SharedPreferences
@@ -713,6 +704,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // new FAA cycle published since the last app session. Repository caches
         // the result for 24h so this is cheap on repeat opens.
         viewModel.refreshChartCatalog()
+        // Pick up any aircraft/profile change made in Settings since we paused.
+        refreshPlannedAirSpeedFromAircraft()
         if (::mMap.isInitialized) {
             loadMapPreferences()
             // Returning from FlightPlanActivity (or any child screen) may have
@@ -728,6 +721,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     flightPlanPolylines.clear()
                     flightPlanMarkers.forEach { it.remove() }
                     flightPlanMarkers.clear()
+                    // Hide the HUD too — leaving it visible with stale numbers
+                    // is confusing once there's no active plan.
+                    binding.flightInfoLayout.visibility = View.GONE
+                    binding.flightInfoLayout2.visibility = View.GONE
                 }
                 lastRenderedFlightPlan = current
             }
@@ -793,6 +790,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         updateButtonState(binding.toggleMetarButton, showMetars)
 
         setChartMode(mMap, chartMode)
+    }
+
+    /**
+     * Pulls cruise TAS from the currently-selected aircraft profile into
+     * [plannedAirSpeed]. No-op (keeps existing value) when nothing is selected
+     * or the profile has no cruise TAS set.
+     */
+    private fun refreshPlannedAirSpeedFromAircraft() {
+        val repo = AircraftRepository.get(filesDir)
+        val selection = AircraftSelectionStore(this).resolveSelection(repo) ?: return
+        val tas = selection.profile.cruiseTas
+        if (tas > 0) plannedAirSpeed = tas
     }
 
     /**
@@ -890,6 +899,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     }
 
+    // Unwired: planned "clear all tracks" menu/settings action.
+    @Suppress("unused")
     private fun deleteAllTracks(context: Context) {
         val trackDir = File(context.getExternalFilesDir(null), "tracks")
         if (trackDir.exists() && trackDir.isDirectory) {
@@ -1105,6 +1116,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
+    // Unwired: kept for a future "total distance" readout in the HUD/plan UI.
+    @Suppress("unused")
     private fun calculateTotalDistance(waypoints: List<Waypoint>): Double {
         var totalDistance = 0.0
 
@@ -1633,16 +1646,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private fun formatAirportDetails(metars: METAR): String {
         val ageInMinutes = calculateMetarAge(metars.observationTime)
         val ageText = ageInMinutes?.let { "$it minutes old" } ?: "age unknown"
+        // Surface wind removed — pilots can't act on it for an arbitrary
+        // airport tapped mid-flight. We'll add it back conditionally for
+        // the active flight's destination airport later, where it matters
+        // for runway selection.
         return """
         ${getCurrentTimeLocalFormat()} ($ageText)
-        ${
-            if (metars.windSpeedKt == 0 || metars.windSpeedKt == null) {
-                "Wind: Calm"
-            } else {
-                "Wind: ${metars.windDirDegrees ?: "VRB"}° @ ${metars.windSpeedKt} kt" +
-                        (if (metars.windGustKt != null && metars.windGustKt > 0) ", Gust ${metars.windGustKt} kt" else "")
-            }
-        }
         Visibility: ${metars.visibility ?: "N/A"} sm
         Clouds: ${formatClouds(metars)}
         Temperature: ${metars.tempC ?: 0.0}°C (${celsiusToFahrenheit(metars.tempC ?: 0.0)}°F)
@@ -1676,20 +1685,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     ) {
         val progressBar = binding.progressBottomBar
         val progressMessage = binding.progressMessageBottom
-        if (progressMessage == null) {
-            Log.e("ProgressBar", "Progress bar or message view not found!")
-            return
-        }
         progressMessage.text = message
         progressBar.visibility = View.VISIBLE
         progressBar.setBackgroundColor(color)
     }
 
     private fun hideBottomProgressBar() {
-        val progressBar = binding.progressBottomBar
-        val progressOverlay = binding.progressOverlay
-        progressBar.visibility = View.GONE
-        //progressOverlay.visibility = View.GONE
+        binding.progressBottomBar.visibility = View.GONE
     }
 
     private fun updateButtonState(button: Button, isActive: Boolean) {
@@ -1810,8 +1812,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         } else {
             tfr.dateEffective
         }
-        val startDate = try { dateFormat.parse(startDateString) } catch (e: Exception) { null }
-        val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (e: Exception) { null }
+        val startDate = try { dateFormat.parse(startDateString) } catch (_: Exception) { null }
+        val endDate = try { dateFormat.parse(tfr.dateExpire) } catch (_: Exception) { null }
 
         // ✅ Ensure altitudeMin and altitudeMax are treated correctly
         val altitudeInfo = "${formatAltitude(tfr.altitudeMin)} - ${formatAltitude(tfr.altitudeMax)}"
@@ -2093,7 +2095,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         val visibleBounds = try {
             mMap.projection.visibleRegion.latLngBounds
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return
         }
 
@@ -2630,7 +2632,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             val reachable = withContext(Dispatchers.IO) {
                 try {
                     InetAddress.getByName("192.168.10.1").isReachable(1000)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     false
                 }
             }

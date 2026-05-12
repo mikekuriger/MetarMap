@@ -52,6 +52,95 @@
         android:layout_marginTop="0dp"
         android:textSize="16sp" />
 
+    <!-- Aircraft + profile picker. Stacked vertically so each spinner gets the
+         full available width — short tail numbers and profile names like
+         "Cruise 65%" don't ellipsise. -->
+    <LinearLayout
+        android:id="@+id/aircraftPickerRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
+        app:layout_constraintTop_toBottomOf="@id/flightPlanEdit">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Aircraft"
+            android:textColor="@android:color/white"
+            android:textSize="10sp" />
+
+        <Spinner
+            android:id="@+id/aircraftSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Profile"
+            android:textColor="@android:color/white"
+            android:textSize="10sp" />
+
+        <Spinner
+            android:id="@+id/profileSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cruise Altitude"
+            android:textColor="@android:color/white"
+            android:textSize="10sp" />
+
+        <Spinner
+            android:id="@+id/cruiseAltitudeSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <!-- Flight parameters (wind, starting fuel). Sits between the aircraft
+         picker and the search box. Tiny labels keep this compact on phone width. -->
+    <LinearLayout
+        android:id="@+id/flightParamsRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
+        app:layout_constraintTop_toBottomOf="@id/aircraftPickerRow">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Fuel"
+                android:textColor="@color/light_gray"
+                android:textSize="10sp" />
+
+            <EditText
+                android:id="@+id/startingFuelField"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:background="@drawable/edit_text"
+                android:hint="gal"
+                android:inputType="numberDecimal"
+                android:padding="6dp"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#AAAAAA"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Buttons stack, pinned to the right edge so the wide left column
          is free for the new search input + results list. -->
     <LinearLayout
@@ -62,6 +151,12 @@
         android:padding="4dp"
         app:layout_constraintTop_toBottomOf="@id/flightPlanEdit"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/activateFlightPlanButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Exit" />
 
         <Button
             android:id="@+id/reverseFlightPlanButton"
@@ -94,20 +189,21 @@
             android:text="Delete" />
 
         <Button
-            android:id="@+id/activateFlightPlanButton"
+            android:id="@+id/manageAircraftButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Exit" />
+            android:text="Manage Aircraft" />
     </LinearLayout>
 
-    <!-- Search input — sits to the left of the button stack, below the plan editor. -->
+    <!-- Search input — sits to the left of the button stack, below the flight
+         parameters row. -->
     <EditText
         android:id="@+id/searchInput"
         android:layout_width="0dp"
         android:layout_height="48dp"
         android:layout_margin="4dp"
         android:background="@drawable/edit_text"
-        android:hint="Search airport, city, navaid, or fix"
+        android:hint="Search"
         android:imeOptions="actionSearch"
         android:inputType="text"
         android:padding="10dp"
@@ -118,7 +214,26 @@
         android:textSize="16sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
-        app:layout_constraintTop_toBottomOf="@id/flightPlanEdit" />
+        app:layout_constraintTop_toBottomOf="@id/flightParamsRow" />
+
+    <!-- Live preview of the plan totals — distance / time / fuel computed from
+         the current waypoints, aircraft profile, cruise altitude and forecast
+         wind. Lets the pilot scrub altitudes and watch the numbers change. -->
+    <TextView
+        android:id="@+id/previewSummary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:padding="6dp"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:background="#202020"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
+        app:layout_constraintTop_toBottomOf="@id/searchInput" />
 
     <!-- Results list — fills the space below the search input down to the bottom of the screen. -->
     <androidx.recyclerview.widget.RecyclerView
@@ -130,7 +245,7 @@
         android:scrollbars="vertical"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
-        app:layout_constraintTop_toBottomOf="@id/searchInput"
+        app:layout_constraintTop_toBottomOf="@id/previewSummary"
         app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -23,6 +23,9 @@ object Endpoints {
     fun tafJson(bbox: String = TAF_BBOX_CONUS): String =
         "$TAF_JSON_BASE?format=json&bbox=$bbox"
 
+    /** FB textual product: winds and temperatures aloft for CONUS. */
+    const val WINDS_ALOFT = "https://aviationweather.gov/api/data/windtemp?region=us"
+
     // ---- TFRs (project-maintained GitHub mirror of FAA data) ----
     // Lives on the `data` branch so daily auto-commits don't pollute `main`'s history.
     const val TFR_GEOJSON =

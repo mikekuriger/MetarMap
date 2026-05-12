@@ -5,23 +5,49 @@ import com.airportweather.map.utils.Waypoint
 import com.google.android.gms.maps.model.LatLng
 import kotlin.math.abs
 
+/**
+ * Which flight phase a leg falls in. Determines which set of profile numbers
+ * (TAS / GPH) drives the leg's time and fuel calculations. Legs that straddle
+ * a phase transition are split with a synthetic TOC or TOD waypoint so each
+ * resulting leg has a single phase.
+ */
+enum class FlightPhase { CLIMB, CRUISE, DESCENT }
+
 data class FlightLeg(
     val from: Waypoint,
     val to: Waypoint,
     val distanceNM: Double,
     val trueCourse: Int,
-    val magneticCourse: Int,
+    /**
+     * Magnetic *heading* to fly — i.e. true course corrected for wind
+     * (WCA) and then for magnetic variation. Pilots fly this. With zero wind
+     * this equals magnetic course. The old field name was [magneticCourse],
+     * which was a misnomer for the same value.
+     */
+    val magneticHeading: Int,
     val cruisingAltitude: Int,
     val tas: Int,
     val groundspeed: Int,
     val ete: String,
     val fuelUsed: Double,
+    val phase: FlightPhase = FlightPhase.CRUISE,
     var active: Boolean = false,
-    var completed: Boolean = false
-)
+    var completed: Boolean = false,
+) {
+    @Deprecated("Misnamed; use magneticHeading", ReplaceWith("magneticHeading"))
+    val magneticCourse: Int get() = magneticHeading
+}
 
 data class FlightPlan(
-    val legs: MutableList<FlightLeg> = mutableListOf()
+    val legs: MutableList<FlightLeg> = mutableListOf(),
+    /** Wind used during leg generation (single value applied to all legs).
+     *  Recorded here so the nav log can show what assumption produced its
+     *  numbers, and so re-rendering doesn't need to re-source it. */
+    val windDir: Int = 0,
+    val windSpeed: Int = 0,
+    /** Fuel on board at the start of the flight, in the aircraft's fuel units.
+     *  Used by the nav log to compute fuel remaining per leg. */
+    val startingFuel: Double = 0.0,
 ) {
     val totalDistanceNM: Double
         get() = legs.sumOf { it.distanceNM }

@@ -8,9 +8,14 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.Spinner
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import com.airportweather.map.aircraft.AircraftListActivity
+import com.airportweather.map.aircraft.AircraftRepository
+import com.airportweather.map.aircraft.AircraftSelectionStore
 import com.airportweather.map.databinding.ActivitySettingsBinding
 
 lateinit var sharedPrefs: SharedPreferences
@@ -122,6 +127,31 @@ class SettingsActivity : AppCompatActivity() {
 
         forceInternalGps.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("force_internal_gps", isChecked).apply()
+        }
+
+        // Aircraft management — open the aircraft list activity. The summary
+        // text below the button reflects the currently-selected aircraft +
+        // profile, refreshed on each onResume.
+        findViewById<Button>(R.id.manageAircraftButton).setOnClickListener {
+            startActivity(Intent(this, AircraftListActivity::class.java))
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshAircraftSummary()
+    }
+
+    /** One-line "N12345 · Cruise 65%" summary under the Manage aircraft button. */
+    private fun refreshAircraftSummary() {
+        val summaryView = findViewById<TextView>(R.id.currentAircraftSummary) ?: return
+        val repo = AircraftRepository.get(filesDir)
+        val selection = AircraftSelectionStore(this).resolveSelection(repo)
+        summaryView.text = if (selection == null) {
+            "No aircraft selected"
+        } else {
+            val tail = selection.aircraft.general.tailNumber.ifBlank { "(no tail #)" }
+            "$tail · ${selection.profile.name}"
         }
     }
 }

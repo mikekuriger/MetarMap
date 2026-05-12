@@ -229,14 +229,14 @@ class DownloadActivity : AppCompatActivity() {
 
         try {
             ZipInputStream(FileInputStream(zipFile)).use { zis ->
-                var entry: ZipEntry?
-                while (zis.nextEntry.also { entry = it } != null) {
-                    val extracted = File(targetRoot, entry!!.name).canonicalFile
+                while (true) {
+                    val entry: ZipEntry = zis.nextEntry ?: break
+                    val extracted = File(targetRoot, entry.name).canonicalFile
                     if (extracted != targetRoot && !extracted.path.startsWith(targetRootPath)) {
-                        Log.e("Unzip", "Skipping unsafe zip entry: ${entry!!.name}")
+                        Log.e("Unzip", "Skipping unsafe zip entry: ${entry.name}")
                         continue
                     }
-                    if (entry!!.isDirectory) {
+                    if (entry.isDirectory) {
                         if (!extracted.exists()) extracted.mkdirs()
                     } else {
                         extracted.parentFile?.mkdirs()
@@ -381,14 +381,16 @@ class DownloadActivity : AppCompatActivity() {
         onProgress: suspend (Int) -> Unit,
     ) {
         val hasSectional = chart.url.isNotEmpty()
-        val hasTerminal = chart.terminal != null
+        // Capture once so smart-cast applies through the rest of the function
+        // without needing !! every time the terminal chart is referenced.
+        val terminal = chart.terminal
 
         val sectionalSizeBytes = if (hasSectional) {
             chart.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
                 ?.times(1048576) ?: 0L
         } else 0L
-        val terminalSizeBytes = if (hasTerminal) {
-            chart.terminal!!.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
+        val terminalSizeBytes = if (terminal != null) {
+            terminal.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
                 ?.times(1048576) ?: 0L
         } else 0L
         val totalSizeBytes = sectionalSizeBytes + terminalSizeBytes
@@ -415,14 +417,14 @@ class DownloadActivity : AppCompatActivity() {
             seriesStore.markInstalled(chart.fileName, chart.latestSeries, chart.latestExpires)
         }
 
-        if (hasTerminal) {
+        if (terminal != null) {
             statusText?.let { withContext(Dispatchers.Main) { it.text = "Downloading TAC" } }
-            val terminalFile = File(getDownloadStorageDir(), chart.terminal!!.fileName)
-            downloadChart(chart.terminal.url, terminalFile, totalSizeBytes, totalBytesRead, onProgress)
+            val terminalFile = File(getDownloadStorageDir(), terminal.fileName)
+            downloadChart(terminal.url, terminalFile, totalSizeBytes, totalBytesRead, onProgress)
             statusText?.let { withContext(Dispatchers.Main) { it.text = "Installing TAC" } }
             unzipFile(terminalFile, getTileStorageDir("Terminal"))
             terminalFile.delete()
-            seriesStore.markInstalled(chart.terminal.fileName, chart.latestSeries, chart.latestExpires)
+            seriesStore.markInstalled(terminal.fileName, chart.latestSeries, chart.latestExpires)
         }
     }
 }

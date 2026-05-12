@@ -172,70 +172,24 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
+            android:orientation="vertical">
 
-            <LinearLayout
+            <Button
+                android:id="@+id/manageAircraftButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Manage aircraft" />
+
+            <TextView
+                android:id="@+id/currentAircraftSummary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/selectAircraftButton"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:text="Select Aircraft" />
-
-                <TextView
-                    android:layout_width="50dp"
-                    android:layout_height="wrap_content"/>
-
-                <TextView
-                    android:id="@+id/currentAircraftText"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:text="Your aircraft" />
-
-            </LinearLayout>
+                android:paddingTop="8dp"
+                android:paddingStart="4dp"
+                android:textSize="12sp"
+                android:text="No aircraft selected" />
         </LinearLayout>
-
-    <Button
-        android:id="@+id/addAircraftButton"
-        android:visibility="gone"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="Add Aircraft" />
-    <TextView
-        android:id="@+id/currentAircraftDetailTail"
-        android:paddingStart="8dp"
-        android:paddingTop="8dp"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="TAIL - N311SG" />
-    <TextView
-        android:id="@+id/currentAircraftDetailTAS"
-        android:paddingStart="8dp"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="TAS - 90kt" />
-    <TextView
-        android:id="@+id/currentAircraftDetailGPH"
-        android:paddingStart="8dp"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="GPH - 6" />
-    <TextView
-        android:id="@+id/currentAircraftDetailClimb"
-        android:paddingStart="8dp"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="CLIMB - 600ft/min" />
-    <TextView
-        android:id="@+id/currentAircraftDetailDes"
-        android:paddingStart="8dp"
-        android:layout_width="150dp"
-        android:layout_height="wrap_content"
-        android:text="DESCENT - 600ft/min" />
 
     </LinearLayout>
 </ScrollView>

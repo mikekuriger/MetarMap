@@ -29,6 +29,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val weather: StateFlow<WeatherSnapshot> = weatherRepo.snapshot
     val tfrs: StateFlow<List<TFRFeature>> = tfrRepo.tfrs
     val sua: StateFlow<List<SuaFeature>> = suaRepo.sua
+
+    // Scaffolding for the planned traffic migration: MainActivity still drives
+    // StratuxManager directly; once that's moved here the activity will collect
+    // [traffic] and call [startTraffic]/[stopTraffic]/[pruneTraffic] instead of
+    // managing the websocket itself.
+    @Suppress("unused")
     val traffic: StateFlow<Map<String, TrafficTarget>> = trafficRepo.targets
 
     private val _staleChartCount = MutableStateFlow(0)
@@ -92,14 +98,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    @Suppress("unused") // Mirrors [startAutoRefresh]; will be wired when activity
+    // shutdown moves through the ViewModel instead of MainActivity.onDestroy.
     fun stopAutoRefresh() {
         autoRefreshJob?.cancel()
         autoRefreshJob = null
     }
 
-    fun startTraffic() = trafficRepo.start()
-    fun stopTraffic() = trafficRepo.stop()
-    fun pruneTraffic(maxAgeMillis: Long) = trafficRepo.pruneOlderThan(maxAgeMillis)
+    // Planned-migration helpers — see comment on [traffic] above.
+    @Suppress("unused") fun startTraffic() = trafficRepo.start()
+    @Suppress("unused") fun stopTraffic() = trafficRepo.stop()
+    @Suppress("unused") fun pruneTraffic(maxAgeMillis: Long) = trafficRepo.pruneOlderThan(maxAgeMillis)
 
     override fun onCleared() {
         super.onCleared()

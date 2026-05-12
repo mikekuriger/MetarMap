@@ -97,7 +97,7 @@ fun expirationStatusFor(expires: String?, now: Date = Date()): ExpirationStatus 
     if (expires.isNullOrBlank()) return ExpirationStatus.UNKNOWN
     val parsed = try {
         SimpleDateFormat("MM-dd-yyyy", Locale.US).parse(expires)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     } ?: return ExpirationStatus.UNKNOWN
 
