@@ -24,3 +24,4 @@ scripts/build_databases/zip/
 *.db
 *.log
 chartmaker_6.tar
+scripts/build_databases/deploy.log
