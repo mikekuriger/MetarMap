@@ -7,21 +7,22 @@ from concurrent.futures import ProcessPoolExecutor
 
 # Configuration - update these paths
 SOURCE_DIRS = {
-    #"Sectional": "/data/metarmap/Sectional/60",
-    #"Terminal": "/data/metarmap/Terminal"
     "Sectional": "/data/chartmaker/workarea/Sectional/6_quantized",
     "Terminal": "/data/chartmaker/workarea/Terminal/6_quantized",
-    "Grand_Canyon": "/data/chartmaker/workarea/Grand_Canyon/6_quantized"
+    "Grand_Canyon": "/data/chartmaker/workarea/Grand_Canyon/6_quantized",
+    "Enroute_Low": "/data/chartmaker/workarea/Enroute_Low/6_quantized"
 }
 ZIP_DIRS = {
     "Sectional": "/data/metarmap/zips/Sectional",
     "Terminal": "/data/metarmap/zips/Terminal",
-    "Grand_Canyon": "/data/metarmap/zips/Terminal"
+    "Grand_Canyon": "/data/metarmap/zips/Terminal",
+    "Enroute_Low": "/data/metarmap/zips/Enroute_Low"
 }
 ZOOM_LEVEL = {
     "Sectional": ["5", "6", "7", "8", "9", "10", "11"],
     "Terminal": ["10", "11", "12", "13"],
-    "Grand_Canyon": ["8", "9", "10", "11", "12", "13"]
+    "Grand_Canyon": ["8", "9", "10", "11", "12", "13"],
+    "Enroute_Low": ["5", "6", "7", "8", "9", "10", "11"],
 }
 JSON_FILE = "/data/metarmap/sectionalFiles.json"
 LOG_MISSING_FILES = False  # Set to True to log missing files instead of printing
@@ -114,6 +115,8 @@ def main():
         # Process for both Sectionals and Terminals using multiprocessing
         process_json(json_data, "Sectional")
         process_json(json_data, "Terminal")
+        process_json(json_data, "Grand_Canyon")
+        process_json(json_data, "Enroute_Low")
     else:
         print(f"Error: JSON file {JSON_FILE} not found.")
 

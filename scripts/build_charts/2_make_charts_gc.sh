@@ -7,7 +7,7 @@ echo "Grand Canyon Start"
 cp settings.json.GC settings.json
 
 sudo docker run --rm \
-  -v /data/chartmaker:/chartmaker \
+  -v /data/chartmaker:/chartmaker:z \
   -w /chartmaker \
   chartmaker:6 \
   bash -lc '/root/.nvm/versions/node/v20.17.0/bin/node make -full-single=1'
