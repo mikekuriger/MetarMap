@@ -13,15 +13,15 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.TimeUnit
 
 /**
- * Owns TFR GeoJSON download, parse, and cache. The cache is honored for [maxAgeMillis]
- * so map navigation doesn't trigger a network call every time.
+ * Owns TFR GeoJSON download, parse, and cache. Always tries to fetch fresh
+ * data on [refresh] — TFRs change frequently and a stale cache is worse
+ * than no data. The cache is only used as a fallback when the network
+ * request fails (e.g. the user has no connection).
  */
 class TfrRepository(
     private val filesDir: File,
-    private val maxAgeMillis: Long = TimeUnit.MINUTES.toMillis(30),
     private val sourceUrl: String = Endpoints.TFR_GEOJSON,
 ) {
 
@@ -29,31 +29,29 @@ class TfrRepository(
     val tfrs: StateFlow<List<TFRFeature>> = _tfrs.asStateFlow()
 
     suspend fun refresh(): Boolean = withContext(Dispatchers.IO) {
-        val file = getOrDownload() ?: return@withContext false
+        val file = downloadOrFallback() ?: return@withContext false
         _tfrs.value = parseGeoJson(file)
         true
     }
 
-    private suspend fun getOrDownload(): File? {
+    /**
+     * Try the network; on any failure, use the cached file if one exists.
+     * Returns null only when both network and cache are unavailable.
+     */
+    private suspend fun downloadOrFallback(): File? {
         val cacheDir = File(filesDir, "geojson").apply { mkdirs() }
         val tfrFile = File(cacheDir, "tfrs.geojson")
 
-        if (tfrFile.exists() && tfrFile.length() > 0 &&
-            System.currentTimeMillis() - tfrFile.lastModified() < maxAgeMillis
-        ) {
-            Log.d("TFR", "Using cached TFR GeoJSON: ${tfrFile.length()} bytes")
-            return tfrFile
-        }
-
         return try {
-            Log.d("TFR", "Downloading new TFR GeoJSON")
+            Log.d("TFR", "Downloading fresh TFR GeoJSON")
             download(cacheDir)
         } catch (e: IOException) {
             Log.w("TFR", "Failed to download TFR GeoJSON: ${e.message}")
             if (tfrFile.exists() && tfrFile.length() > 0) {
-                Log.d("TFR", "Falling back to last cached version")
+                Log.d("TFR", "Falling back to cached version (${tfrFile.length()} bytes)")
                 tfrFile
             } else {
+                Log.w("TFR", "No cached TFR GeoJSON available")
                 null
             }
         }
