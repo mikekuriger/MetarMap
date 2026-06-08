@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_gray"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView style="@style/AircraftSectionHeader" android:text="Performance Profile" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Profile name" />
+        <EditText android:id="@+id/nameField" style="@style/AircraftField"
+            android:hint="e.g. Cruise 65%" />
+
+        <TextView style="@style/AircraftSectionHeader" android:text="Climb" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Climb TAS" />
+        <EditText android:id="@+id/climbTasField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Climb fuel burn (GPH)" />
+        <EditText android:id="@+id/climbGphField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Climb rate (fpm)" />
+        <EditText android:id="@+id/climbRateField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftSectionHeader" android:text="Cruise" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Cruise TAS" />
+        <EditText android:id="@+id/cruiseTasField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Cruise fuel burn (GPH)" />
+        <EditText android:id="@+id/cruiseGphField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftSectionHeader" android:text="Descent" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Descent TAS" />
+        <EditText android:id="@+id/descentTasField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Descent fuel burn (GPH)" />
+        <EditText android:id="@+id/descentGphField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Descent rate (fpm)" />
+        <EditText android:id="@+id/descentRateField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <Button
+            android:id="@+id/saveProfileButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Save profile" />
+    </LinearLayout>
+</ScrollView>

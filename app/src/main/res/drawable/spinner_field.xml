@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Used as the background for picker spinners on the Flight Plan editor.
+     Setting any background drawable on a Spinner also drops the platform's
+     default down-arrow indicator, which is what we want here. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@android:color/black" />
+    <stroke android:width="2dp" android:color="#FF6060" />
+    <corners android:radius="4dp" />
+</shape>

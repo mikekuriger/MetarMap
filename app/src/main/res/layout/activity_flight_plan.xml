@@ -35,6 +35,87 @@
 <!--        app:layout_constraintTop_toBottomOf="@id/flightPlanText"-->
 <!--        />-->
 
+    <!-- Aircraft / Profile / Cruise Altitude pickers. Horizontal row above
+         the waypoints box so the user can pick context first, then enter
+         the route. Each column gets equal weight; labels are tiny so all
+         three fit on a phone in portrait. -->
+    <LinearLayout
+        android:id="@+id/aircraftPickerRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/flightPlanText">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingEnd="4dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Aircraft"
+                android:textColor="@android:color/white"
+                android:textSize="10sp" />
+
+            <Spinner
+                android:id="@+id/aircraftSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/spinner_field" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Profile"
+                android:textColor="@android:color/white"
+                android:textSize="10sp" />
+
+            <Spinner
+                android:id="@+id/profileSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/spinner_field" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="4dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cruise Altitude"
+                android:textColor="@android:color/white"
+                android:textSize="10sp" />
+
+            <Spinner
+                android:id="@+id/cruiseAltitudeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/spinner_field"
+                android:popupBackground="@android:color/black" />
+        </LinearLayout>
+
+    </LinearLayout>
+
     <EditText
         android:id="@+id/flightPlanEdit"
         android:layout_width="match_parent"
@@ -47,99 +128,10 @@
         android:maxLines="3"
         android:layout_height="85dp"
         android:hint="Enter Waypoints"
-        app:layout_constraintTop_toBottomOf="@id/flightPlanText"
+        app:layout_constraintTop_toBottomOf="@id/aircraftPickerRow"
         android:gravity="top|start"
         android:layout_marginTop="0dp"
         android:textSize="16sp" />
-
-    <!-- Aircraft + profile picker. Stacked vertically so each spinner gets the
-         full available width — short tail numbers and profile names like
-         "Cruise 65%" don't ellipsise. -->
-    <LinearLayout
-        android:id="@+id/aircraftPickerRow"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="4dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
-        app:layout_constraintTop_toBottomOf="@id/flightPlanEdit">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Aircraft"
-            android:textColor="@android:color/white"
-            android:textSize="10sp" />
-
-        <Spinner
-            android:id="@+id/aircraftSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Profile"
-            android:textColor="@android:color/white"
-            android:textSize="10sp" />
-
-        <Spinner
-            android:id="@+id/profileSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Cruise Altitude"
-            android:textColor="@android:color/white"
-            android:textSize="10sp" />
-
-        <Spinner
-            android:id="@+id/cruiseAltitudeSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-    </LinearLayout>
-
-    <!-- Flight parameters (wind, starting fuel). Sits between the aircraft
-         picker and the search box. Tiny labels keep this compact on phone width. -->
-    <LinearLayout
-        android:id="@+id/flightParamsRow"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="4dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
-        app:layout_constraintTop_toBottomOf="@id/aircraftPickerRow">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Fuel"
-                android:textColor="@color/light_gray"
-                android:textSize="10sp" />
-
-            <EditText
-                android:id="@+id/startingFuelField"
-                android:layout_width="match_parent"
-                android:layout_height="40dp"
-                android:background="@drawable/edit_text"
-                android:hint="gal"
-                android:inputType="numberDecimal"
-                android:padding="6dp"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#AAAAAA"
-                android:textSize="14sp" />
-        </LinearLayout>
-    </LinearLayout>
 
     <!-- Buttons stack, pinned to the right edge so the wide left column
          is free for the new search input + results list. -->
@@ -195,8 +187,8 @@
             android:text="Manage Aircraft" />
     </LinearLayout>
 
-    <!-- Search input — sits to the left of the button stack, below the flight
-         parameters row. -->
+    <!-- Search input — sits directly under the waypoints box, to the left
+         of the button stack. -->
     <EditText
         android:id="@+id/searchInput"
         android:layout_width="0dp"
@@ -214,11 +206,12 @@
         android:textSize="16sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
-        app:layout_constraintTop_toBottomOf="@id/flightParamsRow" />
+        app:layout_constraintTop_toBottomOf="@id/flightPlanEdit" />
 
     <!-- Live preview of the plan totals — distance / time / fuel computed from
          the current waypoints, aircraft profile, cruise altitude and forecast
-         wind. Lets the pilot scrub altitudes and watch the numbers change. -->
+         wind. Tappable: opens the full Nav Log breakdown for the same plan,
+         which is just this strip's numbers expanded leg-by-leg. -->
     <TextView
         android:id="@+id/previewSummary"
         android:layout_width="0dp"
@@ -231,6 +224,9 @@
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         android:layout_marginTop="2dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/flightPlanButtonLayout"
         app:layout_constraintTop_toBottomOf="@id/searchInput" />

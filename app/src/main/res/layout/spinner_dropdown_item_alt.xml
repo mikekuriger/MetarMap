@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Altitude-spinner dropdown row. Black background, white default text;
+     the adapter overlays SpannableString spans to color the wind suffix
+     (red for HW, green for TW) and to mark altitudes below the route's
+     minimum-safe floor in red end-to-end. -->
+<TextView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:textSize="14sp"
+    android:textColor="@android:color/white"
+    android:background="@android:color/black"
+    android:padding="10dp"
+    android:gravity="center_vertical" />

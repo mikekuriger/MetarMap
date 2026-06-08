@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_gray"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- ===== GENERAL ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="General" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Tail #" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/tailField"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="e.g. N12345"
+                android:inputType="textCapCharacters"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textColorHint="@color/gray"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/faaLookupButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="FAA Lookup" />
+        </LinearLayout>
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Serial #" />
+        <EditText android:id="@+id/serialField" style="@style/AircraftField" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Aircraft type" />
+        <EditText android:id="@+id/typeField" style="@style/AircraftField"
+            android:hint="e.g. Cessna 172N" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Primary color" />
+        <EditText android:id="@+id/color1Field" style="@style/AircraftField" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Secondary color" />
+        <EditText android:id="@+id/color2Field" style="@style/AircraftField" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Category" />
+        <Spinner android:id="@+id/categorySpinner" style="@style/AircraftSpinner" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Home airport" />
+        <EditText android:id="@+id/homeField" style="@style/AircraftField"
+            android:hint="e.g. KWHP" android:inputType="textCapCharacters" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Airspeed units" />
+        <Spinner android:id="@+id/airspeedUnitsSpinner" style="@style/AircraftSpinner" />
+
+        <!-- ===== PROFILES ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Performance Profiles" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/profilesRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <Button
+            android:id="@+id/addProfileButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Add profile" />
+
+        <!-- ===== GLIDE ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Glide Performance" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Best glide speed" />
+        <EditText android:id="@+id/glideSpeedField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Best glide ratio (e.g. 9 for 9:1)" />
+        <EditText android:id="@+id/glideRatioField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <!-- ===== ALTITUDES ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Altitudes" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Default cruise altitude (ft MSL)" />
+        <EditText android:id="@+id/defaultAltField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Max ceiling (ft MSL)" />
+        <EditText android:id="@+id/maxCeilingField" style="@style/AircraftField"
+            android:inputType="number" />
+
+        <!-- ===== WEIGHTS ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Weights" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Units" />
+        <Spinner android:id="@+id/weightUnitsSpinner" style="@style/AircraftSpinner" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Basic empty weight (BEW)" />
+        <EditText android:id="@+id/bewField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Max zero fuel weight (MZFW)" />
+        <EditText android:id="@+id/mzfwField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Max ramp weight (MRW)" />
+        <EditText android:id="@+id/mrwField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Max takeoff weight (MTOW)" />
+        <EditText android:id="@+id/mtowField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Max landing weight (MLW)" />
+        <EditText android:id="@+id/mlwField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <!-- ===== W&B placeholder ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Weight &amp; Balance" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text="(coming later — CG envelope and station moments)"
+            android:textColor="@color/light_gray"
+            android:textStyle="italic" />
+
+        <!-- ===== FUEL ===== -->
+        <TextView style="@style/AircraftSectionHeader" android:text="Fuel" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Type" />
+        <Spinner android:id="@+id/fuelTypeSpinner" style="@style/AircraftSpinner" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Units" />
+        <Spinner android:id="@+id/fuelUnitsSpinner" style="@style/AircraftSpinner" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Total usable fuel capacity" />
+        <EditText android:id="@+id/fuelCapacityField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Start / taxi / takeoff fuel" />
+        <EditText android:id="@+id/startupFuelField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <TextView style="@style/AircraftFieldLabel" android:text="Dry operating cost ($/hr)" />
+        <EditText android:id="@+id/dryOpCostField" style="@style/AircraftField"
+            android:inputType="numberDecimal" />
+
+        <!-- ===== Actions ===== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/saveButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Save" />
+
+            <View android:layout_width="8dp" android:layout_height="match_parent" />
+
+            <Button
+                android:id="@+id/deleteButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="@color/expires_bad"
+                android:text="Delete" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

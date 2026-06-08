@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact spinner item used by the Flight Plan editor's 3-column picker
+     row so long aircraft names / "Cruise 65%" / altitude strings don't get
+     clipped by what used to be the dropdown arrow. -->
+<TextView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:textSize="10sp"
+    android:textColor="@android:color/white"
+    android:padding="6dp"
+    android:ellipsize="end"
+    android:singleLine="true" />

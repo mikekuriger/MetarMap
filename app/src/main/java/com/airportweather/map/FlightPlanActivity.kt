@@ -7,7 +7,9 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputFilter
 import android.text.Spannable
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.inputmethod.InputMethodManager
@@ -87,6 +89,13 @@ class FlightPlanActivity : AppCompatActivity() {
         // ✅ Load the "current" flight plan when opening the page
         loadFlightPlan()
 
+        // Uppercase at the input layer instead of inside the watcher.
+        // Mutating the Editable from afterTextChanged() while the IME is
+        // still composing a character race-conditioned and produced
+        // duplicated input ("KSBA" typed fast → "KSBKSBA"). AllCaps runs
+        // before the IME commit, so no remove/re-add listener dance.
+        binding.flightPlanEdit.filters = arrayOf<InputFilter>(InputFilter.AllCaps())
+
         // ✅ Listen for text input in flightPlanEdit
         binding.flightPlanEdit.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
@@ -97,19 +106,11 @@ class FlightPlanActivity : AppCompatActivity() {
                 }
                 // The route course feeds head/tail wind labels in the altitude
                 // spinner; recompute when waypoints change. The plan totals
-                // strip also depends on waypoints, so refresh it too.
+                // strip also depends on waypoints, so refresh it too. Border
+                // validity also depends on the route's airport elevations.
                 refreshAltitudeLabels()
                 refreshPreview()
-
-                binding.flightPlanEdit.removeTextChangedListener(this)
-
-                val current = s.toString()
-                val upper = current.uppercase()
-
-                if (current != upper) {
-                    s?.replace(0, s.length, upper)
-                    binding.flightPlanEdit.setSelection(minOf(binding.flightPlanEdit.selectionStart, upper.length))
-                }
+                refreshValidationBorders()
 
                 val dbHelper = AirportDatabaseHelper(this@FlightPlanActivity)
                 UserWaypoints.ensureLoaded(this@FlightPlanActivity)
@@ -149,8 +150,6 @@ class FlightPlanActivity : AppCompatActivity() {
 
                     position += word.length + 1 // account for the space
                 }
-
-                binding.flightPlanEdit.addTextChangedListener(this)
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -158,6 +157,38 @@ class FlightPlanActivity : AppCompatActivity() {
         })
 
         setupWaypointSearch()
+
+        // Preview strip → Nav Log. Tapping the rolled-up totals opens the
+        // leg-by-leg breakdown. Builds a fresh plan from the current editor
+        // state (waypoints + aircraft + altitude) using cached winds, so
+        // the user doesn't have to Activate first just to peek at numbers.
+        binding.previewSummary.setOnClickListener {
+            val rawText = binding.flightPlanEdit.text?.toString()?.trim().orEmpty()
+            if (rawText.isBlank()) {
+                Toast.makeText(this, "Enter waypoints first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val alt = selectedCruiseAltitude()
+            val wind = alt?.let { altitudeWinds[it] }
+            val plan = buildFlightPlanFromText(
+                context = this,
+                rawText = rawText,
+                cruiseAltitude = alt,
+                windDir = wind?.first ?: 0,
+                windSpeed = wind?.second ?: 0,
+                startingFuel = startingFuelFromAircraft(),
+                currentLocation = null,
+            )
+            if (plan == null || plan.legs.isEmpty()) {
+                Toast.makeText(this, "Couldn't build plan from these waypoints", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            // NavLogActivity reads from the holder. Stash the freshly-built
+            // plan so the user sees the same numbers as the preview strip,
+            // even if they haven't Activate'd yet.
+            FlightPlanHolder.currentPlan = plan
+            startActivity(Intent(this, NavLogActivity::class.java))
+        }
 
         // BUTTONS
         // ✅ When "Reverse Flight Plan" button is clicked
@@ -254,7 +285,10 @@ class FlightPlanActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val startingFuel = binding.startingFuelField.text.toString().toDoubleOrNull() ?: 0.0
+            // Default to the active aircraft's full usable capacity. A
+            // per-flight override (less-than-full tanks) will come with
+            // the W&B screen.
+            val startingFuel = startingFuelFromAircraft()
 
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 lifecycleScope.launch {
@@ -284,7 +318,6 @@ class FlightPlanActivity : AppCompatActivity() {
                         sharedPreferences.edit()
                             .putString("WAYPOINTS", rawText)
                             .putInt("CRUISE_ALT", selectedCruiseAltitude() ?: 0)
-                            .putFloat("STARTING_FUEL", startingFuel.toFloat())
                             .apply()
                         returnToMainActivity()
                     } else {
@@ -343,6 +376,7 @@ class FlightPlanActivity : AppCompatActivity() {
                 // (and the wind annotations) need refreshing too.
                 refreshAltitudeSpinner(chosen)
                 refreshPreview()
+                refreshValidationBorders()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -354,6 +388,7 @@ class FlightPlanActivity : AppCompatActivity() {
                     profilesForSelected[position].id
                 // Cruise TAS/GPH differ between profiles → totals change.
                 refreshPreview()
+                refreshValidationBorders()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -369,23 +404,25 @@ class FlightPlanActivity : AppCompatActivity() {
         val profileSpinner = findViewById<android.widget.Spinner>(R.id.profileSpinner)
 
         if (aircraftList.isEmpty()) {
+            profilesForSelected = emptyList()
             aircraftSpinner.adapter = ArrayAdapter(
-                this, R.layout.spinner_item, listOf("(none — tap Manage)")
+                this, R.layout.spinner_item_compact, listOf("(none — tap Manage)")
             )
             aircraftSpinner.isEnabled = false
             profileSpinner.adapter = ArrayAdapter(
-                this, R.layout.spinner_item, listOf("(none)")
+                this, R.layout.spinner_item_compact, listOf("(none)")
             )
             profileSpinner.isEnabled = false
-            profilesForSelected = emptyList()
             refreshAltitudeSpinner(null)
+            // No-aircraft state never fires onItemSelected, so paint borders directly.
+            refreshValidationBorders()
             return
         }
 
         aircraftSpinner.isEnabled = true
         profileSpinner.isEnabled = true
         val labels = aircraftList.map { it.general.tailNumber.ifBlank { "(no tail #)" } }
-        val adapter = ArrayAdapter(this, R.layout.spinner_item, labels).apply {
+        val adapter = ArrayAdapter(this, R.layout.spinner_item_compact, labels).apply {
             setDropDownViewResource(R.layout.spinner_dropdown_item)
         }
         aircraftSpinner.adapter = adapter
@@ -425,7 +462,7 @@ class FlightPlanActivity : AppCompatActivity() {
         altitudeOptions = baseAltitudes
         if (altitudeOptions.isEmpty()) {
             spinner.adapter = ArrayAdapter(
-                this, R.layout.spinner_item, listOf("(no altitudes)")
+                this, R.layout.spinner_item_compact, listOf("(no altitudes)")
             )
             spinner.isEnabled = false
             return
@@ -455,9 +492,87 @@ class FlightPlanActivity : AppCompatActivity() {
                 val alt = altitudeOptions.getOrNull(position) ?: return
                 sharedPreferences.edit().putInt("CRUISE_ALT", alt).apply()
                 refreshPreview()
+                refreshValidationBorders()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
+
+    /** Minimum cruise altitude margin above the highest route airport.
+     *  1500 ft AGL clears most obstacles, terrain noise, and pattern
+     *  altitudes without restricting low-and-slow planning more than
+     *  necessary. */
+    private val cruiseMinMarginFt = 1500
+
+    /**
+     * Refreshes the colored border on each of the three top-row spinners.
+     * Green = the spinner's current value passes validation; red = needs
+     * attention. Called whenever any input that affects validity changes
+     * (aircraft, profile, altitude, waypoints).
+     */
+    private fun refreshValidationBorders() {
+        val aircraftSpinner = findViewById<android.widget.Spinner>(R.id.aircraftSpinner)
+        val profileSpinner = findViewById<android.widget.Spinner>(R.id.profileSpinner)
+        val altSpinner = findViewById<android.widget.Spinner>(R.id.cruiseAltitudeSpinner)
+
+        aircraftSpinner.background = drawableFor(aircraftList.isNotEmpty())
+        profileSpinner.background = drawableFor(profilesForSelected.isNotEmpty())
+        altSpinner.background = drawableFor(isCruiseAltitudeValid())
+    }
+
+    private fun drawableFor(valid: Boolean): android.graphics.drawable.Drawable? =
+        androidx.core.content.ContextCompat.getDrawable(
+            this,
+            if (valid) R.drawable.spinner_field_valid else R.drawable.spinner_field,
+        )
+
+    /**
+     * Minimum-safe cruise altitude for the currently-entered route, in feet
+     * MSL. Defined as the highest known-airport elevation on the route plus
+     * [cruiseMinMarginFt]. Returns 0 when we can't evaluate (no waypoints,
+     * none resolved, or none are airports) — callers treat 0 as "don't
+     * flag anything" so users aren't penalized before entering a route.
+     *
+     * Fixes/navaids are intentionally excluded: their stored elev is 0,
+     * which would silently make every altitude pass the check.
+     */
+    private fun routeFloorFt(): Int {
+        val rawText = binding.flightPlanEdit.text?.toString()?.trim().orEmpty()
+        if (rawText.isBlank()) return 0
+        val dbHelper = AirportDatabaseHelper(this)
+        val resolved = rawText.split("\\s+".toRegex())
+            .mapNotNull { dbHelper.lookupWaypoint(it.uppercase()) }
+        val airportElevs = resolved
+            .filter { it.type.equals("AIRPORT", ignoreCase = true) }
+            .map { it.elev.toInt() }
+        if (airportElevs.isEmpty()) return 0
+        return airportElevs.max() + cruiseMinMarginFt
+    }
+
+    /**
+     * True when the currently-selected cruise altitude is at least
+     * [cruiseMinMarginFt] above the highest airport on the route, or
+     * when we can't yet evaluate the route. Aircraft ceiling isn't
+     * checked here — the spinner is already filtered to ≤ ceiling in
+     * refreshAltitudeSpinner().
+     */
+    private fun isCruiseAltitudeValid(): Boolean {
+        if (altitudeOptions.isEmpty()) return false
+        val alt = selectedCruiseAltitude() ?: return false
+        val floor = routeFloorFt()
+        return floor == 0 || alt >= floor
+    }
+
+    /**
+     * Starting fuel for the nav log. Default: the active aircraft's full
+     * usable capacity ("full tanks"). When the W&B screen lands it will
+     * supply a per-flight override; until then full tanks is the right
+     * assumption for most flights.
+     */
+    private fun startingFuelFromAircraft(): Double {
+        val selection = AircraftSelectionStore(this)
+            .resolveSelection(AircraftRepository.get(filesDir))
+        return selection?.aircraft?.fuel?.totalUsableCapacity ?: 0.0
     }
 
     /**
@@ -472,7 +587,7 @@ class FlightPlanActivity : AppCompatActivity() {
 
         val alt = selectedCruiseAltitude()
         val wind = alt?.let { altitudeWinds[it] }
-        val startingFuel = binding.startingFuelField.text.toString().toDoubleOrNull() ?: 0.0
+        val startingFuel = startingFuelFromAircraft()
 
         val plan = buildFlightPlanFromText(
             context = this,
@@ -493,7 +608,8 @@ class FlightPlanActivity : AppCompatActivity() {
             else parts[0].toIntOrNull() ?: 0
         }
         val timeText = "%d:%02d".format(totalMin / 60, totalMin % 60)
-        view.text = "%.1f nm  ·  %s  ·  %.1f gal".format(totalDist, timeText, totalFuel)
+        // Trailing chevron hints that the strip is tappable (opens Nav Log).
+        view.text = "%.1f nm  ·  %s  ·  %.1f gal   ›".format(totalDist, timeText, totalFuel)
     }
 
     /** Re-renders the cruise altitude spinner labels using the current
@@ -506,35 +622,66 @@ class FlightPlanActivity : AppCompatActivity() {
         if (keep in altitudeOptions.indices) spinner.setSelection(keep)
     }
 
-    private fun altitudeAdapter(): ArrayAdapter<String> {
+    private fun altitudeAdapter(): ArrayAdapter<CharSequence> {
         // Resolve the route's course once per refresh so we can project each
         // altitude's wind onto it. Null when there aren't enough waypoints to
         // define a course — in that case we fall back to dir/speed annotations
         // so the data isn't lost.
         val course = computeRouteCourse()
-        val labels = altitudeOptions.map { alt ->
-            val wind = altitudeWinds[alt]
-            val altText = "%,d ft".format(alt)
-            if (wind == null) return@map altText
+        val floor = routeFloorFt()  // 0 → don't flag any altitude
+        val redSpan = { ForegroundColorSpan(android.graphics.Color.RED) }
+        val greenSpan = { ForegroundColorSpan(android.graphics.Color.parseColor("#66BB6A")) }
 
-            val (dir, speed) = wind
-            if (course == null || speed == 0) {
-                "$altText  ·  ${dir}°/${speed}"
-            } else {
-                // Positive = headwind, negative = tailwind. The relative angle
-                // is "wind FROM minus course" because the FB reports the
-                // direction the wind is coming FROM.
-                val relRad = Math.toRadians(((dir - course + 360) % 360))
-                val component = (speed * Math.cos(relRad)).roundToInt()
+        val labels: List<CharSequence> = altitudeOptions.map { alt ->
+            val tooLow = floor > 0 && alt < floor
+            val sb = SpannableStringBuilder("%,d ft".format(alt))
+            val wind = altitudeWinds[alt]
+            if (wind != null) {
+                val (dir, speed) = wind
+                sb.append("  ·  ")
                 when {
-                    component > 0 -> "$altText  ·  $component kt HW"
-                    component < 0 -> "$altText  ·  ${-component} kt TW"
-                    else -> "$altText  ·  pure x-wind"
+                    course == null || speed == 0 -> {
+                        sb.append("${dir}°/${speed}")
+                    }
+                    else -> {
+                        // Positive = headwind, negative = tailwind. The
+                        // relative angle is "wind FROM minus course" because
+                        // FB reports the direction the wind is coming FROM.
+                        val relRad = Math.toRadians(((dir - course + 360) % 360))
+                        val component = (speed * Math.cos(relRad)).roundToInt()
+                        val start = sb.length
+                        when {
+                            component > 0 -> {
+                                sb.append("$component kt HW")
+                                // Skip the wind color when the row is going
+                                // to be painted red end-to-end anyway —
+                                // avoids a red-on-red span war and keeps the
+                                // "row is invalid" signal clean.
+                                if (!tooLow) {
+                                    sb.setSpan(redSpan(), start, sb.length,
+                                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                                }
+                            }
+                            component < 0 -> {
+                                sb.append("${-component} kt TW")
+                                if (!tooLow) {
+                                    sb.setSpan(greenSpan(), start, sb.length,
+                                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                                }
+                            }
+                            else -> sb.append("pure x-wind")
+                        }
+                    }
                 }
             }
+            if (tooLow) {
+                sb.setSpan(redSpan(), 0, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            sb
         }
-        return ArrayAdapter(this, R.layout.spinner_item, labels).apply {
-            setDropDownViewResource(R.layout.spinner_dropdown_item)
+
+        return ArrayAdapter<CharSequence>(this, R.layout.spinner_item_compact, labels).apply {
+            setDropDownViewResource(R.layout.spinner_dropdown_item_alt)
         }
     }
 
@@ -619,14 +766,14 @@ class FlightPlanActivity : AppCompatActivity() {
         profilesForSelected = aircraft.profiles
         if (profilesForSelected.isEmpty()) {
             spinner.adapter = ArrayAdapter(
-                this, R.layout.spinner_item, listOf("(none)")
+                this, R.layout.spinner_item_compact, listOf("(none)")
             )
             spinner.isEnabled = false
             return
         }
         spinner.isEnabled = true
         val adapter = ArrayAdapter(
-            this, R.layout.spinner_item,
+            this, R.layout.spinner_item_compact,
             profilesForSelected.map { it.name.ifBlank { "(unnamed)" } },
         ).apply { setDropDownViewResource(R.layout.spinner_dropdown_item) }
         spinner.adapter = adapter
@@ -697,11 +844,6 @@ class FlightPlanActivity : AppCompatActivity() {
         val rawText = sharedPreferences.getString("WAYPOINTS", "") ?: ""
         binding.flightPlanEdit.setText(rawText)
         binding.activateFlightPlanButton.text = if (rawText.isNotBlank()) "Activate" else "Exit"
-
-        // Restore last-used starting fuel so the user doesn't re-enter it on
-        // every plan tweak.
-        val startingFuel = sharedPreferences.getFloat("STARTING_FUEL", 0f)
-        if (startingFuel != 0f) binding.startingFuelField.setText(startingFuel.toString())
 
 //        Log.d("FlightPlanActivity", "Loaded rawText: '$rawText'")
 //        val flightPlan = buildFlightPlanFromText(this, rawText)

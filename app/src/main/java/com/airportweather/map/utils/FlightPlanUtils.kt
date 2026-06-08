@@ -442,8 +442,12 @@ object FlightPlanUtils {
     }
 
     private fun estimateWCA(tc: Double, windDir: Int, windSpd: Int, tas: Int): Double {
+        if (tas == 0) return 0.0
         val angle = Math.toRadians((windDir - tc + 360) % 360)
-        return Math.toDegrees(asin((windSpd * sin(angle)) / tas))
+        // Clamp to [-1, 1] — wind can exceed TAS (e.g. jet-stream altitudes) which
+        // would produce NaN from asin and then an IllegalArgumentException in roundToInt.
+        val sinWca = ((windSpd * sin(angle)) / tas).coerceIn(-1.0, 1.0)
+        return Math.toDegrees(asin(sinWca))
     }
 
     private fun estimateGroundSpeed(tas: Int, windDir: Int, windSpd: Int, tc: Double): Double {
