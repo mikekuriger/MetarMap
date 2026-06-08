@@ -444,7 +444,7 @@
             android:layout_marginBottom="140dp"
             android:background="@drawable/rounded_bg"
             android:src="@drawable/ic_compass2"
-            android:contentDescription="Nav Log" />
+            android:contentDescription="Flight Plan" />
 
         <ImageButton
             android:id="@+id/settings_button"

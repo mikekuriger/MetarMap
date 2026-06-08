@@ -92,6 +92,7 @@ import androidx.core.view.WindowCompat
 import com.airportweather.map.aircraft.AircraftRepository
 import com.airportweather.map.aircraft.AircraftSelectionStore
 import com.airportweather.map.utils.AirportDatabaseHelper
+import com.airportweather.map.utils.buildFlightPlanFromText
 import com.airportweather.map.utils.DatabaseSyncUtils
 import com.airportweather.map.utils.FlightPlanHolder
 import com.airportweather.map.utils.FlightPlanUtils
@@ -384,7 +385,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private var lastAltitude: Double? = null
     private var lastTime: Long? = null
     private var trackLine: Polyline? = null
-    private var stopStartTime: Long? = null  // for recorging tracks
+
+    // Historical tracks the user has opened from the Tracks list. Separate
+    // from [trackLine] which is the live breadcrumb of the current
+    // recording. Tracked so we can wipe them on user request without
+    // touching anything else on the map.
+    private val loadedTrackPolylines = mutableListOf<Polyline>()
+    // (auto-stop hysteresis now lives inside KMLRecorder)
     private val recentRedTargets = mutableMapOf<String, Long>()  // hex → timestamp when red was last true
     private val viewModel: MainViewModel by viewModels()
     private lateinit var markerFactory: MarkerFactory
@@ -489,22 +496,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // side buttons
-        // recordButton
+        // recordButton — toggles manual recording. Auto-start/stop runs
+        // independently via maybeAutoStart / maybeAutoStop in the location
+        // callback; manual stop sets a cooldown inside the recorder so
+        // it won't immediately auto-restart on the next fix.
         val recordButton = binding.recordButton
         recordButton.setOnClickListener {
-            if (!recorder.isRecording) {
-                recorder.start()
-                //Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
-                Log.d("KMLRecorder_main", "Button pressed — recording started")
+            if (recorder.isRecording) {
+                val saved = recorder.stopManual()
+                Toast.makeText(
+                    this,
+                    saved?.let { "Track saved: ${it.name}" } ?: "Recording stopped",
+                    Toast.LENGTH_SHORT,
+                ).show()
             } else {
-                recorder.stop()
-                //Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
-                Log.d("KMLRecorder_main", "Button pressed — recording stopped")
+                recorder.startManual()
+                Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
             }
-
-            // ✅ Always reflect current state
-            val newColor = if (recorder.isRecording) Color.RED else Color.BLACK
-            recordButton.setColorFilter(newColor)
+            recordButton.setColorFilter(if (recorder.isRecording) Color.RED else Color.BLACK)
         }
 
 
@@ -538,10 +547,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             )  // ✅ Log visibility after toggle
         }
 
-        // ✅ NavLog Button
+        // Repurposed: this button now opens the Flight Plan editor.
+        // Nav Log moved inside the editor (the data is plan-derived
+        // anyway) so it's reachable from one less screen.
         val navLogButton = binding.navLogButton
         navLogButton.setOnClickListener {
-            val intent = Intent(this, NavLogActivity::class.java)
+            val intent = Intent(this, FlightPlanActivity::class.java)
             startActivity(intent)
         }
 
@@ -687,11 +698,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         //KML files (for display)
         trackFileLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == RESULT_OK) {
-                    val filePath = result.data?.getStringExtra("selectedTrackFile")
-                    if (filePath != null) {
-                        val file = File(filePath)
-                        loadTrackFromKml(file)
+                if (result.resultCode != RESULT_OK) return@registerForActivityResult
+                val data = result.data ?: return@registerForActivityResult
+                when {
+                    data.getBooleanExtra("clearLoadedTracks", false) -> {
+                        clearLoadedTracks()
+                        Toast.makeText(this, "Cleared tracks from map", Toast.LENGTH_SHORT).show()
+                    }
+                    else -> {
+                        data.getStringExtra("selectedTrackFile")?.let { filePath ->
+                            loadTrackFromKml(File(filePath))
+                        }
                     }
                 }
             }
@@ -876,7 +893,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // 1 s GPS interval is plenty for nav, marker tracking, and KML recording.
         // The previous 50 ms (20 Hz) was racing-drone aggressive and drove the
         // Stratux probe + log spam every 50 ms.
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
+        //
+        // setMaxUpdateDelayMillis is critical here: without it the OS is
+        // free to batch updates and deliver them in clumps. Samsung's
+        // battery optimization in particular will hold ~60 s of fixes
+        // and dump them at once, which makes the breadcrumb polyline
+        // appear to "jump" forward with all-points-at-once. Setting the
+        // max delay equal to the interval disables batching.
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
+            .setMinUpdateIntervalMillis(500)
+            .setMaxUpdateDelayMillis(1000)
+            .build()
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -981,6 +1008,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .sumOf { it.distanceNM }
         val distanceToDestinationNm = distanceToWp + subsequentLegsDistance
         val finalDestinationName = legs.last().to.name
+
+        // Diagnostic: helps catch a class of bug where the plan ends up
+        // with duplicated/overlapping legs or where a synthetic TOC/TOD
+        // gets the wrong lat/lon. Spammy at 1Hz — fine to remove once the
+        // current DTN/DTD doubling report is fixed.
+        if (Log.isLoggable("FlightPlanCalc", Log.DEBUG)) {
+            val summary = legs.mapIndexed { i, l ->
+                "[$i] ${l.from.name}(${"%.3f".format(l.from.lat)},${"%.3f".format(l.from.lon)})" +
+                    "→${l.to.name}(${"%.3f".format(l.to.lat)},${"%.3f".format(l.to.lon)}) " +
+                    "${"%.1f".format(l.distanceNM)}nm phase=${l.phase} " +
+                    "active=${l.active} completed=${l.completed}"
+            }.joinToString("\n  ")
+            Log.d(
+                "FlightPlanCalc",
+                "user=(${"%.3f".format(location.latitude)},${"%.3f".format(location.longitude)}) " +
+                    "targetIdx=$targetIndex DTN=${"%.1f".format(distanceToWp)}nm " +
+                    "subsequent=${"%.1f".format(subsequentLegsDistance)}nm " +
+                    "DTD=${"%.1f".format(distanceToDestinationNm)}nm\n  $summary"
+            )
+        }
 
         return FlightData(
             wpLocation = toLatLng,
@@ -1420,6 +1467,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                 }
                 true
             }
+
+            // Long-press anywhere on the map → find the nearest airport in
+            // the DB and offer to add it to the flight plan. Covers all the
+            // airports that don't have a METAR marker (no weather station,
+            // private fields, etc.) without paying the cost of carrying
+            // 20k+ markers in the layer.
+            mMap.setOnMapLongClickListener { latLng ->
+                val dbHelper = AirportDatabaseHelper(this)
+                val nearest = dbHelper.findNearestAirport(latLng.latitude, latLng.longitude, maxNm = 2.0)
+                if (nearest != null) {
+                    showAddToPlanDialog(nearest.code)
+                } else {
+                    Toast.makeText(
+                        this,
+                        "No airport within 2 nm of that point",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
             metarLoaded = true
         }
 
@@ -1587,10 +1653,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val currentLayer = MapLayer.fromName(currentLayerName)
         val layerName = currentLayer::class.simpleName ?: "Unknown"
         val tafByStation = tafs.associateBy { it.stationId }
+        val zoom = mMap.cameraPosition.zoom
 
-        // What we WANT to be drawn this pass: visible stations keyed by id, with full signature
+        // What we WANT to be drawn this pass: visible stations keyed by id, with full signature.
+        // Two filters: (a) inside the camera's viewport, (b) the station's priority tier is
+        // visible at the current zoom — see [shouldShowStationAtZoom].
         val desired: Map<String, MarkerSignature> = metars.asSequence()
             .filter { visibleBounds.contains(LatLng(it.latitude, it.longitude)) }
+            .filter { shouldShowStationAtZoom(it, zoom) }
             .associate { metar ->
                 metar.stationId to MarkerSignature(layerName, metar, tafByStation[metar.stationId])
             }
@@ -2000,16 +2070,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
                             when (airspaceClass) {
                                 "CLASS_B" -> polygonOptions.strokeColor(Color.argb(128, 0, 64, 255))
-                                    .strokeWidth(8f)
+                                    .strokeWidth(4f)
 
                                 "CLASS_C" -> polygonOptions.strokeColor(Color.MAGENTA)
-                                    .strokeWidth(4f)
+                                    .strokeWidth(2f)
 
                                 "CLASS_D", "CLASS_E4" -> polygonOptions.strokeColor(
                                     if (airspaceClass == "CLASS_D") Color.parseColor("#0080FF") else Color.parseColor(
                                         "#863F67"
                                     )
-                                ).strokeWidth(4f)
+                                ).strokeWidth(2f)
                                     .strokePattern(listOf(Dash(20f), Gap(10f)))
 //                                "CLASS_E5" -> polygonOptions.strokeColor(Color.argb(32, 134, 63, 103))
 //                                    .strokeWidth(15f)
@@ -2129,20 +2199,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         when (feature.properties.typeCode) {
             "MOA" -> opts
                 .strokeColor(Color.argb(220, 199, 21, 133))
-                .strokeWidth(4f)
+                .strokeWidth(2f)
                 .strokePattern(listOf(Dash(20f), Gap(10f)))
                 .fillColor(Color.TRANSPARENT)
             "R" -> opts
                 .strokeColor(Color.argb(220, 0, 90, 200))
-                .strokeWidth(4f)
+                .strokeWidth(2f)
                 .fillColor(Color.argb(40, 0, 90, 200))
             "P" -> opts
                 .strokeColor(Color.argb(230, 200, 30, 30))
-                .strokeWidth(6f)
+                .strokeWidth(3f)
                 .fillColor(Color.argb(50, 200, 30, 30))
             else -> opts
                 .strokeColor(Color.GRAY)
-                .strokeWidth(2f)
+                .strokeWidth(1.5f)
                 .fillColor(Color.TRANSPARENT)
         }
         opts.zIndex(0.5f)
@@ -2324,7 +2394,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // ✅ Create and show AlertDialog
         val alertDialog = AlertDialog.Builder(this)
             .setView(layout)  // ✅ Use custom layout
-            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+            .setPositiveButton("Close") { dialog, _ -> dialog.dismiss() }
+            // Add-to-plan flow: a follow-up dialog with Insert / Add to end /
+            // Direct to options so the pilot can drop this airport into the
+            // current flight plan without leaving the map.
+            .setNeutralButton("Add to plan…") { _, _ -> showAddToPlanDialog(metar.stationId) }
             .create()
 
         alertDialog.window?.setBackgroundDrawable(ColorDrawable(bgColor))
@@ -2332,11 +2406,188 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         alertDialog.show()
     }
 
+    /** How a tapped airport should be folded into the existing flight plan. */
+    private enum class AddToPlanMode { INSERT, APPEND, DIRECT_TO }
+
+    /**
+     * Second-step dialog: once the pilot opted to add this airport, ask
+     * *how*. Available options depend on plan state — Insert only makes
+     * sense with ≥2 existing waypoints, etc. Picking an option commits
+     * the change immediately; Cancel does nothing.
+     */
+    private fun showAddToPlanDialog(stationId: String) {
+        val code = stationId.uppercase()
+        val flightPlanPrefs = getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE)
+        val current = flightPlanPrefs.getString("WAYPOINTS", "") ?: ""
+        val existing = current.split("\\s+".toRegex()).filter { it.isNotBlank() }.map { it.uppercase() }
+
+        if (existing.contains(code)) {
+            Toast.makeText(this, "$code is already in this plan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val items = mutableListOf<Pair<String, AddToPlanMode>>()
+        when (existing.size) {
+            0 -> {
+                items += "Start plan with $code" to AddToPlanMode.APPEND
+            }
+            1 -> {
+                items += "Add as destination" to AddToPlanMode.APPEND
+                items += "Direct to $code" to AddToPlanMode.DIRECT_TO
+            }
+            else -> {
+                items += "Insert (best position)" to AddToPlanMode.INSERT
+                items += "Add to end" to AddToPlanMode.APPEND
+                items += "Direct to $code" to AddToPlanMode.DIRECT_TO
+            }
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Add $code to flight plan")
+            .setItems(items.map { it.first }.toTypedArray()) { _, which ->
+                addAirportToPlan(code, items[which].second, existing)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Apply the chosen plan mutation: rebuild the FlightPlan, swap it into
+     * the holder, persist the new WAYPOINTS pref, redraw the map, and toast
+     * a clear "what just happened" message. Reuses cruise altitude / wind /
+     * starting fuel from the existing plan so the user's prior choices stick.
+     */
+    private fun addAirportToPlan(code: String, mode: AddToPlanMode, existing: List<String>) {
+        val newWaypoints = when (mode) {
+            AddToPlanMode.INSERT -> insertWithMinDetour(existing, code)
+            AddToPlanMode.APPEND -> existing + code
+            AddToPlanMode.DIRECT_TO -> listOf(code)
+        }
+        val newRaw = newWaypoints.joinToString(" ")
+
+        val existingPlan = FlightPlanHolder.currentPlan
+        val cruiseAlt = existingPlan?.legs?.firstOrNull()?.cruisingAltitude
+        val windDir = existingPlan?.windDir ?: 0
+        val windSpeed = existingPlan?.windSpeed ?: 0
+        val startingFuel = existingPlan?.startingFuel ?: 0.0
+
+        val newPlan = buildFlightPlanFromText(
+            context = this,
+            rawText = newRaw,
+            cruiseAltitude = cruiseAlt,
+            windDir = windDir,
+            windSpeed = windSpeed,
+            startingFuel = startingFuel,
+            currentLocation = lastKnownUserLocation,
+        )
+
+        if (newPlan == null || newPlan.legs.isEmpty()) {
+            Toast.makeText(this, "Couldn't update flight plan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        FlightPlanHolder.currentPlan = newPlan
+        getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE).edit()
+            .putString("WAYPOINTS", newRaw)
+            .apply()
+        updateMapWithFlightPlan(newPlan, recenterCamera = false)
+        // Keep the reference-equality invariant onResume relies on:
+        // lastRenderedFlightPlan must reflect whatever's currently drawn.
+        // Without this, returning to the map after editing the plan
+        // could short-circuit the "plan was cleared" branch and leave
+        // stale polylines on screen.
+        lastRenderedFlightPlan = newPlan
+
+        val msg = when (mode) {
+            AddToPlanMode.INSERT -> {
+                val idx = newWaypoints.indexOf(code)
+                val before = newWaypoints.getOrNull(idx - 1) ?: "start"
+                val after = newWaypoints.getOrNull(idx + 1) ?: "end"
+                "$code inserted between $before and $after"
+            }
+            AddToPlanMode.APPEND -> {
+                if (existing.isEmpty()) "$code — new flight plan started"
+                else "$code added as new destination"
+            }
+            AddToPlanMode.DIRECT_TO -> "Direct to $code — previous waypoints removed"
+        }
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Find the insertion position among [existing] (size ≥ 2) that adds
+     * the least extra distance to the route. For each candidate slot
+     * between waypoints i-1 and i, detour cost = dist(prev,new) +
+     * dist(new,next) − dist(prev,next). Lowest wins. Falls back to
+     * appending if any waypoint can't be resolved to a lat/lon.
+     */
+    private fun insertWithMinDetour(existing: List<String>, newCode: String): List<String> {
+        if (existing.size < 2) return existing + newCode
+        val dbHelper = AirportDatabaseHelper(this)
+        val newWp = dbHelper.lookupWaypoint(newCode) ?: return existing + newCode
+        val existingWps = existing.map { dbHelper.lookupWaypoint(it) }
+        if (existingWps.any { it == null }) return existing + newCode
+
+        var bestIdx = 1
+        var bestDetour = Double.MAX_VALUE
+        for (i in 1 until existing.size) {
+            val prev = existingWps[i - 1]!!
+            val next = existingWps[i]!!
+            val original = FlightPlanUtils.calculateDistance(prev.lat, prev.lon, next.lat, next.lon)
+            val viaNew =
+                FlightPlanUtils.calculateDistance(prev.lat, prev.lon, newWp.lat, newWp.lon) +
+                FlightPlanUtils.calculateDistance(newWp.lat, newWp.lon, next.lat, next.lon)
+            val detour = viaNew - original
+            if (detour < bestDetour) {
+                bestDetour = detour
+                bestIdx = i
+            }
+        }
+        return existing.toMutableList().apply { add(bestIdx, newCode) }
+    }
+
     private fun toggleMetarVisibility(visible: Boolean) {
         areMetarsVisible = visible
         if (::markerFactory.isInitialized) markerFactory.areMetarsVisible = visible
         markersByStation.values.flatten().forEach { it.isVisible = visible }
         Log.d("Toggle", "METAR visibility set to $areMetarsVisible")
+    }
+
+    /**
+     * Per-airport size/airspace tier, lazy-loaded from APT_BASE the first
+     * time the zoom filter runs. See [AirportDatabaseHelper.getAirportTiers]
+     * for what each tier represents. Cached for the session — the data
+     * doesn't change at runtime.
+     */
+    private var airportTiers: Map<String, Int>? = null
+
+    private fun stationTier(stationId: String): Int {
+        val map = airportTiers ?: AirportDatabaseHelper(this).getAirportTiers()
+            .also { airportTiers = it }
+        return map[stationId.uppercase()] ?: 4
+    }
+
+    /**
+     * Whether a METAR station should be drawn at the current camera zoom.
+     * Tier determines the floor zoom at which the airport appears:
+     *
+     *  - Tier 1 (Class B mega-hub, ARFF D/E): always visible
+     *  - Tier 2 (Class C regional, ARFF C): zoom ≥ 5 — visible state-wide
+     *  - Tier 3 (Class D / smaller commercial): zoom ≥ 7
+     *  - Tier 4 (non-towered GA, default): zoom ≥ 9
+     *
+     * IFR / LIFR weather is always shown regardless of tier — active IMC
+     * is a safety-relevant signal pilots want to see at any altitude.
+     */
+    private fun shouldShowStationAtZoom(metar: METAR, zoom: Float): Boolean {
+        val fc = metar.flightCategory
+        if (fc == "IFR" || fc == "LIFR") return true
+        return when (stationTier(metar.stationId)) {
+            1 -> true
+            2 -> zoom >= 5f
+            3 -> zoom >= 7f
+            else -> zoom >= 9f
+        }
     }
 
     // createWindBarbBitmap moved to BitmapHelpers.kt
@@ -2445,43 +2696,34 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             verticalSpeedFpm = verticalSpeedMps * 196.8504
         }
 
+        // Show VSI in the HUD. Tiny absolute values (sub-50 fpm) are just
+        // sensor noise on the ground — show "0" rather than a flickering
+        // ±10 fpm. Above that we show signed fpm with sign always present
+        // so climbs/descents are visually distinct at a glance.
+        binding.vsText.text = if (kotlin.math.abs(verticalSpeedFpm) < 50)
+            "0"
+        else
+            "%+d".format(verticalSpeedFpm.roundToInt())
+
         lastAltitude = currentAltitude
         lastTime = currentTime
 
-        // FIXME
-        // if recorder is ON, write our GPS position
-        if (recorder.isRecording) {
-            recorder.logLocation(location)
+        // Recorder owns its own state machine — feed it the data, it
+        // decides when to start (takeoff signature), log (passes its own
+        // accuracy/decimation filters), and stop (sustained slow + on
+        // ground). Auto-start respects manual-stop cooldown internally.
+        recorder.maybeAutoStart(location, verticalSpeedFpm)
+        recorder.logLocation(location)
+        recorder.maybeAutoStop(location)?.let { saved ->
+            Toast.makeText(this, "Track saved: ${saved.name}", Toast.LENGTH_LONG).show()
         }
+        // Push the live breadcrumb to the map. logLocation already
+        // applies the recording's accuracy / time / heading / altitude
+        // filters, so this is at most one polyline-points update per
+        // accepted fix.
+        if (recorder.isRecording) updateMapWithTrack()
 
-        // ✈️ Auto start recording on takeoff
-//        if (!recorder.isRecording && speedKnots > 15 && verticalSpeedFpm > 100) {
-        if (!recorder.isRecording && speedKnots > 10 ) {
-            recorder.start()
-            Log.d("KMLRecorder_main", "Takeoff detected — recording started")
-        }
-
-        // ✈️ Auto stop recording on landing
-        if (recorder.isRecording && speedKnots < 15 && verticalSpeedFpm < 100) {
-            if (stopStartTime == null) {
-                stopStartTime = System.currentTimeMillis()
-            }
-
-            val stoppedDuration = System.currentTimeMillis() - stopStartTime!!
-            if (stoppedDuration >= 10_000) {  // 30 seconds
-                recorder.stop()
-                Log.d("KMLRecorder_main", "Stopped for 10s — recording stopped")
-                stopStartTime = null
-            }
-        } else {
-            // Moving again, reset stop timer
-            stopStartTime = null
-        }
-
-        // ✅ Always reflect current state
-        val newColor = if (recorder.isRecording) Color.RED else Color.BLACK
-        val recordButton = binding.recordButton
-        recordButton.setColorFilter(newColor)
+        binding.recordButton.setColorFilter(if (recorder.isRecording) Color.RED else Color.BLACK)
 
         // ✅ Flight plan leg advancement
         val flightPlan = FlightPlanHolder.currentPlan
@@ -3007,49 +3249,66 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
-    //Track Line
+    /**
+     * Sync the live breadcrumb polyline to the recorder's current path.
+     * Called once at map-ready (creates an initially-empty polyline) and
+     * then on every location fix while recording. Mutates the existing
+     * polyline instead of removing+re-adding it — keeps per-fix cost
+     * tiny even on long flights.
+     */
     private fun updateMapWithTrack() {
+        if (!::mMap.isInitialized) return
         val path = recorder.getLatLngPath()
-        trackLine?.remove()
-        trackLine = mMap.addPolyline(
-            PolylineOptions()
-                .addAll(path)
-                .width(5f)
-                .color(Color.RED)
-        )
+        val line = trackLine
+        if (line == null) {
+            trackLine = mMap.addPolyline(
+                PolylineOptions()
+                    .addAll(path)
+                    .width(2.5f)
+                    .color(Color.RED)
+                    .zIndex(1.5f)
+            )
+        } else {
+            line.points = path
+        }
     }
 
     // draw track lines
     private fun loadTrackFromKml(file: File) {
-        val path = mutableListOf<LatLng>()
-        try {
-            file.forEachLine { line ->
-                Log.d("KMLLine", line)
-
-                if (line.contains(",") && line.trim().split(",").size == 3) {
-                    val parts = line.trim().split(",")
-                    val lon = parts[0].toDoubleOrNull()
-                    val lat = parts[1].toDoubleOrNull()
-                    if (lat != null && lon != null) {
-                        path.add(LatLng(lat, lon))
-                    }
-                }
-            }
-            if (path.isNotEmpty()) {
-                mMap.addPolyline(
-                    PolylineOptions()
-                        .addAll(path)
-                        .width(10f)
-                        .color(Color.GREEN)
-                )
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(path.first(), 10f))
-            } else {
-                Toast.makeText(this, "No track data found.", Toast.LENGTH_SHORT).show()
-            }
+        // Use the same robust regex-based extractor the Tracks list uses
+        // for summaries — handles both the current LineString-only KML
+        // and the old buggy format with Placemarks accidentally nested
+        // inside the coordinates block.
+        val path = try {
+            TrackSummaryParser.parsePoints(file)
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Failed to load track.", Toast.LENGTH_SHORT).show()
+            return
         }
+        if (path.isEmpty()) {
+            Toast.makeText(this, "No track data found.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // Single-track view: clear any previously-loaded tracks first.
+        // Layered comparison would be nice eventually, but most of the
+        // time the pilot wants to look at one flight at a time, and
+        // accumulating polylines without a way to clear was the bug
+        // that prompted this fix.
+        clearLoadedTracks()
+        val polyline = mMap.addPolyline(
+            PolylineOptions()
+                .addAll(path)
+                .width(5f)
+                .color(Color.GREEN)
+        )
+        loadedTrackPolylines += polyline
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(path.first(), 10f))
+    }
+
+    private fun clearLoadedTracks() {
+        loadedTrackPolylines.forEach { it.remove() }
+        loadedTrackPolylines.clear()
     }
 
     private fun promptActivateLeg(index: Int) {
