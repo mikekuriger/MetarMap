@@ -4,7 +4,9 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.airportweather.map.utils.WaypointSearchResult
 
@@ -37,22 +39,27 @@ class WaypointSearchAdapter(
     override fun getItemCount(): Int = items.size
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val typeIcon: ImageView = view.findViewById(R.id.typeIcon)
         private val codeText: TextView = view.findViewById(R.id.codeText)
         private val nameText: TextView = view.findViewById(R.id.nameText)
         private val locationText: TextView = view.findViewById(R.id.locationText)
 
         fun bind(result: WaypointSearchResult, onPick: (WaypointSearchResult) -> Unit) {
             codeText.text = result.code
-            // Color the code by type — matches the editor color scheme:
-            //   AIRPORT = green, NAVAID = blue, FIX = yellow.
-            codeText.setTextColor(
-                when (result.type) {
-                    "AIRPORT" -> Color.parseColor("#66CC66")
-                    "NAVAID" -> Color.parseColor("#66CCFF")
-                    "FIX" -> Color.parseColor("#FFCC66")
-                    else -> Color.WHITE
-                }
-            )
+
+            // Color + icon by type — matches the in-editor color scheme and
+            // mirrors how the same waypoints are drawn on sectional charts
+            // (plane for airports, VOR target for navaids, triangle for fixes).
+            val (tint, iconRes) = when (result.type) {
+                "AIRPORT" -> Color.parseColor("#66CC66") to R.drawable.ic_wp_airport
+                "NAVAID" -> Color.parseColor("#66CCFF") to R.drawable.ic_wp_navaid
+                "FIX" -> Color.parseColor("#FFCC66") to R.drawable.ic_wp_fix
+                else -> Color.WHITE to R.drawable.ic_wp_fix
+            }
+            codeText.setTextColor(tint)
+            typeIcon.setImageDrawable(ContextCompat.getDrawable(typeIcon.context, iconRes))
+            typeIcon.setColorFilter(tint)
+
             nameText.text = result.name ?: ""
             nameText.visibility = if (result.name.isNullOrBlank()) View.GONE else View.VISIBLE
             locationText.text = result.location ?: ""

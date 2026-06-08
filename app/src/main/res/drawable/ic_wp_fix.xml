@@ -1,0 +1,11 @@
+<!-- Open triangle for fix/intersection waypoints — matches how fixes are
+     drawn on sectional charts. Tinted at runtime to match row color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M12,4L2,21h20L12,4zM12,7.77L18.39,18.5L5.61,18.5L12,7.77z" />
+</vector>

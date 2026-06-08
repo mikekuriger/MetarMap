@@ -31,25 +31,48 @@ class AirportDatabaseHelper(private val context: Context) :
     // ---------------------------------------------------------------------------
 
     /**
-     * Search for waypoints by code, name, or city. Returns up to [limit] results
-     * ranked: exact ID match → ID prefix → name/city prefix → substring contains.
-     * Returns empty list for queries shorter than 2 chars.
+     * Search for waypoints by code, name, or city. Each type (airport,
+     * navaid, fix) gets its own quota so a query like "UMBER" — which
+     * matches 30+ "Cumberland" airports by city — doesn't starve out
+     * the UMBER fix the user is actually looking for. Within a type
+     * the ranking is the same as before (exact ID → ID prefix → name
+     * prefix → substring). Returns empty list for queries < 2 chars.
+     *
+     * If an exact ID match exists in any type, it's promoted to the
+     * top of the result list so the most specific hit is visible
+     * without scrolling.
      */
     fun searchWaypoints(query: String, limit: Int = 30): List<WaypointSearchResult> {
         val trimmed = query.trim()
         if (trimmed.length < 2) return emptyList()
 
-        val airports = searchAirports(trimmed, limit)
-        val remaining1 = (limit - airports.size).coerceAtLeast(0)
-        val navaids = if (remaining1 > 0) searchNavaids(trimmed, remaining1) else emptyList()
-        val remaining2 = (limit - airports.size - navaids.size).coerceAtLeast(0)
-        val fixes = if (remaining2 > 0) searchFixes(trimmed, remaining2) else emptyList()
-        return airports + navaids + fixes
+        // Split the budget so each waypoint type always has room to
+        // appear. Hard limits keep the total result list scannable.
+        val perTypeLimit = (limit / 3).coerceAtLeast(8)
+        val airports = searchAirports(trimmed, perTypeLimit)
+        val navaids = searchNavaids(trimmed, perTypeLimit)
+        val fixes = searchFixes(trimmed, perTypeLimit)
+
+        val combined = airports + navaids + fixes
+        // Float exact-code matches to the top across all types so a
+        // query for "UMBER" surfaces the UMBER fix above any partial
+        // airport-name matches.
+        val (exact, rest) = combined.partition { it.code.equals(trimmed, ignoreCase = true) }
+        return exact + rest
     }
 
     private fun searchAirports(query: String, limit: Int): List<WaypointSearchResult> {
         val prefix = "$query%"
         val contains = "%$query%"
+        // Ranking is tuned so a query that is a city name surfaces airports
+        // IN that city first (e.g. "mesa" → KFFZ Falcon Field), instead of
+        // unrelated airports that happen to have the word in their name
+        // (Mesa Verde, Mesa Police Heliport, etc).
+        //
+        // Within a priority group, airports with an ICAO ID — typically
+        // public-use towered fields — appear before FAA-only IDs (small
+        // private strips, heliports), which is almost always what the user
+        // wants when scanning a list of "airports near here".
         val sql = """
             SELECT ARPT_ID, ICAO_ID, ARPT_NAME, CITY, STATE_NAME
             FROM APT_BASE
@@ -61,18 +84,20 @@ class AirportDatabaseHelper(private val context: Context) :
               CASE
                 WHEN ICAO_ID = ? COLLATE NOCASE THEN 0
                 WHEN ARPT_ID = ? COLLATE NOCASE THEN 1
-                WHEN ICAO_ID LIKE ? COLLATE NOCASE THEN 2
-                WHEN ARPT_ID LIKE ? COLLATE NOCASE THEN 3
-                WHEN ARPT_NAME LIKE ? COLLATE NOCASE THEN 4
-                WHEN CITY LIKE ? COLLATE NOCASE THEN 5
-                ELSE 6
+                WHEN CITY = ? COLLATE NOCASE THEN 2
+                WHEN ICAO_ID LIKE ? COLLATE NOCASE THEN 3
+                WHEN ARPT_ID LIKE ? COLLATE NOCASE THEN 4
+                WHEN ARPT_NAME LIKE ? COLLATE NOCASE THEN 5
+                WHEN CITY LIKE ? COLLATE NOCASE THEN 6
+                ELSE 7
               END,
+              CASE WHEN ICAO_ID IS NOT NULL AND ICAO_ID != '' THEN 0 ELSE 1 END,
               ARPT_NAME
             LIMIT $limit
         """.trimIndent()
         val args = arrayOf(
             prefix, prefix, contains, contains,
-            query, query, prefix, prefix, prefix, prefix,
+            query, query, query, prefix, prefix, prefix, prefix,
         )
         val results = mutableListOf<WaypointSearchResult>()
         try {
@@ -252,6 +277,129 @@ class AirportDatabaseHelper(private val context: Context) :
             if (wp != null) return wp
         }
         return null
+    }
+
+    /**
+     * Returns a map of airport identifier (both ICAO and FAA forms) to a
+     * size/airspace tier:
+     *  - 1 = mega-hub (FAR 139 ARFF Index D or E — handles wide-body jets,
+     *        almost always Class B airspace: KLAX, KORD, KATL, etc.)
+     *  - 2 = regional hub (ARFF Index C — handles narrow-body jets, usually
+     *        Class C: KOMA, KAUS, KSAT, etc.)
+     *  - 3 = smaller commercial or Class D towered field (ARFF Index A/B,
+     *        or any airport with a control tower but no FAR 139 cert)
+     *  - 4 is the implicit default for airports NOT in this map — small
+     *    GA fields, private strips, heliports.
+     *
+     * Used by the map's zoom-tier visibility filter so Class B/C hubs stay
+     * visible at continental zoom, Class D appears at regional zoom, etc.
+     *
+     * The result set is small (~1500 rows for US data) so caching the
+     * whole thing once at startup is cheaper than per-airport lookups.
+     */
+    fun getAirportTiers(): Map<String, Int> {
+        val out = mutableMapOf<String, Int>()
+        val sql = """
+            SELECT ICAO_ID, ARPT_ID, FAR_139_TYPE_CODE, TWR_TYPE_CODE
+            FROM APT_BASE
+            WHERE (FAR_139_TYPE_CODE IS NOT NULL AND FAR_139_TYPE_CODE != '')
+               OR (TWR_TYPE_CODE     IS NOT NULL AND TWR_TYPE_CODE     != '')
+        """.trimIndent()
+        try {
+            readableDatabase.rawQuery(sql, null).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val icao = cursor.getStringOrNull(0)
+                    val arptId = cursor.getStringOrNull(1)
+                    val far139 = cursor.getStringOrNull(2)
+                    val twr = cursor.getStringOrNull(3)
+                    val tier = parseAirportTier(far139, twr)
+                    if (!icao.isNullOrBlank()) out[icao.uppercase()] = tier
+                    if (!arptId.isNullOrBlank()) out[arptId.uppercase()] = tier
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("AirportTier", "tier lookup failed: ${e.message}")
+        }
+        return out
+    }
+
+    /** ARFF Index char from FAR_139_TYPE_CODE ("I E" → 'E'); empty → null. */
+    private fun parseAirportTier(far139: String?, twr: String?): Int {
+        val arffIdx = far139
+            ?.trim()
+            ?.split("\\s+".toRegex())
+            ?.getOrNull(1)
+            ?.firstOrNull()
+            ?.uppercaseChar()
+        return when {
+            arffIdx == 'D' || arffIdx == 'E' -> 1
+            arffIdx == 'C' -> 2
+            arffIdx == 'A' || arffIdx == 'B' -> 3
+            !twr.isNullOrBlank() -> 3   // towered but no FAR 139 → Class D
+            else -> 4
+        }
+    }
+
+    /**
+     * Find the nearest airport to ([lat], [lon]) within [maxNm] nautical
+     * miles. Used by the map's long-press flow to let pilots add airports
+     * to the flight plan even when there's no METAR marker there.
+     *
+     * Filters by a rough lat/lon bounding box first (cheap, uses an index
+     * if one exists on LAT_DECIMAL), then sorts the candidates by true
+     * great-circle distance and returns the closest match.
+     */
+    fun findNearestAirport(lat: Double, lon: Double, maxNm: Double = 2.0): WaypointSearchResult? {
+        // 1° of latitude ≈ 60 nm. 1° of longitude varies with cosine of
+        // latitude but at typical CONUS lats it's ~50 nm — use a slightly
+        // generous box and re-rank by exact distance below.
+        val latDelta = maxNm / 60.0
+        val lonDelta = maxNm / (60.0 * Math.cos(Math.toRadians(lat))).coerceAtLeast(1e-6)
+        val sql = """
+            SELECT ARPT_ID, ICAO_ID, ARPT_NAME, CITY, STATE_NAME, LAT_DECIMAL, LONG_DECIMAL
+            FROM APT_BASE
+            WHERE LAT_DECIMAL BETWEEN ? AND ?
+              AND LONG_DECIMAL BETWEEN ? AND ?
+        """.trimIndent()
+        val args = arrayOf(
+            (lat - latDelta).toString(),
+            (lat + latDelta).toString(),
+            (lon - lonDelta).toString(),
+            (lon + lonDelta).toString(),
+        )
+
+        var best: WaypointSearchResult? = null
+        var bestDistSq = Double.MAX_VALUE
+        try {
+            readableDatabase.rawQuery(sql, args).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val rowLat = cursor.getDouble(5)
+                    val rowLon = cursor.getDouble(6)
+                    // Pythagorean approximation in degrees is fine for
+                    // ranking inside a small box — no need for haversine.
+                    val dLat = rowLat - lat
+                    val dLon = (rowLon - lon) * Math.cos(Math.toRadians(lat))
+                    val distSq = dLat * dLat + dLon * dLon
+                    if (distSq < bestDistSq) {
+                        bestDistSq = distSq
+                        val arptId = cursor.getString(0)
+                        val icaoId = cursor.getStringOrNull(1)
+                        val name = cursor.getStringOrNull(2)
+                        val city = cursor.getStringOrNull(3)
+                        val state = cursor.getStringOrNull(4)
+                        val code = icaoId?.takeIf { it.isNotBlank() } ?: arptId
+                        val location = listOfNotNull(
+                            city?.takeIf { it.isNotBlank() },
+                            state?.takeIf { it.isNotBlank() },
+                        ).joinToString(", ").takeIf { it.isNotBlank() }
+                        best = WaypointSearchResult(code, "AIRPORT", name, location)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("WaypointSearch", "Nearest airport lookup failed: ${e.message}")
+        }
+        return best
     }
 
     private fun lookupAirport(code: String): Waypoint? {

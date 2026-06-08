@@ -12,6 +12,15 @@
     android:paddingBottom="6dp"
     android:background="?android:attr/selectableItemBackground">
 
+    <!-- Leading type icon (plane / VOR / fix triangle). Drawable and tint
+         are set by WaypointSearchAdapter based on the row's type. -->
+    <ImageView
+        android:id="@+id/typeIcon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="8dp"
+        android:importantForAccessibility="no" />
+
     <!-- Code colored by type: green=airport, blue=navaid, yellow=fix. -->
     <TextView
         android:id="@+id/codeText"
