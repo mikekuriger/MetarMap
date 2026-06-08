@@ -1,72 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        tools:layout_editor_absoluteX="1dp"
-        tools:layout_editor_absoluteY="1dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tracks_text"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:padding="10dp"
             android:textStyle="bold"
             android:textSize="22sp"
-            android:textAlignment="center"
-            android:text="Tracks" />
+            android:text="Flight Tracks" />
 
-        <TextView
-            android:id="@+id/KML_text"
-            android:layout_width="match_parent"
-            android:layout_height="45dp"
-            android:padding="10dp"
-            android:textStyle="bold"
-            android:textSize="20dp"
-            android:text="Pending Flight Tracks" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Wipes the green polylines from the map without selecting a new
+             track. Useful when the user has previewed a couple of tracks
+             and just wants a clean map back. -->
+        <Button
+            android:id="@+id/clear_from_map_button"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/track_list"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="10dp"/>
-
-            <Button
-                android:id="@+id/clear_tracks_button"
-                android:layout_width="150dp"
-                android:layout_height="wrap_content"
-                android:text="Clear Tracks" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="45dp"
-            android:padding="10dp"
-            android:textStyle="bold"
-            android:textSize="20dp"
-            android:text="Saved Flight Tracks" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/savedTrackList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="10dp"/>
-        </LinearLayout>
+            android:text="Clear from map"
+            style="?android:attr/borderlessButtonStyle" />
     </LinearLayout>
-</ScrollView>
-    <!--</androidx.constraintlayout.widget.ConstraintLayout>-->
+
+    <!-- Empty-state placeholder shown when no tracks exist. -->
+    <TextView
+        android:id="@+id/empty_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="32dp"
+        android:textSize="14sp"
+        android:textColor="#666666"
+        android:gravity="center"
+        android:visibility="gone"
+        android:text="No saved tracks yet. Recording starts automatically on takeoff, or tap the record button on the map." />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/track_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</LinearLayout>
