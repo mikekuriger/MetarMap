@@ -38,16 +38,16 @@ sudo docker run --rm \
 echo "Grand Canyon Complete"
 
 # Enroute Low
-echo "IFR Start"
-cp settings.json.Sectional settings.json
+#echo "IFR Start"
+#cp settings.json.Sectional settings.json
 
-sudo docker run --rm \
-  -v /data/chartmaker:/chartmaker:z \
-  -w /chartmaker \
-  chartmaker:6 \
-  bash -lc '/root/.nvm/versions/node/v20.17.0/bin/node make -full-single=4'
+#sudo docker run --rm \
+#  -v /data/chartmaker:/chartmaker:z \
+#  -w /chartmaker \
+#  chartmaker:6 \
+#  bash -lc '/root/.nvm/versions/node/v20.17.0/bin/node make -full-single=4'
 
-echo "IFR Complete"
+#echo "IFR Complete"
 
 echo "FIXING permissions"
 sudo chown -R mk7193:mk7193 /data/chartmaker/workarea
