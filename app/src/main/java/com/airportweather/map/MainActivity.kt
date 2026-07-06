@@ -50,6 +50,8 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.Circle
+import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
@@ -336,6 +338,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         return descriptor
     }
     private val trafficMap = mutableMapOf<String, TrafficTarget>()
+    // Airplane icon drawn on top of Google Maps' native "my location" blue dot,
+    // rotated to GPS track so own-ship heading is visible at a glance.
+    private var myLocationMarker: Marker? = null
+
+    // Range rings around own-ship. Radius is set in meters (real-world distance),
+    // so Circle re-projects itself on zoom/pan automatically — no manual scaling needed.
+    private var rangeRing5nm: Circle? = null
+    private var rangeRing10nm: Circle? = null
+    // Casing circles: same center/radius, wider black stroke drawn underneath the
+    // white ring so the ring reads clearly against both light and dark map layers.
+    private var rangeRing5nmCasing: Circle? = null
+    private var rangeRing10nmCasing: Circle? = null
+    private var rangeRingLabel5nm: Marker? = null
+    private var rangeRingLabel10nm: Marker? = null
     private val aircraftMarkers = mutableMapOf<String, Marker>()
     private val aircraftLabels = mutableMapOf<String, Marker>()
     private val aircraftLabelsBottom = mutableMapOf<String, Marker>()
@@ -1228,7 +1244,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     @SuppressLint("MissingPermission")
     private fun enableMyLocation() {
-        mMap.isMyLocationEnabled = true
+        // Intentionally not enabling Google's native "blue dot" location layer:
+        // it always renders above custom markers with no way to reorder it,
+        // which buries our own ic_plane marker underneath it. The plane
+        // marker (updateMyLocationMarker) is our own-position indicator.
     }
 
     @SuppressLint("PotentialBehaviorOverride")
@@ -1248,12 +1267,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         mMap.setMaxZoomPreference(15.0f) // Set maximum zoom in level
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
 
-        // Handle Permissions
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED
-        ) {
-            mMap.isMyLocationEnabled = true
-        }
+        // Note: not enabling Google's native "blue dot" here (see enableMyLocation) —
+        // our own ic_plane marker is the own-position indicator.
 
         showBottomProgressBar("🚨 Initializing all the things")
 
@@ -2667,6 +2682,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         lastKnownUserLocation = location
         val userLatLng = LatLng(location.latitude, location.longitude)
 
+        updateMyLocationMarker(userLatLng, location.bearing)
+
         // ✅ Re-center if following — but only after the map is ready, AND
         // throttle to ~1 Hz max. Stratux GPS can fire at multi-Hz; animating
         // the camera on every fix queues tile work faster than the GL thread
@@ -3233,6 +3250,110 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             trafficMap.remove(hex)
             lastAircraftUpdateMs.remove(hex)
             lastAircraftLabelText.remove(hex)
+        }
+    }
+
+    private fun updateMyLocationMarker(position: LatLng, bearingDegrees: Float) {
+        if (!::mMap.isInitialized) return
+        val marker = myLocationMarker
+        if (marker != null) {
+            marker.position = position
+            marker.rotation = bearingDegrees
+        } else {
+            myLocationMarker = mMap.addMarker(
+                MarkerOptions()
+                    .position(position)
+                    .anchor(0.5f, 0.5f)
+                    .rotation(bearingDegrees)
+                    .flat(true)
+                    .icon(vectorToBitmap(this, R.drawable.ic_plane))
+            )
+        }
+        updateRangeRings(position)
+    }
+
+    private val nmToMeters = 1852.0
+
+    private fun updateRangeRings(position: LatLng) {
+        val ring5 = rangeRing5nm
+        val ring10 = rangeRing10nm
+        if (ring5 != null && ring10 != null) {
+            ring5.center = position
+            ring10.center = position
+            rangeRing5nmCasing?.center = position
+            rangeRing10nmCasing?.center = position
+        } else {
+            val strokeColor = Color.argb(200, 255, 255, 255)
+            val casingColor = Color.argb(200, 0, 0, 0)
+            rangeRing5nmCasing = mMap.addCircle(
+                CircleOptions()
+                    .center(position)
+                    .radius(5.0 * nmToMeters)
+                    .strokeColor(casingColor)
+                    .strokeWidth(6f)
+                    .fillColor(Color.TRANSPARENT)
+                    .zIndex(0.89f)
+            )
+            rangeRing5nm = mMap.addCircle(
+                CircleOptions()
+                    .center(position)
+                    .radius(5.0 * nmToMeters)
+                    .strokeColor(strokeColor)
+                    .strokeWidth(3f)
+                    .fillColor(Color.TRANSPARENT)
+                    .zIndex(0.9f)
+            )
+            rangeRing10nmCasing = mMap.addCircle(
+                CircleOptions()
+                    .center(position)
+                    .radius(10.0 * nmToMeters)
+                    .strokeColor(casingColor)
+                    .strokeWidth(6f)
+                    .fillColor(Color.TRANSPARENT)
+                    .zIndex(0.89f)
+            )
+            rangeRing10nm = mMap.addCircle(
+                CircleOptions()
+                    .center(position)
+                    .radius(10.0 * nmToMeters)
+                    .strokeColor(strokeColor)
+                    .strokeWidth(3f)
+                    .fillColor(Color.TRANSPARENT)
+                    .zIndex(0.9f)
+            )
+        }
+
+        // Labels sit at the ring's north point so they stay legible regardless
+        // of own-ship heading (the rings themselves aren't rotated with track).
+        val labelPos5 = destinationPoint(position, 5.0, 0.0)
+        val labelPos10 = destinationPoint(position, 10.0, 0.0)
+
+        val label5 = rangeRingLabel5nm
+        val label10 = rangeRingLabel10nm
+        if (label5 != null && label10 != null) {
+            label5.position = labelPos5
+            label10.position = labelPos10
+        } else {
+            val labelIcon5 = BitmapDescriptorFactory.fromBitmap(
+                createTextBitmap("5nm", Color.WHITE, Color.argb(160, 0, 0, 0), 26F)
+            )
+            val labelIcon10 = BitmapDescriptorFactory.fromBitmap(
+                createTextBitmap("10nm", Color.WHITE, Color.argb(160, 0, 0, 0), 26F)
+            )
+            rangeRingLabel5nm = mMap.addMarker(
+                MarkerOptions()
+                    .position(labelPos5)
+                    .anchor(0.5f, 0.5f)
+                    .icon(labelIcon5)
+                    .zIndex(0.95f)
+            )
+            rangeRingLabel10nm = mMap.addMarker(
+                MarkerOptions()
+                    .position(labelPos10)
+                    .anchor(0.5f, 0.5f)
+                    .icon(labelIcon10)
+                    .zIndex(0.95f)
+            )
         }
     }
 
