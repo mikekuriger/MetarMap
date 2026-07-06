@@ -38,7 +38,6 @@
         <activity android:name=".SettingsActivity" />
         <activity android:name=".FlightPlanActivity" />
         <activity android:name=".NavLogActivity" />
-        <activity android:name=".StratuxActivity" />
         <activity android:name=".StratuxStatusActivity" />
         <activity android:name=".TracksActivity" />
         <activity android:name=".aircraft.AircraftListActivity" />
