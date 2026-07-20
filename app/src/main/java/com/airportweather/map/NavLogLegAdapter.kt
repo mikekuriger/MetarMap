@@ -45,7 +45,7 @@ class NavLogLegAdapter(private val rows: List<NavLogRow>) :
         holder.tas.text = leg.tas.toString()
         holder.gs.text = leg.groundspeed.toString()
         holder.ete.text = leg.ete
-        holder.fuel.text = "%.1f".format(row.fuelRemaining)
+        holder.fuel.text = "%.1f".format(row.leg.fuelUsed)
         holder.heading.text = leg.magneticHeading.toString()
 
         // Subtle phase tint — pilot can see climb (cool blue) and descent

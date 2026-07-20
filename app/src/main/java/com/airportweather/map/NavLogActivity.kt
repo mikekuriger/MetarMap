@@ -48,15 +48,7 @@ class NavLogActivity : AppCompatActivity() {
         }
         val totalETE = String.format("%d:%02d", totalMinutes / 60, totalMinutes % 60)
 
-        // Fuel remaining at the destination is the last row's running value
-        // (matches what we show per-leg). Falls back to fuel-used when no
-        // starting fuel was entered, so the pilot still gets a useful number.
-        val finalFuelRemaining = rows.lastOrNull()?.fuelRemaining ?: 0.0
-        val totalFuelText = if (flightPlan.startingFuel > 0.0) {
-            "%.1f rem".format(finalFuelRemaining)
-        } else {
-            "%.1f used".format(totalFuelUsed)
-        }
+        val totalFuelText = "%.1f".format(totalFuelUsed)
 
         binding.navlogTotalsRow.totalDistance.text = "%.1f".format(totalDistance)
         binding.navlogTotalsRow.totalFuel.text = totalFuelText
