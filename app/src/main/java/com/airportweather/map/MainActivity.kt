@@ -90,6 +90,8 @@ import kotlin.math.sin
 import kotlin.text.*
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.TypedValue
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.WindowCompat
 import com.airportweather.map.aircraft.AircraftRepository
 import com.airportweather.map.aircraft.AircraftSelectionStore
@@ -100,6 +102,7 @@ import com.airportweather.map.utils.FlightPlanHolder
 import com.airportweather.map.utils.FlightPlanUtils
 import com.airportweather.map.utils.Waypoint
 import java.net.InetAddress
+import androidx.core.graphics.createBitmap
 
 // Data classes moved to: WeatherModels.kt, TfrModels.kt, StratuxModels.kt, FlightData.kt
 // METAR/TAF download + parse moved to: WeatherRepository.kt
@@ -3253,6 +3256,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
     }
 
+    private fun vectorToBitmap(
+        context: Context,
+        drawableResId: Int,
+        sizeDp: Int
+    ): BitmapDescriptor {
+        val drawable = AppCompatResources.getDrawable(context, drawableResId)
+            ?: error("Drawable not found")
+
+        val sizePx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            sizeDp.toFloat(),
+            context.resources.displayMetrics
+        ).toInt()
+
+        drawable.setBounds(0, 0, sizePx, sizePx)
+
+        val bitmap = createBitmap(sizePx, sizePx)
+
+        drawable.draw(Canvas(bitmap))
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
     private fun updateMyLocationMarker(position: LatLng, bearingDegrees: Float) {
         if (!::mMap.isInitialized) return
         val marker = myLocationMarker
@@ -3266,7 +3290,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                     .anchor(0.5f, 0.5f)
                     .rotation(bearingDegrees)
                     .flat(true)
-                    .icon(vectorToBitmap(this, R.drawable.ic_plane))
+                    .icon(vectorToBitmap(this, R.drawable.ic_plane, 40))
+//                    .icon(vectorToBitmap(this, R.drawable.ic_plane))
             )
         }
         updateRangeRings(position)
