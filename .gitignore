@@ -23,4 +23,6 @@ scripts/build_databases/data/
 scripts/build_databases/zip/
 *.db
 *.log
-scripts
+scripts/build_charts
+scripts/build_databases
+scripts/build_tfrs
