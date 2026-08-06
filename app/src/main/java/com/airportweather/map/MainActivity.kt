@@ -10,6 +10,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.location.Location
@@ -103,6 +104,10 @@ import com.airportweather.map.utils.FlightPlanUtils
 import com.airportweather.map.utils.Waypoint
 import java.net.InetAddress
 import androidx.core.graphics.createBitmap
+import androidx.core.view.isVisible
+import androidx.core.content.edit
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.toColorInt
 
 // Data classes moved to: WeatherModels.kt, TfrModels.kt, StratuxModels.kt, FlightData.kt
 // METAR/TAF download + parse moved to: WeatherRepository.kt
@@ -212,7 +217,7 @@ fun celsiusToFahrenheit(celsius: Double): Double = String.format("%.1f", celsius
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnNavigationItemSelectedListener {
 
-    var DEBUG_LOGGING_ENABLED = true
+    var debugLoggingEnabled = true
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
@@ -236,7 +241,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     private val airspacePolygons = mutableListOf<Polygon>()
 
     // SUA features are kept in memory but only the polygons whose bounding box
-    // intersects the visible map region are added to the GoogleMap. With ~1300
+    // intersects the visible map region are added to the Google Maps. With ~1300
     // features in CONUS, dumping them all at once OOM'd the GL renderer.
     private var suaFeatures: List<Pair<SuaFeature, LatLngBounds>> = emptyList()
     private val drawnSua = mutableMapOf<String, Polygon>()
@@ -549,7 +554,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         flightPlanButton.setOnClickListener {
             Log.d("FlightToggle", "Flight Plan button clicked")  // ✅ Log click event
 
-            val isVisible = flightInfoLayout.visibility == View.VISIBLE
+            val isVisible = flightInfoLayout.isVisible
             Log.d(
                 "FlightToggle",
                 "Current visibility: $isVisible"
@@ -632,7 +637,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             override fun onLocationResult(locationResult: LocationResult) {
                 // Suppress phone GPS only while Stratux GPS is fresh. If Stratux GPS
                 // hasn't arrived in 5s, fall back to the phone so the map keeps
-                // updating even when WiFi to the Stratux drops.
+                // updating even when Wi-Fi to the Stratux drops.
                 if (isStratuxGpsActive &&
                     System.currentTimeMillis() - lastStratuxGpsMs < 5000
                 ) return
@@ -776,7 +781,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // Unregister the location callback. Without this, the FusedLocationProviderClient
         // keeps a reference to the dead activity (memory leak) AND keeps firing onto its
         // callback — so a recreated activity sees both the new and old callbacks fire on
-        // every fix, doubling all per-callback work (handleNewLocation, ETA calc, etc).
+        // every fix, doubling all per-callback work (handleNewLocation, ETA calc, etc.).
         if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         }
@@ -804,7 +809,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         if (prefs.contains(LEGACY_PREF_SHOW_CHART)) {
             val legacy = prefs.getBoolean(LEGACY_PREF_SHOW_CHART, true)
             val migrated = if (legacy) ChartMode.VFR else ChartMode.OFF
-            prefs.edit().putString(PREF_CHART_MODE, migrated.name).apply()
+            prefs.edit { putString(PREF_CHART_MODE, migrated.name) }
             return migrated
         }
         return ChartMode.VFR
@@ -855,7 +860,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         popup.menu.setGroupCheckable(0, true, true)
         popup.setOnMenuItemClickListener { item ->
             val mode = ChartMode.entries[item.itemId]
-            prefs.edit().putString(PREF_CHART_MODE, mode.name).apply()
+            prefs.edit { putString(PREF_CHART_MODE, mode.name) }
             setChartMode(mMap, mode)
             true
         }
@@ -865,7 +870,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     /**
      * Shows/hides a small red dot on the "Downloads" nav drawer item whenever the
      * ViewModel reports installed charts that have a newer FAA cycle available.
-     * The action view itself is just a coloured circle (see nav_badge_dot.xml).
+     * The action view itself is just a colored circle (see nav_badge_dot.xml).
      */
     private fun bindStaleChartBadge() {
         val item = navView.menu.findItem(R.id.nav_downloads) ?: return
@@ -959,6 +964,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
 
     // Handles All Calculations for flight planning (via db)
+    @SuppressLint("LogTagMismatch")
     private fun calculateFlightData(
         location: Location,
         flightPlan: FlightPlan
@@ -1067,7 +1073,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     /*private fun calculateFlightData(
         location: Location,
         waypoints: List<Waypoint>?
-    ): FlightData {
+    : FlightData {
         val dbHelper = AirportDatabaseHelper(this)
         val userLatLng = LatLng(location.latitude, location.longitude)
         val groundSpeed = location.speed.toDouble() * 1.94384  // Convert to knots
@@ -1267,7 +1273,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         mMap.uiSettings.isRotateGesturesEnabled = false
         mMap.uiSettings.isMyLocationButtonEnabled = false
         mMap.setMinZoomPreference(5.0f) // Set minimum zoom out level
-        mMap.setMaxZoomPreference(15.0f) // Set maximum zoom in level
+        mMap.setMaxZoomPreference(13.0f) // Set maximum zoom in level
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
 
         // Note: not enabling Google's native "blue dot" here (see enableMyLocation) —
@@ -1294,11 +1300,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 //        try {
 //            val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
 //            if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
-//                googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
+//                Google Maps.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_modest))
 //            } else {
 //                try {
 //                    val selectedStyle = MapStyleManager.getStyle(this)
-//                    googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, selectedStyle.rawResId))
+//                    Google Maps.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, selectedStyle.rawResId))
 //                } catch (e: Resources.NotFoundException) {
 //                    Log.e("MapStyle", "Can't find style. Error: ", e)
 //                }
@@ -1348,7 +1354,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val firstLaunch = prefs.getBoolean("first_launch", true)
 
         if (firstLaunch) {
-            prefs.edit().putBoolean("first_launch", false).apply()
+            prefs.edit { putBoolean("first_launch", false) }
             val burbank = LatLng(34.1819, -118.3079)
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(burbank, 9f))
             val intent = Intent(this, SettingsActivity::class.java)
@@ -1373,7 +1379,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             tfrButton.setOnClickListener {
                 isTFRVisible = !isTFRVisible
                 // toggle in savedprefs
-                sharedPrefs.edit().putBoolean("show_tfrs", isTFRVisible).apply()
+                sharedPrefs.edit { putBoolean("show_tfrs", isTFRVisible) }
                 toggleTFRVisibility(isTFRVisible)
                 updateButtonState(tfrButton, isTFRVisible)
             }
@@ -1409,19 +1415,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             airspaceButton.setOnClickListener {
                 isAirspaceVisible = !isAirspaceVisible
                 // toggle saved prefs
-                sharedPrefs.edit().putBoolean("show_airspace", isAirspaceVisible).apply()
+                sharedPrefs.edit { putBoolean("show_airspace", isAirspaceVisible) }
                 toggleAirspace(isAirspaceVisible)
                 updateButtonState(airspaceButton, isAirspaceVisible)
             }
             airspaceLoaded = true
         }
 
-        // Chart selector (VFR sectional + terminal, IFR enroute, or off).
+        // Chart selector (VFR sectional + terminal, IFR en route, or off).
         if (!sectionalLoaded) {
             val vfrSecButton = binding.toggleVfrsecButton
             val initialMode = if (firstLaunch) {
                 ChartMode.VFR.also {
-                    sharedPrefs.edit().putString(PREF_CHART_MODE, it.name).apply()
+                    sharedPrefs.edit { putString(PREF_CHART_MODE, it.name) }
                 }
             } else {
                 loadChartModePref(sharedPrefs)
@@ -1472,7 +1478,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             metarButton.setOnClickListener {
                 isMetarVisible = !isMetarVisible
                 // toggle in savedprefs
-                sharedPrefs.edit().putBoolean("show_metars", isMetarVisible).apply()
+                sharedPrefs.edit { putBoolean("show_metars", isMetarVisible) }
                 toggleMetarVisibility(isMetarVisible)
                 updateButtonState(metarButton, isMetarVisible)
             }
@@ -1621,9 +1627,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     private fun saveLayerSelection(layerName: String) {
         val sharedPrefs = getSharedPreferences("MapSettings", MODE_PRIVATE)
-        with(sharedPrefs.edit()) {
+        sharedPrefs.edit {
             putString("selectedLayer", layerName)
-            apply()
         }
         Log.d("MapDebug", "Saved layer: $layerName")
     }
@@ -1659,7 +1664,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     // Update markers based on visible map area
     fun Context.isInternetAvailable(): Boolean {
         val connectivityManager =
-            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -1671,17 +1676,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         val currentLayer = MapLayer.fromName(currentLayerName)
         val layerName = currentLayer::class.simpleName ?: "Unknown"
         val tafByStation = tafs.associateBy { it.stationId }
-        val zoom = mMap.cameraPosition.zoom
 
         // What we WANT to be drawn this pass: visible stations keyed by id, with full signature.
-        // Two filters: (a) inside the camera's viewport, (b) the station's priority tier is
-        // visible at the current zoom — see [shouldShowStationAtZoom].
-        val desired: Map<String, MarkerSignature> = metars.asSequence()
-            .filter { visibleBounds.contains(LatLng(it.latitude, it.longitude)) }
-            .filter { shouldShowStationAtZoom(it, zoom) }
-            .associate { metar ->
-                metar.stationId to MarkerSignature(layerName, metar, tafByStation[metar.stationId])
-            }
+        // Visibility is (a) inside the camera's viewport, then (b) real screen-space
+        // decluttering — see [declutterStations] — rather than a fixed zoom/tier gate, so
+        // dense areas thin out based on actual on-screen crowding at the current zoom/pan
+        // instead of hiding entire tiers of airports until the user zooms in close.
+        val visibleMetars = metars.filter { visibleBounds.contains(LatLng(it.latitude, it.longitude)) }
+        val declutteredMetars = declutterStations(visibleMetars, declutterSpacingPxFor(currentLayer))
+        val desired: Map<String, MarkerSignature> = declutteredMetars.associate { metar ->
+            metar.stationId to MarkerSignature(layerName, metar, tafByStation[metar.stationId])
+        }
 
         // Drop stations no longer visible OR whose signature changed (data update / layer change)
         val obsolete = signaturesByStation.keys.filter { id -> desired[id] != signaturesByStation[id] }
@@ -2029,7 +2034,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .create()
 
         // **Ensure dark background for the entire dialog**
-        alertDialog.window?.setBackgroundDrawable(ColorDrawable(Color.argb(200, 0, 0, 0)))
+        alertDialog.window?.setBackgroundDrawable(Color.argb(200, 0, 0, 0).toDrawable())
 
         alertDialog.show()
     }
@@ -2080,7 +2085,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                         val airspaceTypeCode = properties.optString("TYPE_CODE", "Unknown")
                         if (airspaceTypeCode == "MODE-C") {
                             polygonOptions.strokeColor(Color.argb(90, 200, 63, 200))
-                                .strokeWidth(2f)
+                                .strokeWidth(4f)
                         } else if (airspaceTypeCode == "CLASS") {
                             val airspaceClass = properties.optString("LOCAL_TYPE", "Unknown").trim()
                             //Log.d("DEBUG", "Airspace Class: '$airspaceClass'")
@@ -2091,13 +2096,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
                                     .strokeWidth(4f)
 
                                 "CLASS_C" -> polygonOptions.strokeColor(Color.MAGENTA)
-                                    .strokeWidth(2f)
+                                    .strokeWidth(4f)
 
                                 "CLASS_D", "CLASS_E4" -> polygonOptions.strokeColor(
-                                    if (airspaceClass == "CLASS_D") Color.parseColor("#0080FF") else Color.parseColor(
-                                        "#863F67"
-                                    )
-                                ).strokeWidth(2f)
+                                    if (airspaceClass == "CLASS_D") "#0080FF".toColorInt() else "#863F67".toColorInt()
+                                ).strokeWidth(4f)
                                     .strokePattern(listOf(Dash(20f), Gap(10f)))
 //                                "CLASS_E5" -> polygonOptions.strokeColor(Color.argb(32, 134, 63, 103))
 //                                    .strokeWidth(15f)
@@ -2419,7 +2422,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             .setNeutralButton("Add to plan…") { _, _ -> showAddToPlanDialog(metar.stationId) }
             .create()
 
-        alertDialog.window?.setBackgroundDrawable(ColorDrawable(bgColor))
+        alertDialog.window?.setBackgroundDrawable(bgColor.toDrawable())
 
         alertDialog.show()
     }
@@ -2505,9 +2508,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         FlightPlanHolder.currentPlan = newPlan
-        getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE).edit()
-            .putString("WAYPOINTS", newRaw)
-            .apply()
+        getSharedPreferences("FlightPlanPrefs", MODE_PRIVATE).edit {
+            putString("WAYPOINTS", newRaw)
+        }
         updateMapWithFlightPlan(newPlan, recenterCamera = false)
         // Keep the reference-equality invariant onResume relies on:
         // lastRenderedFlightPlan must reflect whatever's currently drawn.
@@ -2586,35 +2589,82 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
     }
 
     /**
-     * Whether a METAR station should be drawn at the current camera zoom.
-     * Tier determines the floor zoom at which the airport appears:
-     *
-     *  - Tier 1 (Class B mega-hub, ARFF D/E): always visible
-     *  - Tier 2 (Class C regional, ARFF C): zoom ≥ 5 — visible state-wide
-     *  - Tier 3 (Class D / smaller commercial): zoom ≥ 7
-     *  - Tier 4 (non-towered GA, default): zoom ≥ 9
-     *
-     * IFR / LIFR weather is always shown regardless of tier — active IMC
-     * is a safety-relevant signal pilots want to see at any altitude.
+     * Minimum on-screen pixel spacing between decluttered station markers,
+     * per layer. Text-labeled layers (temp/altimeter/etc.) need much more
+     * room than a plain 50px flight-condition dot or nothing overlaps
+     * legibly -- see the bitmap sizes in BitmapHelpers.kt/MarkerFactory.kt.
+     * Tune by eye; these aren't derived from anything more precise than
+     * "bigger than the marker so two of them don't touch."
      */
-    private fun shouldShowStationAtZoom(metar: METAR, zoom: Float): Boolean {
-        val fc = metar.flightCategory
-        if (fc == "IFR" || fc == "LIFR") return true
-        return when (stationTier(metar.stationId)) {
-            1 -> true
-            2 -> zoom >= 5f
-            3 -> zoom >= 7f
-            else -> zoom >= 9f
+    private fun declutterSpacingPxFor(layer: MapLayer): Float = when (layer) {
+        MapLayer.FlightConditions, MapLayer.Wind -> 44f
+        MapLayer.Temperature, MapLayer.Altimeter, MapLayer.Ceiling, MapLayer.Clouds -> 100f
+        MapLayer.None -> 44f
+    }
+
+    /**
+     * Real screen-space decluttering, replacing the old fixed zoom-per-tier
+     * gate (which hid the *majority* of the country's stations -- every
+     * small non-towered GA field defaults to tier 4 -- behind a zoom level
+     * the app's own birds-eye-view zoom range barely reaches, while doing
+     * nothing to prevent overlap near the Class B/C hubs it always showed).
+     *
+     * Always keeps: active IFR/LIFR (safety-relevant at any zoom) and tier
+     * 1/2 (Class B/C hubs) regardless of local density. Everything else is
+     * walked in tier-priority order and kept only if it's farther than
+     * [minSpacingPx] from every already-accepted marker's current on-screen
+     * position -- so a crowded area thins out based on actual visual
+     * density at the current zoom/pan, evenly across the whole map, rather
+     * than being geography-biased toward wherever the big airports are.
+     */
+    private fun declutterStations(metars: List<METAR>, minSpacingPx: Float): List<METAR> {
+        if (!::mMap.isInitialized) return metars
+        val projection = mMap.projection
+
+        val alwaysShow = mutableListOf<METAR>()
+        val candidates = mutableListOf<METAR>()
+        for (m in metars) {
+            val fc = m.flightCategory
+            if (fc == "IFR" || fc == "LIFR" || stationTier(m.stationId) <= 2) {
+                alwaysShow.add(m)
+            } else {
+                candidates.add(m)
+            }
         }
+        // Higher-priority (lower tier number) candidates get first claim on a
+        // contested spot when two nearby stations can't both fit.
+        val sortedCandidates = candidates.sortedBy { stationTier(it.stationId) }
+
+        val acceptedPoints = mutableListOf<Point>()
+        for (m in alwaysShow) {
+            acceptedPoints.add(projection.toScreenLocation(LatLng(m.latitude, m.longitude)))
+        }
+
+        val minSpacingSq = (minSpacingPx * minSpacingPx).toDouble()
+        val accepted = mutableListOf<METAR>()
+        for (m in sortedCandidates) {
+            val pt = projection.toScreenLocation(LatLng(m.latitude, m.longitude))
+            val tooClose = acceptedPoints.any { p ->
+                val dx = (p.x - pt.x).toDouble()
+                val dy = (p.y - pt.y).toDouble()
+                dx * dx + dy * dy < minSpacingSq
+            }
+            if (!tooClose) {
+                accepted.add(m)
+                acceptedPoints.add(pt)
+            }
+        }
+
+        return alwaysShow + accepted
     }
 
     // createWindBarbBitmap moved to BitmapHelpers.kt
 
-    // TILES (aeronautical charts: VFR sectional+terminal, or IFR enroute)
+    // TILES (aeronautical charts: VFR sectional+terminal, or IFR en route)
     /**
      * Applies the selected [ChartMode], lazily creating tile overlays for any layer
      * that hasn't been added to the map yet. VFR turns on sectional + terminal,
-     * IFR turns on enroute-low, OFF hides all of them.
+     * IFR turns on en route-low, OFF hides all of them.
      */
     private fun setChartMode(map: GoogleMap, mode: ChartMode) {
         if (sectionalOverlay == null) {
@@ -2649,12 +2699,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         terminalOverlay?.isVisible = terminalVisible
         ifrOverlay?.isVisible = mode == ChartMode.IFR
 
+        // IFR (en route-low) tiles only go to zoom 11 -- clamp so the overlay
+        // can't be zoomed past its available detail into a blank chart.
+        map.setMaxZoomPreference(if (mode == ChartMode.IFR) 11.0f else 13.0f)
+        map.setMinZoomPreference(if (mode == ChartMode.IFR) 8.0f else 5.0f)
+
         // Smooth transition when crossing modes.
         sectionalOverlay?.clearTileCache()
         terminalOverlay?.clearTileCache()
         ifrOverlay?.clearTileCache()
 
-        // Button text reflects the chosen mode; updateButtonState handles colour.
+        // Button text reflects the chosen mode; updateButtonState handles color.
         binding.toggleVfrsecButton.text = mode.label
         updateButtonState(binding.toggleVfrsecButton, mode != ChartMode.OFF)
 
@@ -2720,7 +2775,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // sensor noise on the ground — show "0" rather than a flickering
         // ±10 fpm. Above that we show signed fpm with sign always present
         // so climbs/descents are visually distinct at a glance.
-        binding.vsText.text = if (kotlin.math.abs(verticalSpeedFpm) < 50)
+        binding.vsText.text = if (abs(verticalSpeedFpm) < 50)
             "0"
         else
             "%+d".format(verticalSpeedFpm.roundToInt())
@@ -2769,7 +2824,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 //        val userLatLng = LatLng(location.latitude, location.longitude)
 //
 //        // Re-center if following
-//        if (isFollowingUser) {
+//        is (isFollowingUser) {
 //            mMap.animateCamera(
 //                CameraUpdateFactory.newLatLngZoom(
 //                    userLatLng,
@@ -2834,7 +2889,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         // Re-read prefs on every call so Settings toggles take effect immediately.
         // useStratuxGps is the inverse of force_internal_gps: by default we PREFER
         // Stratux GPS when reachable; the user can opt out via the Settings checkbox
-        // to fall back to phone GPS (useful when Stratux fix is flaky, indoor, etc).
+        // to fall back to phone GPS (useful when Stratux fix is flaky, indoor, etc.).
         isTrafficEnabled = sharedPrefs.getBoolean("show_traffic", true)
         useStratuxGps = !sharedPrefs.getBoolean("force_internal_gps", false)
 
@@ -2882,7 +2937,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         }
 
         // Throttle: skip the network probe if we ran one recently. Reachability
-        // doesn't change faster than the user moves in/out of WiFi range, and the
+        // doesn't change faster than the user moves in/out of Wi-Fi range, and the
         // WebSocket already auto-reconnects on drops. Note: this only throttles the
         // *probe* — synchronous teardown above runs every call so toggles in
         // Settings take effect within one location callback.
@@ -3218,7 +3273,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
             "Total aircraft: ${aircraftMarkers.size}, Stale aircraft: ${staleTargets.size}"
         )
 
-        if (!DEBUG_LOGGING_ENABLED) {
+        if (!debugLoggingEnabled) {
             Log.d("TrafficPrune", "Total aircraft: ${aircraftMarkers.size}")
             Log.d("TrafficPrune", "Stale aircraft: ${staleTargets.size}")
             Log.d(
@@ -3384,11 +3439,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
     private fun vectorToBitmap(context: Context, vectorResId: Int): BitmapDescriptor {
         val vectorDrawable = ContextCompat.getDrawable(context, vectorResId)!!
-        val bitmap = Bitmap.createBitmap(
-            vectorDrawable.intrinsicWidth,
-            vectorDrawable.intrinsicHeight,
-            Bitmap.Config.ARGB_8888
-        )
+        val bitmap = createBitmap(vectorDrawable.intrinsicWidth, vectorDrawable.intrinsicHeight)
         val canvas = Canvas(bitmap)
         vectorDrawable.setBounds(0, 0, canvas.width, canvas.height)
         vectorDrawable.draw(canvas)

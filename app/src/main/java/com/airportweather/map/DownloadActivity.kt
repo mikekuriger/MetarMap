@@ -62,6 +62,8 @@ class DownloadActivity : AppCompatActivity() {
         updateAllButton.setOnClickListener { updateAllStale() }
         updateAllButton.visibility = View.GONE
 
+        findViewById<Button>(R.id.downloadRegionButton).setOnClickListener { showRegionPicker() }
+
         loadSectionalList()
     }
 
@@ -87,15 +89,25 @@ class DownloadActivity : AppCompatActivity() {
 
     private fun buildSectionalRows(catalog: ChartCatalog): List<SectionalChart> {
         val sectionalByName = catalog.sectional.charts.associateBy { it.name }
-        val terminalByName = catalog.terminal.charts.associateBy { it.name }
+        val terminalByNormalizedName = catalog.terminal.charts.associateBy { normalizeAreaName(it.name) }
         val out = mutableListOf<SectionalChart>()
+        // Any TAC claimed by an overlapping sectional below is not also an
+        // "orphan" terminal-only row further down.
+        val claimedTerminalKeys = mutableSetOf<String>()
 
         for ((name, sec) in sectionalByName) {
-            val term = terminalByName[name]
+            val overlapKeys = ChartRegions.overlappingTerminalKeys(name)
+            val terms = overlapKeys.mapNotNull { terminalByNormalizedName[it] }
+            claimedTerminalKeys += overlapKeys
+
             val secMb = sec.size.replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
-            val termMb = term?.size?.replace(" MB", "")?.toFloatOrNull()?.toInt() ?: 0
+            val termMb = terms.sumOf { it.size.replace(" MB", "").toFloatOrNull()?.toInt() ?: 0 }
             val totalMb = secMb + termMb
-            val type = if (term != null) "🟠 Sectional + TAC" else "🟢 Sectional"
+            val type = when (terms.size) {
+                0 -> "🟢 Sectional"
+                1 -> "🟠 Sectional + TAC"
+                else -> "🟠 Sectional + ${terms.size} TAC"
+            }
 
             out += SectionalChart(
                 name = name,
@@ -107,7 +119,7 @@ class DownloadActivity : AppCompatActivity() {
                 latestSeries = catalog.sectional.series,
                 latestExpires = catalog.sectional.expires,
                 fileName = sec.fileName,
-                terminal = term?.let {
+                terminals = terms.map {
                     TerminalChart(
                         name = it.name,
                         url = it.url,
@@ -116,8 +128,6 @@ class DownloadActivity : AppCompatActivity() {
                         fileName = it.fileName,
                     )
                 },
-                terminalFileName = term?.fileName,
-                hasTerminal = term != null,
             )
         }
 
@@ -135,19 +145,21 @@ class DownloadActivity : AppCompatActivity() {
                 latestSeries = catalog.enroute.series,
                 latestExpires = catalog.enroute.expires,
                 fileName = fileName,
-                terminal = null,
-                terminalFileName = null,
-                hasTerminal = false,
             )
         }
 
-        // Terminal-only entries (no matching sectional name).
-        for ((name, term) in terminalByName) {
-            if (sectionalByName.containsKey(name)) continue
+        // Terminal-only entries: any TAC not claimed by an overlapping sectional
+        // above (e.g. a metro whose TAC extent doesn't overlap a named sectional
+        // area at all). Row has no sectional of its own -- url left empty and the
+        // chart lives solely in `terminals`, so doDownload() installs it once,
+        // into the Terminal folder, instead of double-extracting it.
+        for (term in catalog.terminal.charts) {
+            val key = normalizeAreaName(term.name)
+            if (key in claimedTerminalKeys) continue
             val termMb = term.size.replace(" MB", "").toFloatOrNull()?.toInt() ?: 0
             out += SectionalChart(
-                name = name,
-                url = term.url,
+                name = term.name,
+                url = "",
                 fileSize = "$termMb MB",
                 totalSize = "$termMb MB - 🟤 VFR Aeronautical",
                 installedSeries = seriesStore.installedSeries(term.fileName),
@@ -155,15 +167,15 @@ class DownloadActivity : AppCompatActivity() {
                 latestSeries = catalog.terminal.series,
                 latestExpires = catalog.terminal.expires,
                 fileName = term.fileName,
-                terminal = TerminalChart(
-                    name = term.name,
-                    url = term.url,
-                    fileSize = term.size,
-                    isInstalled = seriesStore.isInstalled(term.fileName),
-                    fileName = term.fileName,
+                terminals = listOf(
+                    TerminalChart(
+                        name = term.name,
+                        url = term.url,
+                        fileSize = term.size,
+                        isInstalled = seriesStore.isInstalled(term.fileName),
+                        fileName = term.fileName,
+                    )
                 ),
-                terminalFileName = term.fileName,
-                hasTerminal = true,
             )
         }
 
@@ -187,15 +199,53 @@ class DownloadActivity : AppCompatActivity() {
         }
     }
 
+    private fun showRegionPicker() {
+        // No data for Caribbean yet (see ChartRegions) -- don't offer a region
+        // that can never find anything to download.
+        val regions = ChartRegion.entries.filter { it != ChartRegion.CARIBBEAN }
+        val labels = regions.map { it.label }.toTypedArray()
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Download Region")
+            .setItems(labels) { _, which -> downloadRegion(regions[which]) }
+            .show()
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun downloadRegion(region: ChartRegion) {
+        val targets = sectionalList.filter {
+            ChartRegions.regionOf(it.name) == region && !it.isDownloading
+        }
+        if (targets.isEmpty()) {
+            Toast.makeText(this, "No charts found for ${region.label}", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!checkStorageOrWarn(targets)) return
+        Toast.makeText(
+            this,
+            "Downloading ${targets.size} chart${if (targets.size == 1) "" else "s"} for ${region.label}…",
+            Toast.LENGTH_SHORT,
+        ).show()
+        for (chart in targets) {
+            chart.isDownloading = true
+        }
+        adapter.notifyDataSetChanged()
+        lifecycleScope.launch(Dispatchers.IO) {
+            for (chart in targets) {
+                downloadSectionalSuspending(chart)
+            }
+            withContext(Dispatchers.Main) { refreshUpdateAllButton() }
+        }
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     private fun updateAllStale() {
         // If anything is stale, prefer updating just those (the typical case).
         // Otherwise, refresh everything currently installed — useful for testing
         // and for forcing a clean re-extract after corruption.
         val staleOnly = sectionalList.filter { it.status == InstallStatus.INSTALLED_STALE && !it.isDownloading }
-        val targets = if (staleOnly.isNotEmpty()) staleOnly
-                      else sectionalList.filter { it.isInstalled && !it.isDownloading }
+        val targets = staleOnly.ifEmpty { sectionalList.filter { it.isInstalled && !it.isDownloading } }
         if (targets.isEmpty()) return
+        if (!checkStorageOrWarn(targets)) return
         Toast.makeText(this, "Updating ${targets.size} chart${if (targets.size == 1) "" else "s"}…", Toast.LENGTH_SHORT).show()
         for (chart in targets) {
             chart.isDownloading = true
@@ -217,6 +267,17 @@ class DownloadActivity : AppCompatActivity() {
     private fun getTileStorageDir(localFolder: String): File =
         File(filesDir, "tiles/$localFolder")
 
+    /**
+     * Extracts [zipFile] into [targetDirectory]. Deliberately does NOT catch
+     * extraction failures (e.g. disk full) -- previously every error here was
+     * logged and swallowed, so a failed extraction (most commonly the device
+     * running out of storage partway through a large chart) still fell
+     * through to markInstalled() and showed as a normal successful install,
+     * while the map silently fell back to fetching tiles over the network
+     * because nothing had actually landed on disk. Letting exceptions
+     * propagate means the existing "Download failed" handling in the callers
+     * actually fires when something's really wrong.
+     */
     private fun unzipFile(zipFile: File, targetDirectory: File) {
         Log.d("Unzip", "Extracting ${zipFile.absolutePath} to ${targetDirectory.absolutePath}")
 
@@ -227,30 +288,62 @@ class DownloadActivity : AppCompatActivity() {
         val targetRoot = targetDirectory.canonicalFile
         val targetRootPath = targetRoot.path + File.separator
 
-        try {
-            ZipInputStream(FileInputStream(zipFile)).use { zis ->
-                while (true) {
-                    val entry: ZipEntry = zis.nextEntry ?: break
-                    val extracted = File(targetRoot, entry.name).canonicalFile
-                    if (extracted != targetRoot && !extracted.path.startsWith(targetRootPath)) {
-                        Log.e("Unzip", "Skipping unsafe zip entry: ${entry.name}")
-                        continue
-                    }
-                    if (entry.isDirectory) {
-                        if (!extracted.exists()) extracted.mkdirs()
-                    } else {
-                        extracted.parentFile?.mkdirs()
-                        try {
-                            FileOutputStream(extracted).use { fos -> zis.copyTo(fos) }
-                        } catch (e: Exception) {
-                            Log.e("Unzip", "Failed to extract ${extracted.absolutePath}", e)
-                        }
-                    }
+        var extractedCount = 0
+        ZipInputStream(FileInputStream(zipFile)).use { zis ->
+            while (true) {
+                val entry: ZipEntry = zis.nextEntry ?: break
+                val extracted = File(targetRoot, entry.name).canonicalFile
+                if (extracted != targetRoot && !extracted.path.startsWith(targetRootPath)) {
+                    Log.e("Unzip", "Skipping unsafe zip entry: ${entry.name}")
+                    continue
+                }
+                if (entry.isDirectory) {
+                    if (!extracted.exists()) extracted.mkdirs()
+                } else {
+                    extracted.parentFile?.mkdirs()
+                    FileOutputStream(extracted).use { fos -> zis.copyTo(fos) }
+                    extractedCount++
                 }
             }
-        } catch (e: Exception) {
-            Log.e("Unzip", "Error during extraction", e)
         }
+        Log.d("Unzip", "Extracted $extractedCount files from ${zipFile.name}")
+    }
+
+    /** True if the volume holding app storage has at least [requiredBytes] free. */
+    private fun hasEnoughStorage(requiredBytes: Long): Boolean {
+        val stat = android.os.StatFs(getDownloadStorageDir().path)
+        val availableBytes = stat.availableBytes
+        Log.d("DownloadPage", "Storage check: need $requiredBytes, have $availableBytes")
+        return availableBytes >= requiredBytes
+    }
+
+    /** Sum of every chart's total size (sectional + all terminals), in bytes. */
+    private fun totalBytesOf(charts: List<SectionalChart>): Long {
+        fun mbToBytes(mb: String): Long =
+            mb.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
+        return charts.sumOf { chart ->
+            val sectionalBytes = if (chart.url.isNotEmpty()) mbToBytes(chart.fileSize) else 0L
+            sectionalBytes + chart.terminals.sumOf { mbToBytes(it.fileSize) }
+        }
+    }
+
+    /**
+     * Fails fast with a clear message instead of silently running out of
+     * space partway through a multi-chart batch. 2.5x the catalog-reported
+     * size is a rough safety margin: the zip and its fully-extracted tiles
+     * briefly coexist on disk (the zip is only deleted after extraction),
+     * and extracted PNGs run somewhat larger than their compressed size.
+     */
+    private fun checkStorageOrWarn(targets: List<SectionalChart>): Boolean {
+        val required = (totalBytesOf(targets) * 2.5).toLong()
+        if (hasEnoughStorage(required)) return true
+        val neededMb = required / 1048576
+        Toast.makeText(
+            this,
+            "Not enough free storage for this download (need roughly $neededMb MB free). Free up space and try again.",
+            Toast.LENGTH_LONG,
+        ).show()
+        return false
     }
 
     private suspend fun downloadChart(
@@ -261,10 +354,17 @@ class DownloadActivity : AppCompatActivity() {
         onProgress: (suspend (Int) -> Unit)? = null,
     ) {
         var totalBytesRead = totalBytesReadSoFar
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 60_000
-        conn.connect()
+        val conn = withContext(Dispatchers.IO) {
+            URL(url).openConnection()
+        } as HttpURLConnection
+        // Chart zips can be large; on slow/flaky Wi-Fi a brief stall is normal,
+        // not a dead connection, so give it a lot more slack than the app's
+        // other (small-payload) HTTP calls before giving up.
+        conn.connectTimeout = 30_000
+        conn.readTimeout = 180_000
+        withContext(Dispatchers.IO) {
+            conn.connect()
+        }
 
         conn.inputStream.use { input ->
             file.outputStream().use { output ->
@@ -309,17 +409,27 @@ class DownloadActivity : AppCompatActivity() {
                 adapter.notifyItemChanged(sectionalList.indexOf(chart))
             }
         } catch (e: Exception) {
-            Log.e("DownloadPage", "Batch download failed: ${e.message}")
+            Log.e("DownloadPage", "Batch download failed for ${chart.name}: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 chart.isDownloading = false
                 chart.downloadProgress = 0
                 adapter.notifyItemChanged(sectionalList.indexOf(chart))
-                Toast.makeText(this@DownloadActivity, "Update failed for ${chart.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@DownloadActivity, "${chart.name}: ${friendlyErrorMessage(e)}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
+    /** Distinguishes "ran out of storage" from other failures for a message worth acting on. */
+    private fun friendlyErrorMessage(e: Exception): String {
+        val msg = e.message ?: ""
+        return if (msg.contains("ENOSPC", ignoreCase = true) || msg.contains("No space left", ignoreCase = true)) {
+            "ran out of storage space"
+        } else {
+            "update failed"
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
     fun downloadSectional(
         chart: SectionalChart,
         progressBar: ProgressBar,
@@ -327,6 +437,7 @@ class DownloadActivity : AppCompatActivity() {
         downloadingIcon: ImageView,
         statusText: TextView,
     ) {
+        if (!checkStorageOrWarn(listOf(chart))) return
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 withContext(Dispatchers.Main) {
@@ -356,7 +467,7 @@ class DownloadActivity : AppCompatActivity() {
                     refreshUpdateAllButton()
                 }
             } catch (e: Exception) {
-                Log.e("DownloadPage", "Download failed: ${e.message}")
+                Log.e("DownloadPage", "Download failed for ${chart.name}: ${e.message}", e)
                 withContext(Dispatchers.Main) {
                     chart.isDownloading = false
                     downloadingIcon.visibility = View.GONE
@@ -364,7 +475,7 @@ class DownloadActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                     statusText.text = "Download Failed"
                     adapter.notifyDataSetChanged()
-                    Toast.makeText(this@DownloadActivity, "Download failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@DownloadActivity, friendlyErrorMessage(e).replaceFirstChar { it.uppercase() }, Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -373,26 +484,21 @@ class DownloadActivity : AppCompatActivity() {
     /**
      * Core download flow shared by the per-row click and the "Update stale charts"
      * button. Writes the catalog series into [ChartSeriesStore] on each successful
-     * install. Progress comes via [onProgress] (0–100, on Main).
+     * installation. Progress comes via [onProgress] (0–100, on Main).
      */
+    @SuppressLint("SetTextI18n")
     private suspend fun doDownload(
         chart: SectionalChart,
         statusText: TextView? = null,
         onProgress: suspend (Int) -> Unit,
     ) {
         val hasSectional = chart.url.isNotEmpty()
-        // Capture once so smart-cast applies through the rest of the function
-        // without needing !! every time the terminal chart is referenced.
-        val terminal = chart.terminal
 
-        val sectionalSizeBytes = if (hasSectional) {
-            chart.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
-                ?.times(1048576) ?: 0L
-        } else 0L
-        val terminalSizeBytes = if (terminal != null) {
-            terminal.fileSize.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()
-                ?.times(1048576) ?: 0L
-        } else 0L
+        fun sizeBytesOf(mbString: String): Long =
+            mbString.replace(Regex(" MB.*"), "").toFloatOrNull()?.toLong()?.times(1048576) ?: 0L
+
+        val sectionalSizeBytes = if (hasSectional) sizeBytesOf(chart.fileSize) else 0L
+        val terminalSizeBytes = chart.terminals.sumOf { sizeBytesOf(it.fileSize) }
         val totalSizeBytes = sectionalSizeBytes + terminalSizeBytes
         if (totalSizeBytes <= 0L) {
             Log.e("DownloadPage", "Bad size for ${chart.name}")
@@ -417,10 +523,12 @@ class DownloadActivity : AppCompatActivity() {
             seriesStore.markInstalled(chart.fileName, chart.latestSeries, chart.latestExpires)
         }
 
-        if (terminal != null) {
-            statusText?.let { withContext(Dispatchers.Main) { it.text = "Downloading TAC" } }
+        for (terminal in chart.terminals) {
+            val label = if (chart.terminals.size > 1) "Downloading TAC (${terminal.name})" else "Downloading TAC"
+            statusText?.let { withContext(Dispatchers.Main) { it.text = label } }
             val terminalFile = File(getDownloadStorageDir(), terminal.fileName)
             downloadChart(terminal.url, terminalFile, totalSizeBytes, totalBytesRead, onProgress)
+            totalBytesRead += sizeBytesOf(terminal.fileSize)
             statusText?.let { withContext(Dispatchers.Main) { it.text = "Installing TAC" } }
             unzipFile(terminalFile, getTileStorageDir("Terminal"))
             terminalFile.delete()

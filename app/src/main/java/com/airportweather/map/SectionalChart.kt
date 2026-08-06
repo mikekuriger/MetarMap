@@ -27,10 +27,11 @@ data class SectionalChart(
     /** 0-100 download progress, updated during active downloads. */
     var downloadProgress: Int = 0,
     val fileName: String,
-    val terminal: TerminalChart?,
-    val terminalFileName: String?,
-    val hasTerminal: Boolean,
+    /** Every TAC chart whose coverage overlaps this sectional's area (can be 0, 1, or several). */
+    val terminals: List<TerminalChart> = emptyList(),
 ) {
+    val hasTerminal: Boolean get() = terminals.isNotEmpty()
+
     /**
      * Best-effort installed expiration. Prefers the recorded value, but for
      * legacy installs that pre-date expires tracking we derive it from the
