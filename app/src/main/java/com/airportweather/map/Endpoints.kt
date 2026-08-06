@@ -27,9 +27,10 @@ object Endpoints {
     const val WINDS_ALOFT = "https://aviationweather.gov/api/data/windtemp?region=us"
 
     // ---- TFRs (project-maintained GitHub mirror of FAA data) ----
-    // Lives on the `data` branch so daily auto-commits don't pollute `main`'s history.
+    // Lives in it's own repo now.
     const val TFR_GEOJSON =
-        "https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/data/scripts/tfrs.geojson"
+        //"https://raw.githubusercontent.com/mikekuriger/MetarMap/refs/heads/data/scripts/tfrs.geojson"
+        "https://raw.githubusercontent.com/mikekuriger/chartmaker/refs/heads/main/MetarMap/scripts/tfrs.geojson"
 
     // ---- Special Use Airspace (FAA ArcGIS REST → GeoJSON) ----
     // Filtered server-side to MOA, Restricted, Prohibited. Reduced coordinate
