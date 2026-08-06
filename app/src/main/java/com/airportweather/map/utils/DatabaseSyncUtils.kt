@@ -34,7 +34,12 @@ object DatabaseSyncUtils {
                 continue
             }
 
-            if (localVersion == remoteVersion) {
+            // Versions matching isn't enough on its own -- the on-disk file can go missing
+            // (cleared, or never successfully written) while these prefs survive, which
+            // would otherwise skip re-downloading forever. Always check the file is really
+            // there.
+            val dbFile = context.getDatabasePath("$key.db")
+            if (localVersion == remoteVersion && dbFile.exists() && dbFile.length() > 0) {
                 Log.d("DBSync", "$key is up to date (version $localVersion)")
                 continue
             }

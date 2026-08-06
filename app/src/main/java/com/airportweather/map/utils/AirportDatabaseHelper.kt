@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import androidx.core.database.getDoubleOrNull
 import androidx.core.database.getStringOrNull
+import java.io.File
 
 /** One waypoint match from [AirportDatabaseHelper.searchWaypoints]. */
 data class WaypointSearchResult(
@@ -20,10 +21,56 @@ data class WaypointSearchResult(
 )
 
 class AirportDatabaseHelper(private val context: Context) :
-    SQLiteOpenHelper(context, "faa_navigation.db", null, 1) {
+    SQLiteOpenHelper(context, DB_NAME, null, 1) {
+
+    init {
+        ensureDatabaseFile()
+    }
 
     override fun onCreate(db: SQLiteDatabase?) {} // Not needed if you're using a prebuilt DB
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {}
+
+    /**
+     * DatabaseSyncUtils downloads the real (current) faa_navigation.db at
+     * runtime -- it isn't shipped as the live copy because FAA data updates
+     * more often than app releases. But SQLiteOpenHelper auto-creates an
+     * empty, table-less file at this path the moment any query touches
+     * readableDatabase/writableDatabase, so if that download never
+     * completed (first launch before sync finished, or a version-matches
+     * skip when the on-disk file had gone missing) every query crashes
+     * with "no such table: APT_BASE" instead of failing loudly earlier.
+     *
+     * Restore the bundled fallback -- an older but always-present copy in
+     * assets/databases/ -- any time the on-disk file is missing or isn't
+     * actually a usable database, so the app always has *something* to
+     * query even before/without a successful sync.
+     */
+    private fun ensureDatabaseFile() {
+        val dbFile = context.getDatabasePath(DB_NAME)
+        if (isUsableDatabase(dbFile)) return
+
+        Log.w("AirportDatabaseHelper", "$DB_NAME missing or unusable at ${dbFile.path}; restoring bundled fallback")
+        dbFile.parentFile?.mkdirs()
+        context.assets.open("databases/$DB_NAME").use { input ->
+            dbFile.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+
+    private fun isUsableDatabase(dbFile: File): Boolean {
+        if (!dbFile.exists() || dbFile.length() == 0L) return false
+        return try {
+            SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                db.rawQuery("SELECT 1 FROM APT_BASE LIMIT 1", null).use { it.moveToFirst() }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    companion object {
+        private const val DB_NAME = "faa_navigation.db"
+    }
 
     // ---------------------------------------------------------------------------
     // Free-text search across airports / navaids / fixes for the flight-plan UI.
