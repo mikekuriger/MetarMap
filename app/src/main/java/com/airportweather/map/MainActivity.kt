@@ -1273,7 +1273,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
         mMap.uiSettings.isRotateGesturesEnabled = false
         mMap.uiSettings.isMyLocationButtonEnabled = false
         mMap.setMinZoomPreference(5.0f) // Set minimum zoom out level
-        mMap.setMaxZoomPreference(13.0f) // Set maximum zoom in level
+        mMap.setMaxZoomPreference(11.0f) // Set maximum zoom in level
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
 
         // Note: not enabling Google's native "blue dot" here (see enableMyLocation) —
@@ -2701,7 +2701,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, NavigationView.OnN
 
         // IFR (en route-low) tiles only go to zoom 11 -- clamp so the overlay
         // can't be zoomed past its available detail into a blank chart.
-        map.setMaxZoomPreference(if (mode == ChartMode.IFR) 11.0f else 13.0f)
+        map.setMaxZoomPreference(if (mode == ChartMode.IFR) 11.0f else 11.0f)
         map.setMinZoomPreference(if (mode == ChartMode.IFR) 8.0f else 5.0f)
 
         // Smooth transition when crossing modes.
