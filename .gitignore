@@ -24,5 +24,9 @@ scripts/build_databases/zip/
 *.db
 *.log
 scripts
-scripts
-scripts
+app/notes.txt
+app/release/*
+filter
+keystore
+obstacles/
+raw.ori/
