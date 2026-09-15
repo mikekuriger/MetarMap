@@ -35,12 +35,12 @@ android {
     }
 
     namespace = "com.airportweather.map"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.airportweather.map"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = rootProject.extra["appVersionCode"] as Int
         versionName = rootProject.extra["appVersionName"] as String
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
